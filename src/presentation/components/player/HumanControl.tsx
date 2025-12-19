@@ -5,9 +5,11 @@ import { PlayerType } from '../../../core/domain/player/Player';
 export const HumanControl: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
   const selectedCards = useGameStore(state => state.selectedCards);
+  const error = useGameStore(state => state.error);
   const playCards = useGameStore(state => state.playCards);
   const pass = useGameStore(state => state.pass);
   const toggleCardSelection = useGameStore(state => state.toggleCardSelection);
+  const clearError = useGameStore(state => state.clearError);
 
   if (!gameState) return null;
 
@@ -25,6 +27,21 @@ export const HumanControl: React.FC = () => {
 
   return (
     <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/70 via-black/50 to-transparent">
+      {/* エラーメッセージ */}
+      {error && (
+        <div className="mb-4 mx-auto max-w-md">
+          <div className="bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={clearError}
+              className="ml-4 text-white hover:text-gray-200 text-xl font-bold"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 手札 */}
       <div className="flex justify-center gap-2 mb-4 flex-wrap">
         {humanPlayer.hand.getCards().map((card) => (
@@ -32,7 +49,11 @@ export const HumanControl: React.FC = () => {
             key={card.id}
             card={card}
             isSelected={selectedCards.some(c => c.id === card.id)}
-            onClick={isHumanTurn ? () => toggleCardSelection(card) : undefined}
+            onClick={isHumanTurn ? () => {
+              toggleCardSelection(card);
+              // カード選択時にエラーをクリア
+              if (error) clearError();
+            } : undefined}
           />
         ))}
       </div>

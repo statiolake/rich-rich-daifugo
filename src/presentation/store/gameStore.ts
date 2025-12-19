@@ -7,6 +7,7 @@ import { PlayerType } from '../../core/domain/player/Player';
 import { EventBus } from '../../application/services/EventBus';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
 import { RandomCPUStrategy } from '../../core/strategy/RandomCPUStrategy';
+import { PlayValidator } from '../../core/rules/basic/PlayValidator';
 
 interface GameStore {
   engine: GameEngine | null;
@@ -20,6 +21,7 @@ interface GameStore {
   pass: () => void;
   toggleCardSelection: (card: Card) => void;
   clearSelection: () => void;
+  clearError: () => void;
   reset: () => void;
 }
 
@@ -99,9 +101,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { engine, selectedCards } = get();
     if (!engine) return;
 
-    const currentPlayer = engine.getState().players[
-      engine.getState().currentPlayerIndex
-    ];
+    const gameState = engine.getState();
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
 
     // 現在のプレイヤーが人間の場合のみ
     if (currentPlayer.type !== PlayerType.HUMAN) {
@@ -109,10 +110,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // HumanStrategyに通知
+    // 出すカードを決定（引数があればそれを使用、なければ選択中のカードを使用）
+    const cardsToPlay = cards.length > 0 ? cards : selectedCards;
+
+    if (cardsToPlay.length === 0) {
+      set({ error: 'カードを選択してください' });
+      return;
+    }
+
+    // PlayValidatorで検証
+    const validator = new PlayValidator();
+    const validation = validator.isValidPlay(
+      currentPlayer,
+      cardsToPlay,
+      gameState.field,
+      gameState
+    );
+
+    if (!validation.valid) {
+      // 無効な手の場合はエラーメッセージを表示
+      set({ error: validation.reason || '無効な手です' });
+      return;
+    }
+
+    // 有効な手の場合、エラーをクリアしてHumanStrategyに通知
+    set({ error: null });
     const strategy = engine.getStrategyMap().get(currentPlayer.id.value);
     if (strategy instanceof HumanStrategy) {
-      strategy.submitPlay(cards.length > 0 ? cards : selectedCards);
+      strategy.submitPlay(cardsToPlay);
       set({ selectedCards: [] });
     }
   },
@@ -121,9 +146,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { engine } = get();
     if (!engine) return;
 
-    const currentPlayer = engine.getState().players[
-      engine.getState().currentPlayerIndex
-    ];
+    const gameState = engine.getState();
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
 
     // 現在のプレイヤーが人間の場合のみ
     if (currentPlayer.type !== PlayerType.HUMAN) {
@@ -131,7 +155,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // HumanStrategyに通知
+    // パスできるか検証
+    const validator = new PlayValidator();
+    const canPassResult = validator.canPass(gameState.field);
+
+    if (!canPassResult.valid) {
+      set({ error: canPassResult.reason || 'パスできません' });
+      return;
+    }
+
+    // パス可能な場合、エラーをクリアしてHumanStrategyに通知
+    set({ error: null });
     const strategy = engine.getStrategyMap().get(currentPlayer.id.value);
     if (strategy instanceof HumanStrategy) {
       strategy.submitPass();
@@ -156,6 +190,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   clearSelection: () => set({ selectedCards: [] }),
+
+  clearError: () => set({ error: null }),
 
   reset: () => {
     const { engine } = get();
