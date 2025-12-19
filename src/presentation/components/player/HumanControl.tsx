@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { Card } from '../card/Card';
 import { PlayerType } from '../../../core/domain/player/Player';
@@ -28,34 +29,57 @@ export const HumanControl: React.FC = () => {
   return (
     <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/70 via-black/50 to-transparent">
       {/* エラーメッセージ */}
-      {error && (
-        <div className="mb-4 mx-auto max-w-md">
-          <div className="bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-between">
-            <span>{error}</span>
-            <button
-              onClick={clearError}
-              className="ml-4 text-white hover:text-gray-200 text-xl font-bold"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="mb-4 mx-auto max-w-md"
+          >
+            <div className="bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-between">
+              <span>{error}</span>
+              <button
+                onClick={clearError}
+                className="ml-4 text-white hover:text-gray-200 text-xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 手札 */}
       <div className="flex justify-center gap-2 mb-4 flex-wrap">
-        {humanPlayer.hand.getCards().map((card) => (
-          <Card
-            key={card.id}
-            card={card}
-            isSelected={selectedCards.some(c => c.id === card.id)}
-            onClick={isHumanTurn ? () => {
-              toggleCardSelection(card);
-              // カード選択時にエラーをクリア
-              if (error) clearError();
-            } : undefined}
-          />
-        ))}
+        <AnimatePresence mode="popLayout">
+          {humanPlayer.hand.getCards().map((card, index) => (
+            <motion.div
+              key={card.id}
+              initial={{ opacity: 0, y: 50, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -50, scale: 0.8 }}
+              transition={{
+                type: 'spring',
+                stiffness: 300,
+                damping: 25,
+                delay: index * 0.02
+              }}
+              layout
+            >
+              <Card
+                card={card}
+                isSelected={selectedCards.some(c => c.id === card.id)}
+                onClick={isHumanTurn ? () => {
+                  toggleCardSelection(card);
+                  // カード選択時にエラーをクリア
+                  if (error) clearError();
+                } : undefined}
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
       {/* 操作ボタン */}

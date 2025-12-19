@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { Card as CardType, Suit } from '../../../core/domain/card/Card';
 
 interface CardProps {
@@ -35,22 +36,31 @@ export const Card: React.FC<CardProps> = ({ card, isSelected, onClick, className
   };
 
   return (
-    <div
+    <motion.div
       className={`
         relative w-16 h-24 rounded-lg border-2 shadow-lg cursor-pointer
-        bg-white transition-all duration-200
-        ${isSelected ? 'ring-4 ring-yellow-400 -translate-y-4 scale-110' : 'hover:scale-105'}
+        bg-white
+        ${isSelected ? 'ring-4 ring-yellow-400' : ''}
         ${onClick ? 'hover:shadow-xl' : ''}
         ${className}
       `}
       onClick={onClick}
+      initial={{ scale: 1, y: 0 }}
+      animate={{
+        scale: isSelected ? 1.1 : 1,
+        y: isSelected ? -16 : 0
+      }}
+      whileHover={onClick ? { scale: isSelected ? 1.1 : 1.05 } : {}}
+      whileTap={onClick ? { scale: isSelected ? 1.05 : 0.95 } : {}}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      layout
     >
-      <div className="absolute inset-0 flex flex-col items-center justify-between p-2">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 py-2">
         <span className={`text-lg font-bold ${getSuitColor(card.suit)}`}>
           {card.rank}
         </span>
 
-        <div className={`text-3xl ${getSuitColor(card.suit)}`}>
+        <div className={`text-3xl ${getSuitColor(card.suit)} flex-grow flex items-center`}>
           {getSuitSymbol(card.suit)}
         </div>
 
@@ -58,6 +68,6 @@ export const Card: React.FC<CardProps> = ({ card, isSelected, onClick, className
           {card.rank}
         </span>
       </div>
-    </div>
+    </motion.div>
   );
 };
