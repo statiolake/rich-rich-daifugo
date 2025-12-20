@@ -76,8 +76,12 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
               gameState.players.length
             );
 
-        // 状態が変化した場合のみ更新
-        if (pos.location !== 'hand' || pos.ownerId !== player.id.value) {
+        // 位置が変化した場合、またはlocation/ownerIdが変化した場合に更新
+        const positionChanged = pos.x !== targetPos.x || pos.y !== targetPos.y;
+        const locationChanged =
+          pos.location !== 'hand' || pos.ownerId !== player.id.value;
+
+        if (locationChanged || positionChanged) {
           updated.set(card.id, {
             ...pos,
             x: targetPos.x,
@@ -86,7 +90,8 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
             ownerId: player.id.value,
             isFaceUp: isHuman,
             opacity: 1,
-            transitionDuration: 500,
+            // カードが場から戻ってきた場合は長めに、位置調整の場合は短めに
+            transitionDuration: locationChanged ? 500 : 200,
             zIndex: 100 + cardIndex,
           });
         }
