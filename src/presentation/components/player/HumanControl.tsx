@@ -1,6 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { PlayerType } from '../../../core/domain/player/Player';
+import { PlayValidator } from '../../../core/rules/basic/PlayValidator';
+import { useMemo } from 'react';
 
 export const HumanControl: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
@@ -21,8 +23,28 @@ export const HumanControl: React.FC = () => {
   }
 
   const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
-  const canPlay = selectedCards.length > 0;
-  const canPass = !gameState.field.isEmpty();
+
+  // 出せるカードを計算
+  const legalCardIds = useMemo(() => {
+    const validator = new PlayValidator();
+    const legal = new Set<string>();
+
+    humanPlayer.hand.getCards().forEach((card) => {
+      const validation = validator.isValidPlay(humanPlayer, [card], gameState.field, gameState);
+      if (validation.valid) {
+        legal.add(card.id);
+      }
+    });
+
+    return legal;
+  }, [gameState, humanPlayer]);
+
+  // バリデーターで出せるかを判定
+  const validator = new PlayValidator();
+  const canPlaySelected = selectedCards.length > 0 &&
+    validator.isValidPlay(humanPlayer, selectedCards, gameState.field, gameState).valid;
+  const canPass = validator.canPass(gameState.field).valid;
+  const shouldHighlightPass = selectedCards.length === 0 && legalCardIds.size === 0 && canPass;
 
   return (
     <div
@@ -65,31 +87,40 @@ export const HumanControl: React.FC = () => {
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             className="flex justify-center gap-4 pointer-events-auto"
           >
-            <button
-              onClick={() => playCards(selectedCards)}
-              disabled={!canPlay}
-              className={`
-                px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all
-                ${canPlay
-                  ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
-                  : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'}
-              `}
-            >
-              出す ({selectedCards.length}枚)
-            </button>
+            {/* 出すボタン：選択したカードが有効な場合のみ表示 */}
+            {canPlaySelected && (
+              <button
+                onClick={() => playCards(selectedCards)}
+                className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
+              >
+                出す ({selectedCards.length}枚)
+              </button>
+            )}
 
-            <button
-              onClick={pass}
-              disabled={!canPass}
-              className={`
-                px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all
-                ${canPass
-                  ? 'bg-gray-600 hover:bg-gray-700 text-white cursor-pointer'
-                  : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'}
-              `}
-            >
-              パス
-            </button>
+            {/* パスボタン：パスができる場合のみ表示 */}
+            {canPass && (
+              <button
+                onClick={pass}
+                className={`
+                  px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all cursor-pointer
+                  ${shouldHighlightPass
+                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse ring-2 ring-red-300'
+                    : 'bg-gray-600 hover:bg-gray-700 text-white'}
+                `}
+              >
+                パス
+              </button>
+            )}
+
+            {/* カード選択を促すメッセージ */}
+            {!canPlaySelected && !canPass && selectedCards.length === 0 && (
+              <div className="text-white text-lg font-bold opacity-75">場に出すカードを選んでください</div>
+            )}
+
+            {/* 無効な手を選んだ場合のメッセージ */}
+            {selectedCards.length > 0 && !canPlaySelected && canPass && (
+              <div className="text-white text-lg font-bold opacity-75">その手は出せません</div>
+            )}
           </motion.div>
         ) : (
           <motion.div
