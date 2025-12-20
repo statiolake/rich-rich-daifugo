@@ -33,6 +33,7 @@ export class Field {
   clear(): void {
     this.currentPlay = null;
     this.currentPlayerId = null;
+    this.history = [];
   }
 
   isEmpty(): boolean {
