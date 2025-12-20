@@ -1,13 +1,14 @@
 import { useGameStore } from '../../store/gameStore';
-import { Field } from './Field';
 import { PlayerArea } from '../player/PlayerArea';
 import { HumanControl } from '../player/HumanControl';
-import { MovingCardLayer } from './MovingCardLayer';
 import { UnifiedCardLayer } from './UnifiedCardLayer';
+import { GamePhaseType } from '../../../core/domain/game/GameState';
+import { getRankName } from '../../../core/domain/player/PlayerRank';
 
 export const GameBoard: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
   const startGame = useGameStore(state => state.startGame);
+  const reset = useGameStore(state => state.reset);
 
   if (!gameState) {
     return (
@@ -20,6 +21,39 @@ export const GameBoard: React.FC = () => {
             className="px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-lg shadow-lg transition-colors"
           >
             ゲーム開始
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ゲーム終了時の結果画面
+  if (gameState.phase === GamePhaseType.RESULT) {
+    return (
+      <div className="w-full h-screen bg-gradient-to-br from-green-800 to-green-600 flex items-center justify-center overflow-hidden">
+        <div className="text-center">
+          <h1 className="text-5xl font-bold text-white mb-8">ゲーム結果</h1>
+          <div className="text-2xl text-white mb-8 max-h-64 overflow-y-auto">
+            {gameState.players
+              .filter(p => p.rank !== null)
+              .sort((a, b) => {
+                if (a.finishPosition === null || b.finishPosition === null) return 0;
+                return a.finishPosition - b.finishPosition;
+              })
+              .map((player, idx) => (
+                <div key={player.id.value} className="mb-4">
+                  <span className="font-bold text-yellow-300">{idx + 1}位</span>: {player.name} ({player.rank ? getRankName(player.rank) : ''})
+                </div>
+              ))}
+          </div>
+          <button
+            onClick={() => {
+              reset();
+              startGame();
+            }}
+            className="px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-lg shadow-lg transition-colors"
+          >
+            もう一度プレイ
           </button>
         </div>
       </div>
@@ -56,9 +90,6 @@ export const GameBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* 場のカード表示（新しい統一カードレイヤーで置き換え） */}
-      {/* <Field field={gameState.field} /> */}
-
       {/* プレイヤーエリア */}
       {gameState.players.map((player, index) => (
         <PlayerArea
@@ -74,9 +105,6 @@ export const GameBoard: React.FC = () => {
 
       {/* 統一されたカード表示レイヤー（54枚全てを管理） */}
       <UnifiedCardLayer />
-
-      {/* カード移動アニメーションレイヤー（削除予定） */}
-      {/* <MovingCardLayer /> */}
     </div>
   );
 };

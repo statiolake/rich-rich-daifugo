@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { PlayerType } from '../../../core/domain/player/Player';
+import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { PlayValidator } from '../../../core/rules/basic/PlayValidator';
 import { useMemo } from 'react';
 
@@ -12,20 +13,13 @@ export const HumanControl: React.FC = () => {
   const pass = useGameStore(state => state.pass);
   const clearError = useGameStore(state => state.clearError);
 
-  if (!gameState) return null;
-
-  const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const humanPlayer = gameState.players.find(p => p.type === PlayerType.HUMAN);
-
-  // 人間プレイヤーが存在しない、または既に上がっている場合は表示しない
-  if (!humanPlayer || humanPlayer.isFinished) {
-    return null;
-  }
-
-  const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
-
-  // 出せるカードを計算
+  // 出せるカードを計算（すべてのフックを早期リターンの前に呼び出す）
   const legalCardIds = useMemo(() => {
+    if (!gameState) return new Set<string>();
+
+    const humanPlayer = gameState.players.find(p => p.type === PlayerType.HUMAN);
+    if (!humanPlayer) return new Set<string>();
+
     const validator = new PlayValidator();
     const legal = new Set<string>();
 
@@ -37,7 +31,20 @@ export const HumanControl: React.FC = () => {
     });
 
     return legal;
-  }, [gameState, humanPlayer]);
+  }, [gameState]);
+
+  // すべてのフックを呼び出した後に早期リターンチェック
+  if (!gameState || gameState.phase === GamePhaseType.RESULT) return null;
+
+  const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+  const humanPlayer = gameState.players.find(p => p.type === PlayerType.HUMAN);
+
+  // 人間プレイヤーが存在しない、または既に上がっている場合は表示しない
+  if (!humanPlayer || humanPlayer.isFinished) {
+    return null;
+  }
+
+  const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
 
   // バリデーターで出せるかを判定
   const validator = new PlayValidator();

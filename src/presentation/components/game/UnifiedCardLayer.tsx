@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { useCardPositionStore } from '../../store/cardPositionStore';
+import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { Card } from '../card/Card';
 import { CardFactory, Card as CardType } from '../../../core/domain/card/Card';
 import { PlayValidator } from '../../../core/rules/basic/PlayValidator';
@@ -13,19 +14,7 @@ export const UnifiedCardLayer: React.FC = () => {
   const toggleCardSelection = useGameStore((state) => state.toggleCardSelection);
   const syncWithGameState = useCardPositionStore((state) => state.syncWithGameState);
 
-  // すべての可能な組み合わせを列挙（1～4枚）
-  const generateCombinations = (cards: CardType[]): CardType[][] => {
-    const result: CardType[][] = [];
-
-    // 1～4枚の組み合わせ
-    for (let size = 1; size <= Math.min(4, cards.length); size++) {
-      const combos = generateCombinationsForSize(cards, size);
-      result.push(...combos);
-    }
-
-    return result;
-  };
-
+  // ヘルパー関数を先に定義（useMemoで使用するため）
   const generateCombinationsForSize = (
     cards: CardType[],
     size: number
@@ -46,6 +35,19 @@ export const UnifiedCardLayer: React.FC = () => {
     return result;
   };
 
+  const generateCombinations = (cards: CardType[]): CardType[][] => {
+    const result: CardType[][] = [];
+
+    // 1～4枚の組み合わせ
+    for (let size = 1; size <= Math.min(4, cards.length); size++) {
+      const combos = generateCombinationsForSize(cards, size);
+      result.push(...combos);
+    }
+
+    return result;
+  };
+
+  // すべてのフックを最初に呼び出す
   // 有効な役を見つける
   const validCombinations = useMemo(() => {
     if (!gameState) return [];
@@ -64,7 +66,6 @@ export const UnifiedCardLayer: React.FC = () => {
         validCombos.push(combo);
       }
     }
-
 
     return validCombos;
   }, [gameState]);
@@ -100,6 +101,9 @@ export const UnifiedCardLayer: React.FC = () => {
     return legal;
   }, [validCombinations, selectedCards]);
 
+  // 54枚のカードオブジェクトを取得（ジョーカーは固定IDなので毎回同じになる）
+  const allCards = useMemo(() => CardFactory.createDeck(true), []);
+
   // GameStateの変化を監視してCardPositionを同期
   useEffect(() => {
     if (gameState) {
@@ -112,8 +116,10 @@ export const UnifiedCardLayer: React.FC = () => {
     syncWithGameState,
   ]);
 
-  // 54枚のカードオブジェクトを取得（ジョーカーは固定IDなので毎回同じになる）
-  const allCards = useMemo(() => CardFactory.createDeck(true), []);
+  // すべてのフックを呼び出した後に早期リターンチェック
+  if (!gameState || gameState.phase === GamePhaseType.RESULT) {
+    return null;
+  }
 
   const handleCardClick = (cardId: string) => {
     const card = allCards.find((c) => c.id === cardId);
