@@ -15,11 +15,13 @@ interface PlayHistoryWithKey {
 export const Field: React.FC<FieldProps> = ({ field }) => {
   const history = field.getHistory();
   const [displayedPlays, setDisplayedPlays] = useState<PlayHistoryWithKey[]>([]);
-  const prevHistoryLengthRef = useRef(history.length);
+  const prevHistoryLengthRef = useRef(0);
 
   useEffect(() => {
+    const currentHistoryLength = history.length;
+
     // 新しいプレイが追加された
-    if (history.length > prevHistoryLengthRef.current) {
+    if (currentHistoryLength > prevHistoryLengthRef.current) {
       const newPlays = history.slice(prevHistoryLengthRef.current).map(playHistory => ({
         playHistory,
         key: `${playHistory.playerId.value}-${playHistory.timestamp}`,
@@ -27,13 +29,13 @@ export const Field: React.FC<FieldProps> = ({ field }) => {
       setDisplayedPlays(prev => [...prev, ...newPlays]);
     }
     // 場が流れた（historyが空になった）
-    else if (history.length === 0 && prevHistoryLengthRef.current > 0) {
-      // displayedPlaysは保持して、AnimatePresenceでexitアニメーションさせる
+    else if (currentHistoryLength === 0 && prevHistoryLengthRef.current > 0) {
+      // displayedPlaysをクリアして、AnimatePresenceでexitアニメーションさせる
       setDisplayedPlays([]);
     }
 
-    prevHistoryLengthRef.current = history.length;
-  }, [history]);
+    prevHistoryLengthRef.current = currentHistoryLength;
+  }, [field, history.length]);
 
   return (
     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
