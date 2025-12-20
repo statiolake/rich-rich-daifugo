@@ -6,9 +6,10 @@ interface CardProps {
   isSelected?: boolean;
   onClick?: () => void;
   className?: string;
+  isFaceUp?: boolean;
 }
 
-export const Card: React.FC<CardProps> = ({ card, isSelected, onClick, className = '' }) => {
+export const Card: React.FC<CardProps> = ({ card, isSelected, onClick, className = '', isFaceUp = true }) => {
   const getSuitSymbol = (suit: Suit): string => {
     switch (suit) {
       case Suit.SPADE: return '♠';
@@ -35,6 +36,36 @@ export const Card: React.FC<CardProps> = ({ card, isSelected, onClick, className
     }
   };
 
+  // 裏向きの場合
+  if (!isFaceUp) {
+    return (
+      <motion.div
+        className={`
+          relative w-16 h-24 rounded-lg border-2 shadow-lg
+          bg-gradient-to-br from-blue-600 to-blue-800
+          ${isSelected ? 'ring-4 ring-yellow-400' : ''}
+          ${onClick ? 'cursor-pointer hover:shadow-xl' : ''}
+          ${className}
+        `}
+        onClick={onClick}
+        initial={{ scale: 1, y: 0 }}
+        animate={{
+          scale: isSelected ? 1.1 : 1,
+          y: isSelected ? -16 : 0
+        }}
+        whileHover={onClick ? { scale: isSelected ? 1.1 : 1.05 } : {}}
+        whileTap={onClick ? { scale: isSelected ? 1.05 : 0.95 } : {}}
+        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        layout
+      >
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-white text-4xl">🂠</div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // 表向きの場合
   return (
     <motion.div
       className={`

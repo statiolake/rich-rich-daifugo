@@ -3,6 +3,7 @@ import { Field } from './Field';
 import { PlayerArea } from '../player/PlayerArea';
 import { HumanControl } from '../player/HumanControl';
 import { MovingCardLayer } from './MovingCardLayer';
+import { UnifiedCardLayer } from './UnifiedCardLayer';
 
 export const GameBoard: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
@@ -55,8 +56,8 @@ export const GameBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* 場のカード表示 */}
-      <Field field={gameState.field} />
+      {/* 場のカード表示（新しい統一カードレイヤーで置き換え） */}
+      {/* <Field field={gameState.field} /> */}
 
       {/* プレイヤーエリア */}
       {gameState.players.map((player, index) => (
@@ -71,8 +72,11 @@ export const GameBoard: React.FC = () => {
       {/* 人間プレイヤーのコントロール */}
       <HumanControl />
 
-      {/* カード移動アニメーションレイヤー */}
-      <MovingCardLayer />
+      {/* 統一されたカード表示レイヤー（54枚全てを管理） */}
+      <UnifiedCardLayer />
+
+      {/* カード移動アニメーションレイヤー（削除予定） */}
+      {/* <MovingCardLayer /> */}
     </div>
   );
 };

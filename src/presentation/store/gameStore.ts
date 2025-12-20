@@ -2,12 +2,13 @@ import { create } from 'zustand';
 import { GameEngine } from '../../core/game/GameEngine';
 import { GameConfig, PlayerConfig } from '../../core/game/GameConfig';
 import { GameState } from '../../core/domain/game/GameState';
-import { Card } from '../../core/domain/card/Card';
+import { Card, CardFactory } from '../../core/domain/card/Card';
 import { PlayerType } from '../../core/domain/player/Player';
 import { EventBus } from '../../application/services/EventBus';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
 import { RandomCPUStrategy } from '../../core/strategy/RandomCPUStrategy';
 import { PlayValidator } from '../../core/rules/basic/PlayValidator';
+import { useCardPositionStore } from './cardPositionStore';
 
 interface MovingCard {
   card: Card;
@@ -88,10 +89,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // イベントリスナーを設定
       eventBus.on('state:updated', (data) => {
         set({ gameState: { ...data.gameState } });
+
+        // CardPositionStoreを同期
+        useCardPositionStore.getState().syncWithGameState(data.gameState);
       });
 
       eventBus.on('game:started', (data) => {
         console.log('Game started!');
+
+        // CardPositionStoreを初期化
+        const allCards = CardFactory.createDeck(true);
+        useCardPositionStore.getState().initialize(allCards);
       });
 
       eventBus.on('game:ended', (data) => {
