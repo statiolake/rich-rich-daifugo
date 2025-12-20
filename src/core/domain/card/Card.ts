@@ -58,10 +58,22 @@ export class CardFactory {
       }
     }
 
-    // ジョーカーを追加
+    // ジョーカーを追加（固定IDで生成）
     if (includeJokers) {
-      cards.push(this.create(Suit.JOKER, 'JOKER'));
-      cards.push(this.create(Suit.JOKER, 'JOKER'));
+      const joker1: Card = {
+        id: 'JOKER-1',
+        suit: Suit.JOKER,
+        rank: 'JOKER',
+        strength: this.RANK_VALUES['JOKER'],
+      };
+      const joker2: Card = {
+        id: 'JOKER-2',
+        suit: Suit.JOKER,
+        rank: 'JOKER',
+        strength: this.RANK_VALUES['JOKER'],
+      };
+      cards.push(joker1);
+      cards.push(joker2);
     }
 
     return cards;

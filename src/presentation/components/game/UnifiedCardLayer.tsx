@@ -24,7 +24,7 @@ export const UnifiedCardLayer: React.FC = () => {
     syncWithGameState,
   ]);
 
-  // 54枚のカードオブジェクトを取得（変わらないのでuseMemoで最適化）
+  // 54枚のカードオブジェクトを取得（ジョーカーは固定IDなので毎回同じになる）
   const allCards = useMemo(() => CardFactory.createDeck(true), []);
 
   const handleCardClick = (cardId: string) => {
