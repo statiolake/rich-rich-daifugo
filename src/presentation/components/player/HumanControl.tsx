@@ -25,7 +25,10 @@ export const HumanControl: React.FC = () => {
   const canPass = !gameState.field.isEmpty();
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/70 via-black/50 to-transparent">
+    <div
+      className="absolute left-0 right-0 p-6 bg-gradient-to-b from-black/70 via-black/50 to-transparent z-60 pointer-events-none"
+      style={{ top: `${window.innerHeight - 280}px` }}
+    >
       {/* エラーメッセージ */}
       <AnimatePresence>
         {error && (
@@ -34,7 +37,7 @@ export const HumanControl: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="mb-4 mx-auto max-w-md"
+            className="mb-4 mx-auto max-w-md pointer-events-auto"
           >
             <div className="bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-between">
               <span>{error}</span>
@@ -52,39 +55,55 @@ export const HumanControl: React.FC = () => {
       {/* 手札は UnifiedCardLayer で表示される */}
 
       {/* 操作ボタン */}
-      {isHumanTurn ? (
-        <div className="flex justify-center gap-4">
-          <button
-            onClick={() => playCards(selectedCards)}
-            disabled={!canPlay}
-            className={`
-              px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all
-              ${canPlay
-                ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
-                : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'}
-            `}
+      <AnimatePresence mode="wait">
+        {isHumanTurn ? (
+          <motion.div
+            key="buttons"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="flex justify-center gap-4 pointer-events-auto"
           >
-            出す ({selectedCards.length}枚)
-          </button>
+            <button
+              onClick={() => playCards(selectedCards)}
+              disabled={!canPlay}
+              className={`
+                px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all
+                ${canPlay
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white cursor-pointer'
+                  : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'}
+              `}
+            >
+              出す ({selectedCards.length}枚)
+            </button>
 
-          <button
-            onClick={pass}
-            disabled={!canPass}
-            className={`
-              px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all
-              ${canPass
-                ? 'bg-gray-600 hover:bg-gray-700 text-white cursor-pointer'
-                : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'}
-            `}
+            <button
+              onClick={pass}
+              disabled={!canPass}
+              className={`
+                px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all
+                ${canPass
+                  ? 'bg-gray-600 hover:bg-gray-700 text-white cursor-pointer'
+                  : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-50'}
+              `}
+            >
+              パス
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="waiting"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="text-center text-white text-lg opacity-75 pointer-events-auto"
           >
-            パス
-          </button>
-        </div>
-      ) : (
-        <div className="text-center text-white text-lg opacity-75">
-          {currentPlayer.name} のターン...
-        </div>
-      )}
+            {currentPlayer.name} のターン...
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
