@@ -2,6 +2,7 @@ import { useGameStore } from '../../store/gameStore';
 import { Field } from './Field';
 import { PlayerArea } from '../player/PlayerArea';
 import { HumanControl } from '../player/HumanControl';
+import { MovingCardLayer } from './MovingCardLayer';
 
 export const GameBoard: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
@@ -69,6 +70,9 @@ export const GameBoard: React.FC = () => {
 
       {/* 人間プレイヤーのコントロール */}
       <HumanControl />
+
+      {/* カード移動アニメーションレイヤー */}
+      <MovingCardLayer />
     </div>
   );
 };

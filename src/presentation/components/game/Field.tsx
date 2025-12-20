@@ -1,69 +1,118 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Field as FieldType } from '../../../core/domain/game/Field';
 import { Card } from '../card/Card';
+import { useEffect, useRef, useState } from 'react';
 
 interface FieldProps {
   field: FieldType;
 }
 
+interface PlayHistoryWithKey {
+  playHistory: any;
+  key: string;
+}
+
 export const Field: React.FC<FieldProps> = ({ field }) => {
-  const currentPlay = field.getCurrentPlay();
+  const history = field.getHistory();
+  const [displayedPlays, setDisplayedPlays] = useState<PlayHistoryWithKey[]>([]);
+  const prevHistoryLengthRef = useRef(history.length);
+
+  useEffect(() => {
+    // 新しいプレイが追加された
+    if (history.length > prevHistoryLengthRef.current) {
+      const newPlays = history.slice(prevHistoryLengthRef.current).map(playHistory => ({
+        playHistory,
+        key: `${playHistory.playerId.value}-${playHistory.timestamp}`,
+      }));
+      setDisplayedPlays(prev => [...prev, ...newPlays]);
+    }
+    // 場が流れた（historyが空になった）
+    else if (history.length === 0 && prevHistoryLengthRef.current > 0) {
+      // displayedPlaysは保持して、AnimatePresenceでexitアニメーションさせる
+      setDisplayedPlays([]);
+    }
+
+    prevHistoryLengthRef.current = history.length;
+  }, [history]);
 
   return (
     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-      <AnimatePresence mode="wait">
-        {!currentPlay ? (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 0.5, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="text-white text-2xl opacity-50">場が空です</div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key={`play-${currentPlay.cards.map(c => c.id).join('-')}`}
-            initial={{ opacity: 0, y: -50, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.8 }}
-            transition={{
-              type: 'spring',
-              stiffness: 200,
-              damping: 20,
-              duration: 0.4
-            }}
-            className="flex flex-col items-center gap-4"
-          >
-            <motion.div
-              className="text-white text-sm opacity-75"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.75 }}
-              transition={{ delay: 0.2 }}
-            >
-              場のカード
-            </motion.div>
-            <div className="flex gap-2">
-              {currentPlay.cards.map((card, index) => (
+      <div className="flex flex-col items-center gap-4">
+        <div className="text-white text-sm opacity-75">場のカード</div>
+
+        <div className="relative min-h-[100px] min-w-[200px] flex items-center justify-center">
+          <AnimatePresence mode="popLayout">
+            {displayedPlays.length === 0 && (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                <div className="text-white text-xl opacity-50 whitespace-nowrap">場が空です</div>
+              </motion.div>
+            )}
+
+            {displayedPlays.map((item, playIndex) => {
+              const { playHistory, key } = item;
+              const rotation = (playIndex % 3 - 1) * 2; // -2, 0, 2 degrees rotation
+              const isLatest = playIndex === displayedPlays.length - 1;
+
+              // 外側に向かうベクトルを計算
+              const exitDirection = playIndex % 4;
+              const exitX = exitDirection === 0 ? -300 : exitDirection === 1 ? 300 : exitDirection === 2 ? 0 : 0;
+              const exitY = exitDirection === 0 ? -200 : exitDirection === 1 ? -200 : exitDirection === 2 ? -300 : 300;
+
+              return (
                 <motion.div
-                  key={card.id}
-                  initial={{ opacity: 0, y: -20, rotateY: 90 }}
-                  animate={{ opacity: 1, y: 0, rotateY: 0 }}
+                  key={key}
+                  initial={{ opacity: 0, x: 0, y: 200, scale: 0.95, rotateZ: 0 }}
+                  animate={{ opacity: 1, x: 0, y: 0, scale: 1, rotateZ: rotation }}
+                  exit={{
+                    opacity: 0,
+                    x: exitX,
+                    y: exitY,
+                    rotateZ: rotation + (playIndex % 2 === 0 ? 15 : -15),
+                    transition: {
+                      duration: 0.5,
+                      ease: [0.4, 0, 1, 1] // easeIn for acceleration outward
+                    }
+                  }}
                   transition={{
-                    delay: index * 0.1,
-                    type: 'spring',
-                    stiffness: 200,
-                    damping: 15
+                    duration: 0.4,
+                    ease: [0, 0, 0.2, 1]
+                  }}
+                  className="flex gap-2"
+                  style={{
+                    position: playIndex === 0 ? 'relative' : 'absolute',
+                    top: playIndex === 0 ? 0 : -playIndex * 3,
+                    left: playIndex === 0 ? 0 : playIndex * 2,
+                    zIndex: playIndex + 1,
+                    filter: isLatest ? 'none' : 'brightness(0.8)',
                   }}
                 >
-                  <Card card={card} />
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                {playHistory.play.cards.map((card: any, cardIndex: number) => (
+                  <motion.div
+                    key={card.id}
+                    initial={{ opacity: 0, y: 200, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{
+                      delay: cardIndex * 0.04,
+                      duration: 0.4,
+                      ease: [0, 0, 0.2, 1]
+                    }}
+                  >
+                    <Card card={card} />
+                  </motion.div>
+                ))}
+              </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 };

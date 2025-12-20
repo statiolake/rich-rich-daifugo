@@ -9,11 +9,21 @@ import { HumanStrategy } from '../../core/strategy/HumanStrategy';
 import { RandomCPUStrategy } from '../../core/strategy/RandomCPUStrategy';
 import { PlayValidator } from '../../core/rules/basic/PlayValidator';
 
+interface MovingCard {
+  card: Card;
+  id: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+}
+
 interface GameStore {
   engine: GameEngine | null;
   gameState: GameState | null;
   selectedCards: Card[];
   error: string | null;
+  movingCards: MovingCard[];
 
   // Actions
   startGame: (playerName?: string) => void;
@@ -22,6 +32,9 @@ interface GameStore {
   toggleCardSelection: (card: Card) => void;
   clearSelection: () => void;
   clearError: () => void;
+  addMovingCard: (card: Card, fromX: number, fromY: number, toX: number, toY: number) => void;
+  removeMovingCard: (id: string) => void;
+  clearMovingCards: () => void;
   reset: () => void;
 }
 
@@ -30,6 +43,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameState: null,
   selectedCards: [],
   error: null,
+  movingCards: [],
 
   startGame: (playerName = 'あなた') => {
     try {
@@ -193,6 +207,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
+  addMovingCard: (card, fromX, fromY, toX, toY) => {
+    const movingCard: MovingCard = {
+      card,
+      id: `moving-${card.id}-${Date.now()}`,
+      fromX,
+      fromY,
+      toX,
+      toY,
+    };
+    set((state) => ({
+      movingCards: [...state.movingCards, movingCard],
+    }));
+  },
+
+  removeMovingCard: (id) => {
+    set((state) => ({
+      movingCards: state.movingCards.filter(mc => mc.id !== id),
+    }));
+  },
+
+  clearMovingCards: () => set({ movingCards: [] }),
+
   reset: () => {
     const { engine } = get();
     if (engine) {
@@ -203,6 +239,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameState: null,
       selectedCards: [],
       error: null,
+      movingCards: [],
     });
   },
 }));
