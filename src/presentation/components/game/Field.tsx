@@ -28,25 +28,26 @@ const ANIMATION_CONFIG = {
 export const Field: React.FC<FieldProps> = ({ field }) => {
   const history = field.getHistory();
   const [displayedPlays, setDisplayedPlays] = useState<PlayHistoryWithKey[]>([]);
-  const prevHistoryRef = useRef<typeof history>([]);
+  const prevHistoryLengthRef = useRef(0);
 
   useEffect(() => {
-    const prev = prevHistoryRef.current;
+    const currentLength = history.length;
+    const prevLength = prevHistoryLengthRef.current;
 
-    if (history.length === 0 && prev.length > 0) {
+    if (currentLength === 0 && prevLength > 0) {
       // 場が流れた
       setDisplayedPlays([]);
-    } else if (history.length > prev.length) {
+    } else if (currentLength > prevLength) {
       // 新しいプレイが追加された
-      const newPlays = history.slice(prev.length).map(playHistory => ({
+      const newPlays = history.slice(prevLength).map(playHistory => ({
         playHistory,
         key: `${playHistory.playerId.value}-${playHistory.timestamp}`,
       }));
       setDisplayedPlays(current => [...current, ...newPlays]);
     }
 
-    prevHistoryRef.current = history;
-  }, [history]);
+    prevHistoryLengthRef.current = currentLength;
+  }, [history.length]);
 
   return (
     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
