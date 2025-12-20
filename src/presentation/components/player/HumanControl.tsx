@@ -2,12 +2,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { Card } from '../card/Card';
 import { PlayerType } from '../../../core/domain/player/Player';
+import { PlayValidator } from '../../../core/rules/basic/PlayValidator';
 import { useRef } from 'react';
 
 export const HumanControl: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
   const selectedCards = useGameStore(state => state.selectedCards);
   const error = useGameStore(state => state.error);
+  const engine = useGameStore(state => state.engine);
   const playCards = useGameStore(state => state.playCards);
   const pass = useGameStore(state => state.pass);
   const toggleCardSelection = useGameStore(state => state.toggleCardSelection);
@@ -33,7 +35,36 @@ export const HumanControl: React.FC = () => {
 
   // カードを場に出す処理（移動アニメーション付き）
   const handlePlayCards = () => {
+    if (!engine || !gameState) return;
     if (selectedCards.length === 0) return;
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+
+    // 現在のプレイヤーが人間かチェック
+    if (currentPlayer.type !== PlayerType.HUMAN) {
+      return;
+    }
+
+    // バリデーションチェックを先に実行
+    const validator = new PlayValidator();
+    const validation = validator.isValidPlay(
+      currentPlayer,
+      selectedCards,
+      gameState.field,
+      gameState
+    );
+
+    // バリデーションが失敗した場合はエラーを表示してアニメーションを開始しない
+    if (!validation.valid) {
+      clearError(); // 一旦クリアしてから設定（アニメーション効果のため）
+      setTimeout(() => {
+        useGameStore.setState({ error: validation.reason || '無効な手です' });
+      }, 0);
+      return;
+    }
+
+    // バリデーション成功：エラーをクリア
+    clearError();
 
     // 場の位置を取得（画面中央）
     const fieldX = window.innerWidth / 2 - 32; // カード幅の半分を引く (64px / 2)
@@ -48,7 +79,7 @@ export const HumanControl: React.FC = () => {
       }
     });
 
-    // 実際のカードプレイ処理を実行
+    // 実際のカードプレイ処理を実行（バリデーションは再度行われるが成功するはず）
     playCards(selectedCards);
   };
 
