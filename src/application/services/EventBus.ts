@@ -1,6 +1,8 @@
+import { GameEventEmitter } from '../../core/domain/events/GameEventEmitter';
+
 type EventHandler<T = any> = (data: T) => void;
 
-export class EventBus {
+export class EventBus implements GameEventEmitter {
   private listeners: Map<string, EventHandler[]> = new Map();
 
   /**

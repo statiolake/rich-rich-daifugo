@@ -210,7 +210,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   addMovingCard: (card, fromX, fromY, toX, toY) => {
     const movingCard: MovingCard = {
       card,
-      id: `moving-${card.id}-${Date.now()}`,
+      id: `moving-${card.id}`,
       fromX,
       fromY,
       toX,

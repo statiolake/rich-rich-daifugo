@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Field as FieldType } from '../../../core/domain/game/Field';
-import { Card } from '../card/Card';
+import { Field as FieldType, PlayHistory } from '../../../core/domain/game/Field';
+import { Card as CardComponent } from '../card/Card';
+import { Card } from '../../../core/domain/card/Card';
 import { useEffect, useRef, useState } from 'react';
 
 interface FieldProps {
@@ -8,34 +9,44 @@ interface FieldProps {
 }
 
 interface PlayHistoryWithKey {
-  playHistory: any;
+  playHistory: PlayHistory;
   key: string;
 }
+
+const ANIMATION_CONFIG = {
+  rotation: (index: number) => (index % 3 - 1) * 2, // -2, 0, 2 degrees
+  exitDirection: {
+    vectors: [
+      { x: -300, y: -200 }, // 左上
+      { x: 300, y: -200 },  // 右上
+      { x: 0, y: -300 },    // 上
+      { x: 0, y: 300 },     // 下
+    ]
+  }
+} as const;
 
 export const Field: React.FC<FieldProps> = ({ field }) => {
   const history = field.getHistory();
   const [displayedPlays, setDisplayedPlays] = useState<PlayHistoryWithKey[]>([]);
-  const prevHistoryLengthRef = useRef(0);
+  const prevHistoryRef = useRef<typeof history>([]);
 
   useEffect(() => {
-    const currentHistoryLength = history.length;
+    const prev = prevHistoryRef.current;
 
-    // 新しいプレイが追加された
-    if (currentHistoryLength > prevHistoryLengthRef.current) {
-      const newPlays = history.slice(prevHistoryLengthRef.current).map(playHistory => ({
+    if (history.length === 0 && prev.length > 0) {
+      // 場が流れた
+      setDisplayedPlays([]);
+    } else if (history.length > prev.length) {
+      // 新しいプレイが追加された
+      const newPlays = history.slice(prev.length).map(playHistory => ({
         playHistory,
         key: `${playHistory.playerId.value}-${playHistory.timestamp}`,
       }));
-      setDisplayedPlays(prev => [...prev, ...newPlays]);
-    }
-    // 場が流れた（historyが空になった）
-    else if (currentHistoryLength === 0 && prevHistoryLengthRef.current > 0) {
-      // displayedPlaysをクリアして、AnimatePresenceでexitアニメーションさせる
-      setDisplayedPlays([]);
+      setDisplayedPlays(current => [...current, ...newPlays]);
     }
 
-    prevHistoryLengthRef.current = currentHistoryLength;
-  }, [field, history.length]);
+    prevHistoryRef.current = history;
+  }, [history]);
 
   return (
     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -59,13 +70,13 @@ export const Field: React.FC<FieldProps> = ({ field }) => {
 
             {displayedPlays.map((item, playIndex) => {
               const { playHistory, key } = item;
-              const rotation = (playIndex % 3 - 1) * 2; // -2, 0, 2 degrees rotation
+              const rotation = ANIMATION_CONFIG.rotation(playIndex);
               const isLatest = playIndex === displayedPlays.length - 1;
 
               // 外側に向かうベクトルを計算
-              const exitDirection = playIndex % 4;
-              const exitX = exitDirection === 0 ? -300 : exitDirection === 1 ? 300 : exitDirection === 2 ? 0 : 0;
-              const exitY = exitDirection === 0 ? -200 : exitDirection === 1 ? -200 : exitDirection === 2 ? -300 : 300;
+              const exitVector = ANIMATION_CONFIG.exitDirection.vectors[playIndex % 4];
+              const exitX = exitVector.x;
+              const exitY = exitVector.y;
 
               return (
                 <motion.div
@@ -95,7 +106,7 @@ export const Field: React.FC<FieldProps> = ({ field }) => {
                     filter: isLatest ? 'none' : 'brightness(0.8)',
                   }}
                 >
-                {playHistory.play.cards.map((card: any, cardIndex: number) => (
+                {playHistory.play.cards.map((card: Card, cardIndex: number) => (
                   <motion.div
                     key={card.id}
                     initial={{ opacity: 0, y: 200, scale: 0.95 }}
@@ -106,7 +117,7 @@ export const Field: React.FC<FieldProps> = ({ field }) => {
                       ease: [0, 0, 0.2, 1]
                     }}
                   >
-                    <Card card={card} />
+                    <CardComponent card={card} />
                   </motion.div>
                 ))}
               </motion.div>

@@ -6,20 +6,20 @@ import { PlayPhase } from '../phase/PlayPhase';
 import { ResultPhase } from '../phase/ResultPhase';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
 import { PlayValidator } from '../rules/basic/PlayValidator';
-import { EventBus } from '../../application/services/EventBus';
+import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { createPlayer } from '../domain/player/Player';
 
 export class GameEngine {
   private gameState: GameState;
   private phases: Map<GamePhaseType, GamePhase>;
   private currentPhase: GamePhase;
-  private eventBus: EventBus;
+  private eventEmitter: GameEventEmitter;
   private strategyMap: Map<string, PlayerStrategy>;
   private isRunning: boolean = false;
   private shouldStop: boolean = false;
 
-  constructor(config: GameConfig, eventBus: EventBus) {
-    this.eventBus = eventBus;
+  constructor(config: GameConfig, eventEmitter: GameEventEmitter) {
+    this.eventEmitter = eventEmitter;
     this.strategyMap = new Map();
 
     // プレイヤーを作成し、戦略をマップに登録
@@ -52,8 +52,8 @@ export class GameEngine {
 
     try {
       await this.currentPhase.enter(this.gameState);
-      this.eventBus.emit('game:started', { gameState: this.getState() });
-      this.eventBus.emit('state:updated', { gameState: this.getState() });
+      this.eventEmitter.emit('game:started', { gameState: this.getState() });
+      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
 
       await this.runGameLoop();
     } catch (error) {
@@ -74,7 +74,7 @@ export class GameEngine {
       const nextPhaseType = await this.currentPhase.update(this.gameState);
 
       // 状態が更新されたことを通知
-      this.eventBus.emit('state:updated', { gameState: this.getState() });
+      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
 
       // フェーズ遷移が必要な場合
       if (nextPhaseType) {
@@ -88,8 +88,8 @@ export class GameEngine {
     // 結果フェーズに入ったら一度だけ更新を実行
     if (this.gameState.phase === GamePhaseType.RESULT) {
       await this.currentPhase.update(this.gameState);
-      this.eventBus.emit('state:updated', { gameState: this.getState() });
-      this.eventBus.emit('game:ended', { gameState: this.getState() });
+      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
+      this.eventEmitter.emit('game:ended', { gameState: this.getState() });
     }
 
     this.isRunning = false;
@@ -105,7 +105,7 @@ export class GameEngine {
 
     await this.currentPhase.enter(this.gameState);
 
-    this.eventBus.emit('phase:changed', {
+    this.eventEmitter.emit('phase:changed', {
       from: fromPhase,
       to: nextPhaseType,
       gameState: this.getState(),
