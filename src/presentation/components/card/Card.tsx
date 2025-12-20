@@ -57,11 +57,7 @@ export const Card: React.FC<CardProps> = ({ card, isSelected, onClick, className
         whileTap={onClick ? { scale: isSelected ? 1.05 : 0.95 } : {}}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         layout
-      >
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-white text-4xl">🂠</div>
-        </div>
-      </motion.div>
+      />
     );
   }
 

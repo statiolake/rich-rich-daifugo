@@ -160,6 +160,7 @@ export const UnifiedCardLayer: React.FC = () => {
             <Card
               card={card}
               isSelected={isSelected}
+              isFaceUp={cardPos.isFaceUp}
               onClick={isClickable ? () => handleCardClick(card.id) : undefined}
               className={
                 cardPos.isFaceUp && cardPos.location === 'hand' && cardPos.ownerId === 'player-0'
@@ -168,9 +169,7 @@ export const UnifiedCardLayer: React.FC = () => {
                       ? 'drop-shadow-[0_0_40px_rgba(250,204,21,1)] drop-shadow-[0_0_80px_rgba(234,179,8,0.9)]'
                       : 'ring-2 ring-blue-400 border-blue-300 border-2 drop-shadow-[0_0_30px_rgba(96,165,250,0.95)] drop-shadow-[0_0_60px_rgba(147,197,253,0.7)]'
                     : ''
-                  : cardPos.isFaceUp
-                  ? ''
-                  : 'bg-gradient-to-br from-blue-600 to-blue-800'
+                  : ''
               }
             />
           </motion.div>
