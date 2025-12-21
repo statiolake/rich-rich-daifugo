@@ -3,7 +3,8 @@ import { useGameStore } from '../../store/gameStore';
 import { PlayerType } from '../../../core/domain/player/Player';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { PlayValidator } from '../../../core/rules/basic/PlayValidator';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useWindowResize } from '../../hooks/useWindowResize';
 
 export const HumanControl: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
@@ -12,6 +13,14 @@ export const HumanControl: React.FC = () => {
   const playCards = useGameStore(state => state.playCards);
   const pass = useGameStore(state => state.pass);
   const clearError = useGameStore(state => state.clearError);
+
+  // ウィンドウ高さを state で管理（リサイズ対応）
+  const [screenHeight, setScreenHeight] = useState(window.innerHeight);
+
+  // ウィンドウリサイズを監視
+  useWindowResize(() => {
+    setScreenHeight(window.innerHeight);
+  }, 200);
 
   // 出せるカードを計算（すべてのフックを早期リターンの前に呼び出す）
   const legalCardIds = useMemo(() => {
@@ -56,7 +65,7 @@ export const HumanControl: React.FC = () => {
   return (
     <div
       className="absolute left-0 right-0 p-6 bg-gradient-to-b from-black/70 via-black/50 to-transparent z-60 pointer-events-none"
-      style={{ top: `${window.innerHeight - 280}px` }}
+      style={{ top: `${screenHeight - 280}px` }}
     >
       {/* エラーメッセージ */}
       <AnimatePresence>

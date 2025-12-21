@@ -6,6 +6,7 @@ import { Card } from '../card/Card';
 import { CardFactory, Card as CardType } from '../../../core/domain/card/Card';
 import { PlayValidator } from '../../../core/rules/basic/PlayValidator';
 import { useEffect, useMemo } from 'react';
+import { useWindowResize } from '../../hooks/useWindowResize';
 
 export const UnifiedCardLayer: React.FC = () => {
   const cardPositions = useCardPositionStore((state) => state.cards);
@@ -115,6 +116,13 @@ export const UnifiedCardLayer: React.FC = () => {
     gameState?.currentPlayerIndex,
     syncWithGameState,
   ]);
+
+  // ウィンドウリサイズを監視してCardPositionを再計算
+  useWindowResize(() => {
+    if (gameState) {
+      syncWithGameState(gameState);
+    }
+  }, 200);
 
   // すべてのフックを呼び出した後に早期リターンチェック
   if (!gameState || gameState.phase === GamePhaseType.RESULT) {
