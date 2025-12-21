@@ -29,6 +29,7 @@ export class RuleEngine {
     // RuleContext を生成
     const context: RuleContext = {
       isRevolution: gameState.isRevolution,
+      isElevenBack: gameState.isElevenBack,
       field: field,
     };
 
@@ -39,9 +40,10 @@ export class RuleEngine {
    * パスが有効かどうかを検証
    */
   canPass(field: Field): ValidationResult {
-    // RuleContext を生成（isRevolution は不要）
+    // RuleContext を生成（isRevolution, isElevenBack は不要）
     const context: RuleContext = {
       isRevolution: false, // パスには関係ない
+      isElevenBack: false, // パスには関係ない
       field: field,
     };
 

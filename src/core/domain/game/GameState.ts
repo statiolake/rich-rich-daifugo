@@ -13,6 +13,7 @@ export interface GameState {
   currentPlayerIndex: number;
   field: Field;
   isRevolution: boolean;
+  isElevenBack: boolean;
   passCount: number;
   round: number;
   phase: GamePhaseType;
@@ -24,6 +25,7 @@ export function createGameState(players: Player[]): GameState {
     currentPlayerIndex: 0,
     field: new Field(),
     isRevolution: false,
+    isElevenBack: false,
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,

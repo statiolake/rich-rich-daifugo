@@ -44,7 +44,7 @@ export class GameEngine {
     // フェーズを初期化
     this.phases = new Map<GamePhaseType, GamePhase>([
       [GamePhaseType.SETUP, new SetupPhase()],
-      [GamePhaseType.PLAY, new PlayPhase(this.strategyMap, this.ruleEngine)],
+      [GamePhaseType.PLAY, new PlayPhase(this.strategyMap, this.ruleEngine, this.eventEmitter)],
       [GamePhaseType.RESULT, new ResultPhase()],
     ]);
 

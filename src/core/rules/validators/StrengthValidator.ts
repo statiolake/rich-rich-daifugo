@@ -30,9 +30,15 @@ export class StrengthValidator {
 
     const fieldPlay = context.field.getCurrentPlay()!;
 
+    // XORロジック: 革命と11バックのどちらか一方だけがtrueなら強さ判定が反転
+    // - 通常モード (revolution: false, elevenBack: false) → shouldReverse: false
+    // - 11バックのみ (revolution: false, elevenBack: true) → shouldReverse: true
+    // - 革命のみ (revolution: true, elevenBack: false) → shouldReverse: true
+    // - 革命+11バック (revolution: true, elevenBack: true) → shouldReverse: false
+    const shouldReverse = context.isRevolution !== context.isElevenBack;
+
     // PlayAnalyzer.canFollow で強さをチェック
-    // isRevolution を渡して、革命時の強さ判定を行う
-    if (!PlayAnalyzer.canFollow(fieldPlay, currentPlay, context.isRevolution)) {
+    if (!PlayAnalyzer.canFollow(fieldPlay, currentPlay, shouldReverse)) {
       return {
         valid: false,
         reason: '場のカードより強くありません',

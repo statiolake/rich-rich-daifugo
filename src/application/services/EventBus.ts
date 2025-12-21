@@ -73,5 +73,11 @@ export interface GameEvents {
   'player:finished': { playerId: string; position: number };
   'field:cleared': {};
   'revolution:triggered': { isRevolution: boolean };
+  'elevenBack:triggered': { isElevenBack: boolean };
+  'localRule:triggered': {
+    ruleName: string;
+    isActive: boolean;
+    metadata?: Record<string, any>;
+  };
   'state:updated': { gameState: any };
 }

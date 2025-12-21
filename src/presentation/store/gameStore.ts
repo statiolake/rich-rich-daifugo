@@ -20,12 +20,21 @@ interface MovingCard {
   toY: number;
 }
 
+export interface RuleCutInData {
+  id: string;
+  text: string;
+  variant?: 'gold' | 'red' | 'blue' | 'green';
+  duration?: number;
+}
+
 interface GameStore {
   engine: GameEngine | null;
   gameState: GameState | null;
   selectedCards: Card[];
   error: string | null;
   movingCards: MovingCard[];
+  cutInQueue: RuleCutInData[];
+  activeCutIn: RuleCutInData | null;
 
   // Actions
   startGame: (playerName?: string) => void;
@@ -38,6 +47,9 @@ interface GameStore {
   removeMovingCard: (id: string) => void;
   clearMovingCards: () => void;
   reset: () => void;
+  enqueueCutIn: (cutIn: RuleCutInData) => void;
+  removeCutIn: (id: string) => void;
+  processQueue: () => void;
 
   // Computed values
   getValidCombinations: () => Card[][];
@@ -50,6 +62,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectedCards: [],
   error: null,
   movingCards: [],
+  cutInQueue: [],
+  activeCutIn: null,
 
   startGame: (playerName = 'あなた') => {
     try {
@@ -78,6 +92,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       eventBus.on('game:ended', (data) => {
         console.log('Game ended!');
+      });
+
+      // 11バックイベントリスナー
+      eventBus.on('elevenBack:triggered', (data) => {
+        get().enqueueCutIn({
+          id: `elevenback-${Date.now()}`,
+          text: data.isElevenBack ? '11バック発動！' : '11バック解除',
+          variant: 'gold',
+          duration: 2000
+        });
       });
 
       set({ engine, error: null });
@@ -237,6 +261,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return engine.getRuleEngine();
   },
 
+  enqueueCutIn: (cutIn) => {
+    set((state) => ({
+      cutInQueue: [...state.cutInQueue, cutIn]
+    }));
+    get().processQueue();
+  },
+
+  processQueue: () => {
+    const { cutInQueue, activeCutIn } = get();
+    if (!activeCutIn && cutInQueue.length > 0) {
+      const [next, ...rest] = cutInQueue;
+      set({ activeCutIn: next, cutInQueue: rest });
+    }
+  },
+
+  removeCutIn: (id) => {
+    set({ activeCutIn: null });
+    get().processQueue();
+  },
+
   reset: () => {
     const { engine } = get();
     if (engine) {
@@ -248,6 +292,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       selectedCards: [],
       error: null,
       movingCards: [],
+      cutInQueue: [],
+      activeCutIn: null,
     });
   },
 }));

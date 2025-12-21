@@ -2,17 +2,19 @@ import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
 import { Card } from '../domain/card/Card';
-import { PlayAnalyzer } from '../domain/card/Play';
+import { PlayAnalyzer, Play } from '../domain/card/Play';
 import { Player } from '../domain/player/Player';
 import { PlayerRank } from '../domain/player/PlayerRank';
 import { RuleEngine } from '../rules/base/RuleEngine';
+import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
 
   constructor(
     private strategyMap: Map<string, PlayerStrategy>,
-    private ruleEngine: RuleEngine
+    private ruleEngine: RuleEngine,
+    private eventBus?: GameEventEmitter
   ) {}
 
   async enter(gameState: GameState): Promise<void> {
@@ -86,13 +88,27 @@ export class PlayPhase implements GamePhase {
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
+    // 11バック判定
+    if (this.triggersElevenBack(play)) {
+      gameState.isElevenBack = !gameState.isElevenBack;
+      console.log(`11バックが発動しました！ isElevenBack: ${gameState.isElevenBack}`);
+
+      // イベント発火
+      this.eventBus?.emit('elevenBack:triggered', {
+        isElevenBack: gameState.isElevenBack
+      });
+
+      // 全プレイヤーの手札を再ソート（XORロジックを反映）
+      gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
+    }
+
     // 革命判定
     if (play.triggersRevolution) {
       gameState.isRevolution = !gameState.isRevolution;
       console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
 
-      // 全プレイヤーの手札を再ソート
-      gameState.players.forEach(p => p.hand.sort(gameState.isRevolution));
+      // 全プレイヤーの手札を再ソート（XORロジックを反映）
+      gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
     }
 
     // 手札が空になったら上がり
@@ -169,6 +185,11 @@ export class PlayPhase implements GamePhase {
     }
 
     return null;
+  }
+
+  private triggersElevenBack(play: Play): boolean {
+    // Jが含まれているかチェック
+    return play.cards.some(card => card.rank === 'J');
   }
 
   private nextPlayer(gameState: GameState): void {

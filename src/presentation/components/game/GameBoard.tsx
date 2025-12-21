@@ -4,11 +4,14 @@ import { HumanControl } from '../player/HumanControl';
 import { UnifiedCardLayer } from './UnifiedCardLayer';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { getRankName } from '../../../core/domain/player/PlayerRank';
+import { RuleCutIn } from '../effects/RuleCutIn';
 
 export const GameBoard: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
   const startGame = useGameStore(state => state.startGame);
   const reset = useGameStore(state => state.reset);
+  const activeCutIn = useGameStore(state => state.activeCutIn);
+  const removeCutIn = useGameStore(state => state.removeCutIn);
 
   if (!gameState) {
     return (
@@ -105,6 +108,12 @@ export const GameBoard: React.FC = () => {
 
       {/* 統一されたカード表示レイヤー（54枚全てを管理） */}
       <UnifiedCardLayer />
+
+      {/* カットイン演出 */}
+      <RuleCutIn
+        cutIns={activeCutIn ? [activeCutIn] : []}
+        onComplete={removeCutIn}
+      />
     </div>
   );
 };

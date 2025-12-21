@@ -7,6 +7,7 @@ import { Field } from '../../domain/game/Field';
 export interface RuleContext {
   // ゲーム状態
   isRevolution: boolean;
+  isElevenBack: boolean;
 
   // 場の状態
   field: Field;
