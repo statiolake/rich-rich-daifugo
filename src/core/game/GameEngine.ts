@@ -33,8 +33,8 @@ export class GameEngine {
 
     this.gameState = createGameState(players);
 
-    // RuleEngine を初期化（ノーマルルール）
-    this.ruleEngine = new RuleEngine(createNormalRules());
+    // RuleEngine を初期化
+    this.ruleEngine = new RuleEngine();
 
     // Strategy に RuleEngine を設定
     for (const strategy of this.strategyMap.values()) {

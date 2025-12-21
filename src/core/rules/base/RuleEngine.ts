@@ -2,23 +2,23 @@ import { Card } from '../../domain/card/Card';
 import { Player } from '../../domain/player/Player';
 import { Field } from '../../domain/game/Field';
 import { GameState } from '../../domain/game/GameState';
-import { ValidationRule, ValidationStatus, RuleValidationResult } from './ValidationRule';
-
-export interface ValidationResult {
-  valid: boolean;
-  reason?: string;
-}
+import { ValidationPipeline } from '../pipeline/ValidationPipeline';
+import { RuleContext } from '../context/RuleContext';
+import { ValidationResult } from '../validators/BasicValidator';
 
 /**
- * 複数のルールを組み合わせてバリデーションを行うエンジン
+ * ルールエンジン
+ * ValidationPipeline を使用してバリデーションを行う
  */
 export class RuleEngine {
-  constructor(private rules: ValidationRule[]) {}
+  private pipeline: ValidationPipeline;
+
+  constructor() {
+    this.pipeline = new ValidationPipeline();
+  }
 
   /**
-   * すべてのルールを評価してプレイの有効性を判定
-   * 優先度: PASS < FORBIDDEN < FORCE_ALLOW
-   * 最終的に FORBIDDEN なら禁止、PASS または FORCE_ALLOW なら許可
+   * プレイの有効性を判定
    */
   validate(
     player: Player,
@@ -26,37 +26,25 @@ export class RuleEngine {
     field: Field,
     gameState: GameState
   ): ValidationResult {
-    let finalStatus = ValidationStatus.PASS;
-    let finalReason: string | undefined;
-
-    for (const rule of this.rules) {
-      const result = rule.validate(player, cards, field, gameState);
-
-      // 優先度に基づいて上書き
-      if (result.status === ValidationStatus.FORCE_ALLOW) {
-        finalStatus = ValidationStatus.FORCE_ALLOW;
-        finalReason = result.reason;
-      } else if (result.status === ValidationStatus.FORBIDDEN && finalStatus !== ValidationStatus.FORCE_ALLOW) {
-        finalStatus = ValidationStatus.FORBIDDEN;
-        finalReason = result.reason;
-      }
-    }
-
-    return {
-      valid: finalStatus !== ValidationStatus.FORBIDDEN,
-      reason: finalReason,
+    // RuleContext を生成
+    const context: RuleContext = {
+      isRevolution: gameState.isRevolution,
+      field: field,
     };
+
+    return this.pipeline.validate(player, cards, context);
   }
 
   /**
    * パスが有効かどうかを検証
    */
   canPass(field: Field): ValidationResult {
-    // 場が空の場合はパスできない
-    if (field.isEmpty()) {
-      return { valid: false, reason: '場が空の時はパスできません' };
-    }
+    // RuleContext を生成（isRevolution は不要）
+    const context: RuleContext = {
+      isRevolution: false, // パスには関係ない
+      field: field,
+    };
 
-    return { valid: true };
+    return this.pipeline.canPass(context);
   }
 }
