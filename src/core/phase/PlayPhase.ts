@@ -25,6 +25,7 @@ export class PlayPhase implements GamePhase {
   async enter(gameState: GameState): Promise<void> {
     gameState.field.clear();
     gameState.passCount = 0;
+    gameState.isElevenBack = false; // 新しいラウンド開始時に11バックをリセット
 
     // 初回ラウンドはランダムなプレイヤーから開始
     // 2回目以降は大富豪から開始（まだ実装していないので常にランダム）
@@ -140,6 +141,15 @@ export class PlayPhase implements GamePhase {
       console.log('場が流れました');
       gameState.field.clear();
       gameState.passCount = 0;
+
+      // 11バックをリセット
+      if (gameState.isElevenBack) {
+        gameState.isElevenBack = false;
+        console.log('11バックがリセットされました');
+
+        // 全プレイヤーの手札を再ソート
+        gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
+      }
     }
 
     this.nextPlayer(gameState);
