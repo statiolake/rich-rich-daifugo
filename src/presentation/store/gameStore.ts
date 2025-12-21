@@ -103,7 +103,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           id: `elevenback-${Date.now()}`,
           text: data.isElevenBack ? '11バック発動！' : '11バック解除',
           variant: 'gold',
-          duration: 2000
+          duration: 1000
         });
       });
 

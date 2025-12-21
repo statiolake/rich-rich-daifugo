@@ -70,7 +70,7 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
               animate="animate"
               exit="exit"
               onAnimationComplete={() => {
-                setTimeout(() => onComplete?.(cutIn.id), cutIn.duration || 2000);
+                setTimeout(() => onComplete?.(cutIn.id), cutIn.duration || 1000);
               }}
               className="absolute inset-0 flex items-center justify-center"
             >
