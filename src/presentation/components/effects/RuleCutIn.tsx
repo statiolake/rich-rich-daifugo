@@ -82,7 +82,7 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
 
                 {/* メインテキストエリア */}
                 <div className={`relative bg-blue-900/80 backdrop-blur-md py-8 px-12 border-y-4 border-double ${variantStyles.border}`}>
-                  <ParticleEffect count={50} color={cutIn.variant || 'gold'} />
+                  <ParticleEffect count={100} color={cutIn.variant || 'gold'} />
 
                   <motion.div
                     initial={{ scale: 0.5, opacity: 0 }}
