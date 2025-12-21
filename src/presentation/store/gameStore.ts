@@ -8,6 +8,7 @@ import { PlayerType } from '../../core/domain/player/Player';
 import { LocalPlayerService } from '../../core/domain/player/LocalPlayerService';
 import { EventBus } from '../../application/services/EventBus';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
+import { RuleEngine } from '../../core/rules/base/RuleEngine';
 import { useCardPositionStore } from './cardPositionStore';
 
 interface MovingCard {
@@ -40,6 +41,7 @@ interface GameStore {
 
   // Computed values
   getValidCombinations: () => Card[][];
+  getRuleEngine: () => RuleEngine;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -225,6 +227,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameState,
       ruleEngine
     );
+  },
+
+  getRuleEngine: () => {
+    const { engine } = get();
+    if (!engine) {
+      throw new Error('Game engine not initialized');
+    }
+    return engine.getRuleEngine();
   },
 
   reset: () => {

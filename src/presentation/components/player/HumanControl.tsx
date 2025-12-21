@@ -2,7 +2,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { PlayerType } from '../../../core/domain/player/Player';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
-import { PlayValidator } from '../../../core/rules/basic/PlayValidator';
 import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerService';
 import { useMemo, useState } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
@@ -25,6 +24,7 @@ export const HumanControl: React.FC = () => {
 
   // 有効な手をストアから取得
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
+  const getRuleEngine = useGameStore(state => state.getRuleEngine);
   const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length]);
 
   // すべてのフックを呼び出した後に早期リターンチェック
@@ -40,11 +40,11 @@ export const HumanControl: React.FC = () => {
 
   const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
 
-  // バリデーターで出せるかを判定
-  const validator = new PlayValidator();
+  // RuleEngine で出せるかを判定
+  const ruleEngine = getRuleEngine();
   const canPlaySelected = selectedCards.length > 0 &&
-    validator.isValidPlay(humanPlayer, selectedCards, gameState.field, gameState).valid;
-  const canPass = validator.canPass(gameState.field).valid;
+    ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState).valid;
+  const canPass = ruleEngine.canPass(gameState.field).valid;
   // パスを目立たせるのは、合法手が一つもないときだけ
   const shouldHighlightPass = validCombinations.length === 0 && canPass;
 

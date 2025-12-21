@@ -5,9 +5,7 @@ import { SetupPhase } from '../phase/SetupPhase';
 import { PlayPhase } from '../phase/PlayPhase';
 import { ResultPhase } from '../phase/ResultPhase';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
-import { PlayValidator } from '../rules/basic/PlayValidator';
 import { RuleEngine } from '../rules/base/RuleEngine';
-import { createNormalRules } from '../rules/normal/NormalRuleSet';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { createPlayer } from '../domain/player/Player';
 
@@ -44,10 +42,9 @@ export class GameEngine {
     }
 
     // フェーズを初期化
-    const validator = new PlayValidator();
     this.phases = new Map<GamePhaseType, GamePhase>([
       [GamePhaseType.SETUP, new SetupPhase()],
-      [GamePhaseType.PLAY, new PlayPhase(this.strategyMap, validator, this.ruleEngine)],
+      [GamePhaseType.PLAY, new PlayPhase(this.strategyMap, this.ruleEngine)],
       [GamePhaseType.RESULT, new ResultPhase()],
     ]);
 

@@ -1,7 +1,6 @@
 import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
-import { PlayValidator } from '../rules/basic/PlayValidator';
 import { Card } from '../domain/card/Card';
 import { PlayAnalyzer } from '../domain/card/Play';
 import { Player } from '../domain/player/Player';
@@ -13,7 +12,6 @@ export class PlayPhase implements GamePhase {
 
   constructor(
     private strategyMap: Map<string, PlayerStrategy>,
-    private validator: PlayValidator,
     private ruleEngine: RuleEngine
   ) {}
 
@@ -71,7 +69,7 @@ export class PlayPhase implements GamePhase {
     cards: Card[]
   ): Promise<void> {
     // 検証
-    const validation = this.validator.isValidPlay(player, cards, gameState.field, gameState);
+    const validation = this.ruleEngine.validate(player, cards, gameState.field, gameState);
     if (!validation.valid) {
       console.error(`Invalid play by ${player.name}: ${validation.reason}`);
       // CPUの場合は自動的にパスさせる
