@@ -42,13 +42,21 @@ export class GameEngine {
     }
 
     // フェーズを初期化
+    const playPhase = new PlayPhase(this.strategyMap, this.ruleEngine, this.eventEmitter);
     this.phases = new Map<GamePhaseType, GamePhase>([
       [GamePhaseType.SETUP, new SetupPhase()],
-      [GamePhaseType.PLAY, new PlayPhase(this.strategyMap, this.ruleEngine, this.eventEmitter)],
+      [GamePhaseType.PLAY, playPhase],
       [GamePhaseType.RESULT, new ResultPhase()],
     ]);
 
     this.currentPhase = this.phases.get(GamePhaseType.SETUP)!;
+  }
+
+  setWaitForCutIn(fn: () => Promise<void>): void {
+    const playPhase = this.phases.get(GamePhaseType.PLAY) as PlayPhase;
+    if (playPhase) {
+      playPhase.setWaitForCutIn(fn);
+    }
   }
 
   async start(): Promise<void> {

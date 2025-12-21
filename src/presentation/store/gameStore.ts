@@ -35,6 +35,7 @@ interface GameStore {
   movingCards: MovingCard[];
   cutInQueue: RuleCutInData[];
   activeCutIn: RuleCutInData | null;
+  cutInResolve: (() => void) | null;
 
   // Actions
   startGame: (playerName?: string) => void;
@@ -47,9 +48,10 @@ interface GameStore {
   removeMovingCard: (id: string) => void;
   clearMovingCards: () => void;
   reset: () => void;
-  enqueueCutIn: (cutIn: RuleCutInData) => void;
+  enqueueCutIn: (cutIn: RuleCutInData) => Promise<void>;
   removeCutIn: (id: string) => void;
   processQueue: () => void;
+  waitForCutIn: () => Promise<void>;
 
   // Computed values
   getValidCombinations: () => Card[][];
@@ -64,6 +66,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   movingCards: [],
   cutInQueue: [],
   activeCutIn: null,
+  cutInResolve: null,
 
   startGame: (playerName = 'あなた') => {
     try {
@@ -103,6 +106,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
           duration: 2000
         });
       });
+
+      // カットイン待機関数を注入
+      engine.setWaitForCutIn(get().waitForCutIn);
 
       set({ engine, error: null });
 
@@ -262,23 +268,48 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   enqueueCutIn: (cutIn) => {
-    set((state) => ({
-      cutInQueue: [...state.cutInQueue, cutIn]
-    }));
-    get().processQueue();
+    return new Promise<void>((resolve) => {
+      set((state) => ({
+        cutInQueue: [...state.cutInQueue, { ...cutIn, resolve }]
+      }));
+      get().processQueue();
+    });
   },
 
   processQueue: () => {
     const { cutInQueue, activeCutIn } = get();
     if (!activeCutIn && cutInQueue.length > 0) {
       const [next, ...rest] = cutInQueue;
-      set({ activeCutIn: next, cutInQueue: rest });
+      set({
+        activeCutIn: next,
+        cutInQueue: rest,
+        cutInResolve: (next as any).resolve || null
+      });
     }
   },
 
   removeCutIn: (id) => {
-    set({ activeCutIn: null });
+    const { cutInResolve } = get();
+    if (cutInResolve) {
+      cutInResolve();
+    }
+    set({ activeCutIn: null, cutInResolve: null });
     get().processQueue();
+  },
+
+  waitForCutIn: async () => {
+    const { activeCutIn } = get();
+    if (!activeCutIn) return;
+
+    return new Promise<void>((resolve) => {
+      const checkInterval = setInterval(() => {
+        const { activeCutIn: current } = get();
+        if (!current) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 100);
+    });
   },
 
   reset: () => {
@@ -294,6 +325,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       movingCards: [],
       cutInQueue: [],
       activeCutIn: null,
+      cutInResolve: null,
     });
   },
 }));

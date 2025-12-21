@@ -10,12 +10,17 @@ import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
+  private waitForCutInFn?: () => Promise<void>;
 
   constructor(
     private strategyMap: Map<string, PlayerStrategy>,
     private ruleEngine: RuleEngine,
     private eventBus?: GameEventEmitter
   ) {}
+
+  setWaitForCutIn(fn: () => Promise<void>): void {
+    this.waitForCutInFn = fn;
+  }
 
   async enter(gameState: GameState): Promise<void> {
     gameState.field.clear();
@@ -97,6 +102,11 @@ export class PlayPhase implements GamePhase {
       this.eventBus?.emit('elevenBack:triggered', {
         isElevenBack: gameState.isElevenBack
       });
+
+      // カットイン演出の完了を待つ
+      if (this.waitForCutInFn) {
+        await this.waitForCutInFn();
+      }
 
       // 全プレイヤーの手札を再ソート（XORロジックを反映）
       gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));

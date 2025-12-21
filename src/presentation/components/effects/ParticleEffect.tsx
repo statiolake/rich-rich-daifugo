@@ -7,16 +7,16 @@ interface ParticleEffectProps {
 }
 
 export const ParticleEffect: React.FC<ParticleEffectProps> = ({
-  count = 20,
+  count = 50,
   color = 'gold'
 }) => {
   const particles = useMemo(() => {
     return Array.from({ length: count }, (_, i) => ({
       id: i,
-      x: Math.random() * 100 - 50,
-      delay: Math.random() * 0.5,
-      duration: 1.5 + Math.random() * 1,
-      size: 2 + Math.random() * 4
+      x: Math.random() * 200 - 100, // -100% to 100% の範囲に拡大
+      delay: Math.random() * 1.0,   // 遅延を増加
+      duration: 0.8 + Math.random() * 2.5, // 0.8秒〜3.3秒の幅
+      size: 2 + Math.random() * 6   // サイズのバリエーションも増加
     }));
   }, [count]);
 
