@@ -6,6 +6,8 @@ import { PlayPhase } from '../phase/PlayPhase';
 import { ResultPhase } from '../phase/ResultPhase';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
 import { PlayValidator } from '../rules/basic/PlayValidator';
+import { RuleEngine } from '../rules/base/RuleEngine';
+import { createNormalRules } from '../rules/normal/NormalRuleSet';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { createPlayer } from '../domain/player/Player';
 
@@ -15,6 +17,7 @@ export class GameEngine {
   private currentPhase: GamePhase;
   private eventEmitter: GameEventEmitter;
   private strategyMap: Map<string, PlayerStrategy>;
+  private ruleEngine: RuleEngine;
   private isRunning: boolean = false;
   private shouldStop: boolean = false;
 
@@ -30,11 +33,21 @@ export class GameEngine {
 
     this.gameState = createGameState(players);
 
+    // RuleEngine を初期化（ノーマルルール）
+    this.ruleEngine = new RuleEngine(createNormalRules());
+
+    // Strategy に RuleEngine を設定
+    for (const strategy of this.strategyMap.values()) {
+      if ('setRuleEngine' in strategy && typeof strategy.setRuleEngine === 'function') {
+        strategy.setRuleEngine(this.ruleEngine);
+      }
+    }
+
     // フェーズを初期化
     const validator = new PlayValidator();
     this.phases = new Map<GamePhaseType, GamePhase>([
       [GamePhaseType.SETUP, new SetupPhase()],
-      [GamePhaseType.PLAY, new PlayPhase(this.strategyMap, validator)],
+      [GamePhaseType.PLAY, new PlayPhase(this.strategyMap, validator, this.ruleEngine)],
       [GamePhaseType.RESULT, new ResultPhase()],
     ]);
 
@@ -118,6 +131,10 @@ export class GameEngine {
 
   getStrategyMap(): ReadonlyMap<string, PlayerStrategy> {
     return this.strategyMap;
+  }
+
+  getRuleEngine(): RuleEngine {
+    return this.ruleEngine;
   }
 
   isGameRunning(): boolean {

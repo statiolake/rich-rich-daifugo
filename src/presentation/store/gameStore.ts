@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { GameEngine } from '../../core/game/GameEngine';
-import { GameConfig, PlayerConfig } from '../../core/game/GameConfig';
+import { GameConfig } from '../../core/game/GameConfig';
+import { GameConfigFactory } from '../../core/game/GameConfigFactory';
 import { GameState } from '../../core/domain/game/GameState';
 import { Card, CardFactory } from '../../core/domain/card/Card';
 import { PlayerType } from '../../core/domain/player/Player';
+import { LocalPlayerService } from '../../core/domain/player/LocalPlayerService';
 import { EventBus } from '../../application/services/EventBus';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
-import { RandomCPUStrategy } from '../../core/strategy/RandomCPUStrategy';
-import { PlayValidator } from '../../core/rules/basic/PlayValidator';
 import { useCardPositionStore } from './cardPositionStore';
 
 interface MovingCard {
@@ -37,6 +37,9 @@ interface GameStore {
   removeMovingCard: (id: string) => void;
   clearMovingCards: () => void;
   reset: () => void;
+
+  // Computed values
+  getValidCombinations: () => Card[][];
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -50,39 +53,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     try {
       const eventBus = new EventBus();
 
-      // プレイヤー設定を作成（人間1人 + CPU3人）
-      const humanStrategy = new HumanStrategy();
-
-      const playerConfigs: PlayerConfig[] = [
-        {
-          id: 'player-0',
-          name: playerName,
-          type: PlayerType.HUMAN,
-          strategy: humanStrategy,
-        },
-        {
-          id: 'player-1',
-          name: 'CPU 1',
-          type: PlayerType.CPU,
-          strategy: new RandomCPUStrategy(),
-        },
-        {
-          id: 'player-2',
-          name: 'CPU 2',
-          type: PlayerType.CPU,
-          strategy: new RandomCPUStrategy(),
-        },
-        {
-          id: 'player-3',
-          name: 'CPU 3',
-          type: PlayerType.CPU,
-          strategy: new RandomCPUStrategy(),
-        },
-      ];
-
-      const config: GameConfig = {
-        players: playerConfigs,
-      };
+      // GameConfigFactory を使用してゲーム設定を生成
+      const config = GameConfigFactory.createStandardGame(4, 1, playerName);
 
       const engine = new GameEngine(config, eventBus);
 
@@ -140,9 +112,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // PlayValidatorで検証
-    const validator = new PlayValidator();
-    const validation = validator.isValidPlay(
+    // RuleEngine で検証
+    const ruleEngine = engine.getRuleEngine();
+    const validation = ruleEngine.validate(
       currentPlayer,
       cardsToPlay,
       gameState.field,
@@ -177,9 +149,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // パスできるか検証
-    const validator = new PlayValidator();
-    const canPassResult = validator.canPass(gameState.field);
+    // パスできるか RuleEngine で検証
+    const ruleEngine = engine.getRuleEngine();
+    const canPassResult = ruleEngine.canPass(gameState.field);
 
     if (!canPassResult.valid) {
       set({ error: canPassResult.reason || 'パスできません' });
@@ -236,6 +208,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   clearMovingCards: () => set({ movingCards: [] }),
+
+  getValidCombinations: () => {
+    const { gameState, engine } = get();
+    if (!gameState || !engine) return [];
+
+    const humanPlayer = LocalPlayerService.findLocalPlayer(gameState);
+    if (!humanPlayer) return [];
+
+    const ruleEngine = engine.getRuleEngine();
+
+    // Hand.findAllValidPlays() を使用してビット全探索で有効な組み合わせを取得
+    return humanPlayer.hand.findAllValidPlays(
+      humanPlayer,
+      gameState.field,
+      gameState,
+      ruleEngine
+    );
+  },
 
   reset: () => {
     const { engine } = get();

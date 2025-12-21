@@ -6,13 +6,15 @@ import { Card } from '../domain/card/Card';
 import { PlayAnalyzer } from '../domain/card/Play';
 import { Player } from '../domain/player/Player';
 import { PlayerRank } from '../domain/player/PlayerRank';
+import { RuleEngine } from '../rules/base/RuleEngine';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
 
   constructor(
     private strategyMap: Map<string, PlayerStrategy>,
-    private validator: PlayValidator
+    private validator: PlayValidator,
+    private ruleEngine: RuleEngine
   ) {}
 
   async enter(gameState: GameState): Promise<void> {

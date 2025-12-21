@@ -3,18 +3,31 @@ import { Player } from '../domain/player/Player';
 import { Field } from '../domain/game/Field';
 import { GameState } from '../domain/game/GameState';
 import { PlayerStrategy, PlayDecision } from './PlayerStrategy';
+import type { IValidationEngine } from '../domain/card/Hand';
 
 export class RandomCPUStrategy implements PlayerStrategy {
+  private ruleEngine: IValidationEngine | null = null;
+
+  setRuleEngine(ruleEngine: IValidationEngine): void {
+    this.ruleEngine = ruleEngine;
+  }
+
   async decidePlay(
     player: Player,
     field: Field,
     gameState: GameState
   ): Promise<PlayDecision> {
     // 出せるカードの組み合わせを取得
-    const playable = player.hand.findPlayableCombinations(field, gameState.isRevolution);
+    let playableCards: Card[][];
+    if (this.ruleEngine) {
+      playableCards = player.hand.findAllValidPlays(player, field, gameState, this.ruleEngine);
+    } else {
+      const playablePlays = player.hand.findPlayableCombinations(field, gameState.isRevolution);
+      playableCards = playablePlays.map(play => play.cards);
+    }
 
     // 出せるカードがない場合はパス
-    if (playable.length === 0) {
+    if (playableCards.length === 0) {
       return { type: 'PASS' };
     }
 
@@ -24,8 +37,8 @@ export class RandomCPUStrategy implements PlayerStrategy {
     }
 
     // ランダムに選択
-    const chosen = playable[Math.floor(Math.random() * playable.length)];
-    return { type: 'PLAY', cards: chosen.cards };
+    const chosen = playableCards[Math.floor(Math.random() * playableCards.length)];
+    return { type: 'PLAY', cards: chosen };
   }
 
   async decideExchangeCards(player: Player, count: number): Promise<Card[]> {

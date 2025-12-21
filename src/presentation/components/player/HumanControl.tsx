@@ -3,6 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { PlayerType } from '../../../core/domain/player/Player';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { PlayValidator } from '../../../core/rules/basic/PlayValidator';
+import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerService';
 import { useMemo, useState } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
 
@@ -22,31 +23,15 @@ export const HumanControl: React.FC = () => {
     setScreenHeight(window.innerHeight);
   }, 200);
 
-  // 出せるカードを計算（すべてのフックを早期リターンの前に呼び出す）
-  const legalCardIds = useMemo(() => {
-    if (!gameState) return new Set<string>();
-
-    const humanPlayer = gameState.players.find(p => p.type === PlayerType.HUMAN);
-    if (!humanPlayer) return new Set<string>();
-
-    const validator = new PlayValidator();
-    const legal = new Set<string>();
-
-    humanPlayer.hand.getCards().forEach((card) => {
-      const validation = validator.isValidPlay(humanPlayer, [card], gameState.field, gameState);
-      if (validation.valid) {
-        legal.add(card.id);
-      }
-    });
-
-    return legal;
-  }, [gameState]);
+  // 有効な手をストアから取得
+  const getValidCombinations = useGameStore(state => state.getValidCombinations);
+  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length]);
 
   // すべてのフックを呼び出した後に早期リターンチェック
   if (!gameState || gameState.phase === GamePhaseType.RESULT) return null;
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const humanPlayer = gameState.players.find(p => p.type === PlayerType.HUMAN);
+  const humanPlayer = LocalPlayerService.findLocalPlayer(gameState);
 
   // 人間プレイヤーが存在しない、または既に上がっている場合は表示しない
   if (!humanPlayer || humanPlayer.isFinished) {
@@ -60,7 +45,8 @@ export const HumanControl: React.FC = () => {
   const canPlaySelected = selectedCards.length > 0 &&
     validator.isValidPlay(humanPlayer, selectedCards, gameState.field, gameState).valid;
   const canPass = validator.canPass(gameState.field).valid;
-  const shouldHighlightPass = selectedCards.length === 0 && legalCardIds.size === 0 && canPass;
+  // パスを目立たせるのは、合法手が一つもないときだけ
+  const shouldHighlightPass = validCombinations.length === 0 && canPass;
 
   return (
     <div

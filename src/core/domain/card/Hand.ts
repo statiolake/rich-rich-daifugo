@@ -1,6 +1,15 @@
 import { Card, CardFactory } from './Card';
 import { Play, PlayAnalyzer } from './Play';
 import type { Field } from '../game/Field';
+import type { GameState } from '../game/GameState';
+import type { Player } from '../player/Player';
+
+/**
+ * ルールエンジンのインターフェース（循環依存回避のため）
+ */
+export interface IValidationEngine {
+  validate(player: Player, cards: Card[], field: Field, gameState: GameState): { valid: boolean; reason?: string };
+}
 
 export class Hand {
   private cards: Card[];
@@ -149,5 +158,43 @@ export class Hand {
     }
 
     return playable;
+  }
+
+  /**
+   * ビット全探索ですべての有効な手を列挙
+   * ヒューリスティックを使わず、RuleEngine で純粋に検証する
+   * @param player プレイヤー
+   * @param field 場の状態
+   * @param gameState ゲーム状態
+   * @param ruleEngine ルールエンジン
+   * @returns 有効なカードの組み合わせ
+   */
+  findAllValidPlays(
+    player: Player,
+    field: Field,
+    gameState: GameState,
+    ruleEngine: IValidationEngine
+  ): Card[][] {
+    const cards = this.getCards();
+    const validPlays: Card[][] = [];
+
+    // ビット全探索: 1 から (1 << cards.length) - 1 まで
+    for (let pattern = 1; pattern < (1 << cards.length); pattern++) {
+      // パターンに対応する部分集合を取得
+      const subset: Card[] = [];
+      for (let i = 0; i < cards.length; i++) {
+        if (pattern & (1 << i)) {
+          subset.push(cards[i]);
+        }
+      }
+
+      // RuleEngine で検証
+      const validation = ruleEngine.validate(player, subset, field, gameState);
+      if (validation.valid) {
+        validPlays.push(subset);
+      }
+    }
+
+    return validPlays;
   }
 }
