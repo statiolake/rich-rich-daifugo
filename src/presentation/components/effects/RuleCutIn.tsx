@@ -63,20 +63,28 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
           const variantStyles = getVariantStyles(cutIn.variant || 'gold');
 
           return (
-            <motion.div
-              key={cutIn.id}
-              variants={slideInVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              onAnimationComplete={() => {
-                setTimeout(() => onComplete?.(cutIn.id), cutIn.duration || 1000);
-              }}
-              className="absolute inset-0 flex items-center justify-center"
-            >
-              <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+            <div key={cutIn.id} className="absolute inset-0">
+              {/* 背景 - フェードアニメーション */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+              />
 
-              <div className="relative w-full max-w-4xl">
+              {/* カットインコンテンツ - スライドアニメーション */}
+              <motion.div
+                variants={slideInVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                onAnimationComplete={() => {
+                  setTimeout(() => onComplete?.(cutIn.id), cutIn.duration || 1000);
+                }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                <div className="relative w-full max-w-4xl">
                 {/* 上の帯 */}
                 <div className={`h-4 ${variantStyles.band} transform -skew-y-2 shadow-lg`} />
 
@@ -102,7 +110,8 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
                 {/* 下の帯 */}
                 <div className={`h-4 ${variantStyles.band} transform skew-y-2 shadow-lg`} />
               </div>
-            </motion.div>
+              </motion.div>
+            </div>
           );
         })}
       </AnimatePresence>
