@@ -10,7 +10,7 @@ export const GameBoard: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
   const startGame = useGameStore(state => state.startGame);
   const reset = useGameStore(state => state.reset);
-  const activeCutIn = useGameStore(state => state.activeCutIn);
+  const activeCutIns = useGameStore(state => state.activeCutIns);
   const removeCutIn = useGameStore(state => state.removeCutIn);
 
   if (!gameState) {
@@ -111,7 +111,7 @@ export const GameBoard: React.FC = () => {
 
       {/* カットイン演出 */}
       <RuleCutIn
-        cutIns={activeCutIn ? [activeCutIn] : []}
+        cutIns={activeCutIns}
         onComplete={removeCutIn}
       />
     </div>

@@ -3,7 +3,7 @@ import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
 import { Card } from '../domain/card/Card';
 import { PlayAnalyzer, Play } from '../domain/card/Play';
-import { Player } from '../domain/player/Player';
+import { Player, PlayerType } from '../domain/player/Player';
 import { PlayerRank } from '../domain/player/PlayerRank';
 import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
@@ -27,9 +27,16 @@ export class PlayPhase implements GamePhase {
     gameState.passCount = 0;
     gameState.isElevenBack = false; // 新しいラウンド開始時に11バックをリセット
 
-    // 初回ラウンドはランダムなプレイヤーから開始
-    // 2回目以降は大富豪から開始（まだ実装していないので常にランダム）
-    gameState.currentPlayerIndex = Math.floor(Math.random() * gameState.players.length);
+    // 【デバッグ用】人間プレイヤーを必ず先行にする
+    const humanPlayerIndex = gameState.players.findIndex(p => p.type === PlayerType.HUMAN);
+    if (humanPlayerIndex !== -1) {
+      gameState.currentPlayerIndex = humanPlayerIndex;
+      console.log('デバッグ: 人間プレイヤーを先行にしました');
+    } else {
+      // 初回ラウンドはランダムなプレイヤーから開始
+      // 2回目以降は大富豪から開始（まだ実装していないので常にランダム）
+      gameState.currentPlayerIndex = Math.floor(Math.random() * gameState.players.length);
+    }
 
     console.log(`Play phase started. Starting player: ${gameState.players[gameState.currentPlayerIndex].name}`);
   }
@@ -94,7 +101,10 @@ export class PlayPhase implements GamePhase {
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
-    // 11バック判定
+    // ルール発動フラグ
+    let triggeredRules = false;
+
+    // 11バック判定（イベント発火のみ、awaitしない）
     if (this.triggersElevenBack(play)) {
       gameState.isElevenBack = !gameState.isElevenBack;
       console.log(`11バックが発動しました！ isElevenBack: ${gameState.isElevenBack}`);
@@ -104,21 +114,29 @@ export class PlayPhase implements GamePhase {
         isElevenBack: gameState.isElevenBack
       });
 
-      // カットイン演出の完了を待つ
-      if (this.waitForCutInFn) {
-        await this.waitForCutInFn();
-      }
-
-      // 全プレイヤーの手札を再ソート（XORロジックを反映）
-      gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
+      triggeredRules = true;
     }
 
-    // 革命判定
+    // 革命判定（イベント発火のみ、awaitしない）
     if (play.triggersRevolution) {
       gameState.isRevolution = !gameState.isRevolution;
       console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
 
-      // 全プレイヤーの手札を再ソート（XORロジックを反映）
+      // イベント発火
+      this.eventBus?.emit('revolution:triggered', {
+        isRevolution: gameState.isRevolution
+      });
+
+      triggeredRules = true;
+    }
+
+    // 全イベント発火後に1回だけ待機
+    if (triggeredRules && this.waitForCutInFn) {
+      await this.waitForCutInFn();
+    }
+
+    // カットイン完了後にソート（XORロジック反映）
+    if (triggeredRules) {
       gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
     }
 

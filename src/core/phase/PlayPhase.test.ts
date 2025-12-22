@@ -201,5 +201,46 @@ describe('PlayPhase - 11バック機能', () => {
       const shouldReverse = rev !== eb;
       expect(shouldReverse).toBe(false);
     });
+
+    it('JJJJ（4枚出し）で革命と11バックが両方発動する', async () => {
+      // プレイヤー作成
+      const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
+      const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
+
+      // 手札設定
+      const jack1 = CardFactory.create(Suit.SPADE, 'J');
+      const jack2 = CardFactory.create(Suit.HEART, 'J');
+      const jack3 = CardFactory.create(Suit.DIAMOND, 'J');
+      const jack4 = CardFactory.create(Suit.CLUB, 'J');
+      player1.hand.add([jack1, jack2, jack3, jack4, CardFactory.create(Suit.SPADE, 'Q')]);
+      player2.hand.add([CardFactory.create(Suit.HEART, '3')]);
+
+      // ゲーム状態作成
+      const gameState = createGameState([player1, player2]);
+      gameState.phase = GamePhaseType.PLAY;
+      gameState.currentPlayerIndex = 0;
+      gameState.isRevolution = false;
+      gameState.isElevenBack = false;
+
+      // JJJJ（4枚）を出す
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [jack1, jack2, jack3, jack4]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // 革命と11バックの両方が発動している
+      expect(gameState.isRevolution).toBe(true);
+      expect(gameState.isElevenBack).toBe(true);
+
+      // XORロジック: true !== true = false（通常の強さ判定に戻る）
+      const rev = gameState.isRevolution as boolean;
+      const eb = gameState.isElevenBack as boolean;
+      const shouldReverse = rev !== eb;
+      expect(shouldReverse).toBe(false);
+    });
   });
 });

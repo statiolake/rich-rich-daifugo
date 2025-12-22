@@ -8,14 +8,19 @@ interface RuleCutInProps {
 }
 
 export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
-  const slideInVariants = {
+  const getSlideInVariants = (delay: number = 0) => ({
     initial: { x: -1000, opacity: 0, scale: 0.8, rotate: -5 },
     animate: {
       x: 0,
       opacity: 1,
       scale: 1,
       rotate: 0,
-      transition: { type: 'spring' as const, stiffness: 200, damping: 20 }
+      transition: {
+        type: 'spring' as const,
+        stiffness: 200,
+        damping: 20,
+        delay: delay / 1000 // msをsに変換
+      }
     },
     exit: {
       x: 1000,
@@ -24,7 +29,7 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
       rotate: 5,
       transition: { duration: 0.4, ease: [0.4, 0, 1, 1] as [number, number, number, number] }
     }
-  };
+  });
 
   const getVariantStyles = (variant: string) => {
     const styles = {
@@ -58,31 +63,40 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
 
   return (
     <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 9999 }}>
-      <AnimatePresence mode="wait">
-        {cutIns.map((cutIn) => {
-          const variantStyles = getVariantStyles(cutIn.variant || 'gold');
+      {/* 背景 - 複数のカットインがある場合は1つだけ表示 */}
+      <AnimatePresence>
+        {cutIns.length > 0 && (
+          <motion.div
+            key="background"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+          />
+        )}
+      </AnimatePresence>
 
-          return (
-            <div key={cutIn.id} className="absolute inset-0">
-              {/* 背景 - フェードアニメーション */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-              />
+      {/* カットインコンテンツ - 複数表示可能 */}
+      <div className="absolute inset-0">
+        <AnimatePresence>
+          {cutIns.map((cutIn) => {
+            const variantStyles = getVariantStyles(cutIn.variant || 'gold');
+            const slideInVariants = getSlideInVariants(cutIn.delay || 0);
+            const verticalPos = cutIn.verticalPosition || '50%'; // デフォルトは中央
 
-              {/* カットインコンテンツ - スライドアニメーション */}
+            return (
               <motion.div
+                key={cutIn.id}
                 variants={slideInVariants}
                 initial="initial"
                 animate="animate"
                 exit="exit"
                 onAnimationComplete={() => {
-                  setTimeout(() => onComplete?.(cutIn.id), cutIn.duration || 1000);
+                  setTimeout(() => onComplete?.(cutIn.id), cutIn.duration || 500);
                 }}
-                className="absolute inset-0 flex items-center justify-center"
+                className="absolute w-full flex items-center justify-center"
+                style={{ top: verticalPos, transform: 'translateY(-50%)' }}
               >
                 <div className="relative w-full max-w-4xl">
                 {/* 上の帯 */}
@@ -111,10 +125,10 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
                 <div className={`h-4 ${variantStyles.band} transform skew-y-2 shadow-lg`} />
               </div>
               </motion.div>
-            </div>
-          );
-        })}
-      </AnimatePresence>
+            );
+          })}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

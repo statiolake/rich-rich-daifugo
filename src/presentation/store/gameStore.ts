@@ -25,6 +25,8 @@ export interface RuleCutInData {
   text: string;
   variant?: 'gold' | 'red' | 'blue' | 'green';
   duration?: number;
+  delay?: number; // アニメーション開始の遅延（ms）
+  verticalPosition?: string; // 縦位置（%）
 }
 
 interface GameStore {
@@ -34,7 +36,7 @@ interface GameStore {
   error: string | null;
   movingCards: MovingCard[];
   cutInQueue: RuleCutInData[];
-  activeCutIn: RuleCutInData | null;
+  activeCutIns: RuleCutInData[]; // 複数のカットインを同時表示
   cutInResolve: (() => void) | null;
 
   // Actions
@@ -65,7 +67,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   error: null,
   movingCards: [],
   cutInQueue: [],
-  activeCutIn: null,
+  activeCutIns: [],
   cutInResolve: null,
 
   startGame: (playerName = 'あなた') => {
@@ -103,7 +105,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
           id: `elevenback-${Date.now()}`,
           text: data.isElevenBack ? '11バック発動！' : '11バック解除',
           variant: 'gold',
-          duration: 1000
+          duration: 500
+        });
+      });
+
+      // 革命イベントリスナー
+      eventBus.on('revolution:triggered', (data) => {
+        get().enqueueCutIn({
+          id: `revolution-${Date.now()}`,
+          text: data.isRevolution ? '革命発生！' : '革命終了',
+          variant: 'red',
+          duration: 500
         });
       });
 
@@ -272,39 +284,69 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set((state) => ({
         cutInQueue: [...state.cutInQueue, { ...cutIn, resolve }]
       }));
-      get().processQueue();
+      // 次のイベントループでprocessQueueを実行（複数のenqueueCutInが同期的に呼ばれた場合にバッチ処理できるようにする）
+      setTimeout(() => get().processQueue(), 0);
     });
   },
 
   processQueue: () => {
-    const { cutInQueue, activeCutIn } = get();
-    if (!activeCutIn && cutInQueue.length > 0) {
-      const [next, ...rest] = cutInQueue;
+    const { cutInQueue, activeCutIns } = get();
+
+    // アクティブなカットインがない場合、キューから取り出して表示
+    if (activeCutIns.length === 0 && cutInQueue.length > 0) {
+      // 連続したカットインを全て取り出す（最大4つまで）
+      const batchSize = Math.min(cutInQueue.length, 4);
+      const batch = cutInQueue.slice(0, batchSize);
+      const rest = cutInQueue.slice(batchSize);
+
+      // 縦位置を計算する関数
+      const calculateVerticalPosition = (index: number, total: number): string => {
+        if (total === 1) {
+          return '50%'; // 中央
+        }
+        const spacing = 100 / (total + 1);
+        return `${spacing * (index + 1)}%`;
+      };
+
+      // 各カットインに遅延と縦位置を設定（100msずつずらす）
+      const cutInsWithDelay = batch.map((cutIn, index) => ({
+        ...cutIn,
+        delay: index * 100,
+        verticalPosition: calculateVerticalPosition(index, batchSize)
+      }));
+
       set({
-        activeCutIn: next,
+        activeCutIns: cutInsWithDelay,
         cutInQueue: rest,
-        cutInResolve: (next as any).resolve || null
+        cutInResolve: (batch[0] as any).resolve || null
       });
     }
   },
 
   removeCutIn: (id) => {
-    const { cutInResolve } = get();
-    if (cutInResolve) {
-      cutInResolve();
+    set((state) => ({
+      activeCutIns: state.activeCutIns.filter(c => c.id !== id)
+    }));
+
+    // 全てのカットインが消えたらresolveして次を処理
+    const { activeCutIns, cutInResolve } = get();
+    if (activeCutIns.length === 0) {
+      if (cutInResolve) {
+        cutInResolve();
+      }
+      set({ cutInResolve: null });
+      get().processQueue();
     }
-    set({ activeCutIn: null, cutInResolve: null });
-    get().processQueue();
   },
 
   waitForCutIn: async () => {
-    const { activeCutIn } = get();
-    if (!activeCutIn) return;
+    const { activeCutIns } = get();
+    if (activeCutIns.length === 0) return;
 
     return new Promise<void>((resolve) => {
       const checkInterval = setInterval(() => {
-        const { activeCutIn: current } = get();
-        if (!current) {
+        const { activeCutIns: current } = get();
+        if (current.length === 0) {
           clearInterval(checkInterval);
           resolve();
         }
@@ -324,7 +366,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       error: null,
       movingCards: [],
       cutInQueue: [],
-      activeCutIn: null,
+      activeCutIns: [],
       cutInResolve: null,
     });
   },
