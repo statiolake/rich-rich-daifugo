@@ -132,7 +132,9 @@ export class PlayPhase implements GamePhase {
 
     // 全イベント発火後に1回だけ待機
     if (triggeredRules && this.waitForCutInFn) {
+      console.log('[PlayPhase] Waiting for cut-in animations...');
       await this.waitForCutInFn();
+      console.log('[PlayPhase] Cut-in animations completed, resuming game...');
     }
 
     // カットイン完了後にソート（XORロジック反映）

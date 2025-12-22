@@ -326,13 +326,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   removeCutIn: (id) => {
+    console.log(`[removeCutIn] Removing cut-in: ${id}`);
     set((state) => ({
       activeCutIns: state.activeCutIns.filter(c => c.id !== id)
     }));
 
     // 全てのカットインが消えたらresolveして次を処理
     const { activeCutIns, cutInResolve } = get();
+    console.log(`[removeCutIn] Remaining activeCutIns: ${activeCutIns.length}`);
     if (activeCutIns.length === 0) {
+      console.log('[removeCutIn] All cut-ins removed, processing queue...');
       if (cutInResolve) {
         cutInResolve();
       }
@@ -342,15 +345,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   waitForCutIn: async () => {
-    const { activeCutIns } = get();
-    if (activeCutIns.length === 0) return;
+    const { activeCutIns, cutInQueue } = get();
+    // 表示中のカットインもキューも空なら即座に戻る
+    if (activeCutIns.length === 0 && cutInQueue.length === 0) return;
+
+    console.log('[waitForCutIn] Waiting for cut-ins to complete...');
 
     return new Promise<void>((resolve) => {
       const checkInterval = setInterval(() => {
-        const { activeCutIns: current } = get();
-        if (current.length === 0) {
+        const { activeCutIns: current, cutInQueue: queue } = get();
+        // 表示中のカットインとキューの両方が空になるまで待つ
+        if (current.length === 0 && queue.length === 0) {
+          console.log('[waitForCutIn] All cut-ins completed!');
           clearInterval(checkInterval);
           resolve();
+        } else {
+          console.log(`[waitForCutIn] Still waiting... activeCutIns: ${current.length}, queue: ${queue.length}`);
         }
       }, 100);
     });
