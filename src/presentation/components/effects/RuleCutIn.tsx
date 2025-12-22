@@ -88,17 +88,26 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
             return (
               <motion.div
                 key={cutIn.id}
-                variants={slideInVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                onAnimationComplete={() => {
-                  setTimeout(() => onComplete?.(cutIn.id), cutIn.duration || 500);
-                }}
                 className="absolute w-full flex items-center justify-center"
-                style={{ top: verticalPos, transform: 'translateY(-50%)' }}
+                style={{
+                  top: verticalPos,
+                  transform: 'translateY(-50%)'
+                }}
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 1 }}
               >
-                <div className="relative w-full max-w-4xl">
+                <motion.div
+                  variants={slideInVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  onAnimationComplete={() => {
+                    setTimeout(() => onComplete?.(cutIn.id), cutIn.duration || 500);
+                  }}
+                  className="w-full max-w-4xl"
+                >
+                <div className="relative w-full">
                 {/* 上の帯 */}
                 <div className={`h-4 ${variantStyles.band} transform -skew-y-2 shadow-lg`} />
 
@@ -124,6 +133,7 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
                 {/* 下の帯 */}
                 <div className={`h-4 ${variantStyles.band} transform skew-y-2 shadow-lg`} />
               </div>
+                </motion.div>
               </motion.div>
             );
           })}

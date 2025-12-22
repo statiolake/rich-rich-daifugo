@@ -305,7 +305,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
           return '50%'; // 中央
         }
         const spacing = 100 / (total + 1);
-        return `${spacing * (index + 1)}%`;
+        const position = `${spacing * (index + 1)}%`;
+        console.log(`Cut-in ${index + 1}/${total}: vertical position = ${position}`);
+        return position;
       };
 
       // 各カットインに遅延と縦位置を設定（100msずつずらす）
