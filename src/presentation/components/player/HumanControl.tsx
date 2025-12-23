@@ -5,6 +5,7 @@ import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerService';
 import { useMemo, useState } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
+import { PlayAnalyzer } from '../../../core/domain/card/Play';
 
 export const HumanControl: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
@@ -47,6 +48,30 @@ export const HumanControl: React.FC = () => {
   const canPass = ruleEngine.canPass(gameState.field).valid;
   // パスを目立たせるのは、合法手が一つもないときだけ
   const shouldHighlightPass = validCombinations.length === 0 && canPass;
+
+  // 選択中のカードから発動する効果を判定
+  const getEffects = (): string[] => {
+    if (!canPlaySelected || selectedCards.length === 0) return [];
+
+    const play = PlayAnalyzer.analyze(selectedCards);
+    if (!play) return [];
+
+    const effects: string[] = [];
+
+    // 革命判定
+    if (play.triggersRevolution) {
+      effects.push(gameState.isRevolution ? '革命終了' : '革命');
+    }
+
+    // イレブンバック判定
+    if (play.cards.some(card => card.rank === 'J')) {
+      effects.push(gameState.isElevenBack ? 'イレブンバック解除' : 'イレブンバック');
+    }
+
+    return effects;
+  };
+
+  const effects = getEffects();
 
   return (
     <div
@@ -91,12 +116,40 @@ export const HumanControl: React.FC = () => {
           >
             {/* 出すボタン：選択したカードが有効な場合のみ表示 */}
             {canPlaySelected && (
-              <button
-                onClick={() => playCards(selectedCards)}
-                className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
-              >
-                出す ({selectedCards.length}枚)
-              </button>
+              <div className="relative inline-block">
+                {/* 効果プレビュー吹き出し */}
+                <AnimatePresence>
+                  {effects.length > 0 && (
+                    <div className="absolute bottom-full left-1/2 mb-3" style={{ transform: 'translateX(-50%)' }}>
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                        className="relative"
+                      >
+                        {/* 吹き出し本体 */}
+                        <div className="bg-yellow-400 text-yellow-900 px-6 py-3 rounded-lg font-bold shadow-lg text-center whitespace-nowrap">
+                          {effects.map((effect, index) => (
+                            <div key={index}>{effect}</div>
+                          ))}
+                        </div>
+                        {/* 吹き出しの三角形 */}
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
+                          <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-yellow-400"></div>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+
+                <button
+                  onClick={() => playCards(selectedCards)}
+                  className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
+                >
+                  出す
+                </button>
+              </div>
             )}
 
             {/* パスボタン：パスができる場合のみ表示 */}
