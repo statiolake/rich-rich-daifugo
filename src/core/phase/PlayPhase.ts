@@ -300,6 +300,9 @@ export class PlayPhase implements GamePhase {
       console.log('場が流れました');
     }
 
+    // 場をクリアした場合は、手番を維持する（nextPlayerを呼ばない）
+    const shouldKeepTurn = shouldClearField;
+
     // 大革命の即勝利処理
     if (gameState.ruleSettings.greatRevolution && this.triggersGreatRevolution(play)) {
       // 残りの手札をすべて削除して即座に上がり
@@ -308,7 +311,10 @@ export class PlayPhase implements GamePhase {
         player.hand.remove([...remainingCards]);
       }
       this.handlePlayerFinish(gameState, player);
-      this.nextPlayer(gameState);
+      // 大革命で上がった場合は次のプレイヤーに進む
+      if (!shouldKeepTurn) {
+        this.nextPlayer(gameState);
+      }
       return;
     }
 
@@ -422,11 +428,14 @@ export class PlayPhase implements GamePhase {
       this.eventBus?.emit('fiveSkip:triggered', {});
     }
 
-    this.nextPlayer(gameState);
-
-    // 5スキップの場合は、さらにもう1人スキップ
-    if (shouldSkipNext) {
+    // 場をクリアした場合は手番を維持する（nextPlayerを呼ばない）
+    if (!shouldKeepTurn) {
       this.nextPlayer(gameState);
+
+      // 5スキップの場合は、さらにもう1人スキップ
+      if (shouldSkipNext) {
+        this.nextPlayer(gameState);
+      }
     }
   }
 
