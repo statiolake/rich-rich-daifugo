@@ -163,6 +163,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
+      // 数字しばりイベントリスナー
+      eventBus.on('numberLock:triggered', () => {
+        get().enqueueCutIn({
+          id: `numberlock-${Date.now()}`,
+          text: '数字しばり！',
+          variant: 'blue',
+          duration: 500
+        });
+      });
+
+      // 9リバースイベントリスナー
+      eventBus.on('nineReverse:triggered', (data: { isReversed: boolean }) => {
+        get().enqueueCutIn({
+          id: `ninereverse-${Date.now()}`,
+          text: data.isReversed ? '9リバース発動！' : '9リバース解除',
+          variant: 'green',
+          duration: 500
+        });
+      });
+
       // 救急車イベントリスナー
       eventBus.on('ambulance:triggered', () => {
         get().enqueueCutIn({

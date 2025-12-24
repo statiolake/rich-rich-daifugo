@@ -122,6 +122,11 @@ export const HumanControl: React.FC = () => {
       effects.push('5スキップ');
     }
 
+    // 9リバース判定
+    if (ruleSettings.nineReverse && play.cards.some(card => card.rank === '9')) {
+      effects.push('9リバース');
+    }
+
     // スぺ3返し判定
     const fieldPlay = gameState.field.getCurrentPlay();
     if (ruleSettings.spadeThreeReturn && play.type === 'SINGLE' && selectedCards.length === 1 &&

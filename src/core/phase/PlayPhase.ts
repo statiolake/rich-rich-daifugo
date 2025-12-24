@@ -28,6 +28,8 @@ export class PlayPhase implements GamePhase {
     gameState.isElevenBack = false; // 新しいラウンド開始時に11バックをリセット
     gameState.isEightCutPending = false; // 8切りフラグをリセット
     gameState.suitLock = null; // 縛りをリセット
+    gameState.numberLock = false; // 数字しばりをリセット
+    gameState.isReversed = false; // リバースをリセット
 
     // 初回ラウンドはランダムなプレイヤーから開始
     // 2回目以降は大富豪から開始（まだ実装していないので常にランダム）
@@ -117,6 +119,28 @@ export class PlayPhase implements GamePhase {
 
           // イベント発火
           this.eventBus?.emit('suitLock:triggered', { suit: prevSuit });
+        }
+      }
+    }
+
+    // 数字しばりチェック（ルール有効時のみ）
+    if (gameState.ruleSettings.numberLock) {
+      const history = gameState.field.getHistory();
+      if (history.length >= 2) {
+        const prevPlayHistory = history[history.length - 2];
+        const currentPlayHistory = history[history.length - 1];
+
+        // 両方のプレイが階段か確認
+        const prevIsStair = prevPlayHistory.play.type === PlayType.STAIR;
+        const currentIsStair = currentPlayHistory.play.type === PlayType.STAIR;
+
+        // 連続で階段が出されたら数字しばり発動
+        if (prevIsStair && currentIsStair && !gameState.numberLock) {
+          gameState.numberLock = true;
+          console.log('数字しばりが発動しました！');
+
+          // イベント発火
+          this.eventBus?.emit('numberLock:triggered', {});
         }
       }
     }
@@ -272,6 +296,7 @@ export class PlayPhase implements GamePhase {
       gameState.passCount = 0;
       gameState.isEightCutPending = false; // 場をクリアしたら8切りフラグもリセット
       gameState.suitLock = null; // 場をクリアしたら縛りもリセット
+      gameState.numberLock = false; // 場をクリアしたら数字しばりもリセット
       console.log('場が流れました');
     }
 
@@ -309,6 +334,16 @@ export class PlayPhase implements GamePhase {
       }
     }
 
+    // 9リバース判定
+    if (gameState.ruleSettings.nineReverse && this.triggersNineReverse(play)) {
+      gameState.isReversed = !gameState.isReversed;
+      console.log(`9リバースが発動しました！ isReversed: ${gameState.isReversed}`);
+      // イベント発火
+      this.eventBus?.emit('nineReverse:triggered', {
+        isReversed: gameState.isReversed
+      });
+    }
+
     // 5スキップ判定
     const shouldSkipNext = gameState.ruleSettings.fiveSkip && this.triggersFiveSkip(play);
     if (shouldSkipNext) {
@@ -338,6 +373,7 @@ export class PlayPhase implements GamePhase {
       gameState.passCount = 0;
       gameState.isEightCutPending = false; // 場が流れたら8切りフラグもリセット
       gameState.suitLock = null; // 場が流れたら縛りもリセット
+      gameState.numberLock = false; // 場が流れたら数字しばりもリセット
 
       // 11バックをリセット
       if (gameState.isElevenBack) {
@@ -466,13 +502,19 @@ export class PlayPhase implements GamePhase {
     return play.cards.some(card => card.rank === '5');
   }
 
+  private triggersNineReverse(play: Play): boolean {
+    // 9が含まれているかチェック
+    return play.cards.some(card => card.rank === '9');
+  }
+
   private nextPlayer(gameState: GameState): void {
     // 次のプレイヤーを見つける（上がっていないプレイヤー）
     let attempts = 0;
     const maxAttempts = gameState.players.length;
+    const direction = gameState.isReversed ? -1 : 1;
 
     do {
-      gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+      gameState.currentPlayerIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
       attempts++;
 
       if (attempts > maxAttempts) {

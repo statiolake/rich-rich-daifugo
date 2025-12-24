@@ -15,6 +15,7 @@ export interface RuleContext {
 
   // 縛り状態
   suitLock: string | null; // マークしばり
+  numberLock: boolean; // 数字しばり
 
   // ルール設定
   ruleSettings: RuleSettings;

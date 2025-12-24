@@ -18,6 +18,8 @@ export interface GameState {
   isOmenActive: boolean; // オーメン発動後、以降革命が起きない
   isEightCutPending: boolean; // 8切りが発動予定（4止めで止められる可能性がある）
   suitLock: string | null; // マークしばり（例: 'SPADE', 'HEART', 'DIAMOND', 'CLUB'）
+  numberLock: boolean; // 数字しばり（階段の縛り）
+  isReversed: boolean; // ターン順が逆転しているか（9リバース）
   passCount: number;
   round: number;
   phase: GamePhaseType;
@@ -34,6 +36,8 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     isOmenActive: false,
     isEightCutPending: false,
     suitLock: null,
+    numberLock: false,
+    isReversed: false,
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,

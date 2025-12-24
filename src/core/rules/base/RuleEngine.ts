@@ -33,6 +33,7 @@ export class RuleEngine {
       isElevenBack: gameState.isElevenBack,
       field: field,
       suitLock: gameState.suitLock,
+      numberLock: gameState.numberLock,
       ruleSettings: gameState.ruleSettings,
     };
 
@@ -49,6 +50,7 @@ export class RuleEngine {
       isElevenBack: false, // パスには関係ない
       field: field,
       suitLock: null, // パスには関係ない
+      numberLock: false, // パスには関係ない
       ruleSettings: DEFAULT_RULE_SETTINGS, // パスには関係ないがデフォルトを設定
     };
 
