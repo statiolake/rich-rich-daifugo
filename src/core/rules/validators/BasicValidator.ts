@@ -1,6 +1,6 @@
 import { Card } from '../../domain/card/Card';
 import { Player } from '../../domain/player/Player';
-import { PlayAnalyzer } from '../../domain/card/Play';
+import { PlayAnalyzer, PlayType } from '../../domain/card/Play';
 import { RuleContext } from '../context/RuleContext';
 
 /**
@@ -33,7 +33,7 @@ export class BasicValidator {
     }
 
     // 組み合わせチェック
-    return this.validateCombination(cards);
+    return this.validateCombination(cards, context);
   }
 
   /**
@@ -57,13 +57,21 @@ export class BasicValidator {
   /**
    * 組み合わせチェック：カードの組み合わせが有効な役か
    */
-  private validateCombination(cards: Card[]): ValidationResult {
+  private validateCombination(cards: Card[], context: RuleContext): ValidationResult {
     const play = PlayAnalyzer.analyze(cards);
 
     if (!play) {
       return {
         valid: false,
         reason: '無効なカードの組み合わせです',
+      };
+    }
+
+    // 階段ルールがOFFの場合、階段は出せない
+    if (!context.ruleSettings.stairs && play.type === PlayType.STAIR) {
+      return {
+        valid: false,
+        reason: '階段は現在使用できません',
       };
     }
 

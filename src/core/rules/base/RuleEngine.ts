@@ -5,6 +5,7 @@ import { GameState } from '../../domain/game/GameState';
 import { ValidationPipeline } from '../pipeline/ValidationPipeline';
 import { RuleContext } from '../context/RuleContext';
 import { ValidationResult } from '../validators/BasicValidator';
+import { DEFAULT_RULE_SETTINGS } from '../../domain/game/RuleSettings';
 
 /**
  * ルールエンジン
@@ -31,6 +32,7 @@ export class RuleEngine {
       isRevolution: gameState.isRevolution,
       isElevenBack: gameState.isElevenBack,
       field: field,
+      ruleSettings: gameState.ruleSettings,
     };
 
     return this.pipeline.validate(player, cards, context);
@@ -45,6 +47,7 @@ export class RuleEngine {
       isRevolution: false, // パスには関係ない
       isElevenBack: false, // パスには関係ない
       field: field,
+      ruleSettings: DEFAULT_RULE_SETTINGS, // パスには関係ないがデフォルトを設定
     };
 
     return this.pipeline.canPass(context);

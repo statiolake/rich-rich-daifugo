@@ -10,6 +10,7 @@ import { EventBus } from '../../application/services/EventBus';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
 import { RuleEngine } from '../../core/rules/base/RuleEngine';
 import { useCardPositionStore } from './cardPositionStore';
+import { useRuleSettingsStore } from './ruleSettingsStore';
 
 interface MovingCard {
   card: Card;
@@ -74,8 +75,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     try {
       const eventBus = new EventBus();
 
+      // ルール設定を取得
+      const ruleSettings = useRuleSettingsStore.getState().settings;
+
       // GameConfigFactory を使用してゲーム設定を生成
-      const config = GameConfigFactory.createStandardGame(4, 1, playerName);
+      const config = GameConfigFactory.createStandardGame(4, 1, playerName, ruleSettings);
 
       const engine = new GameEngine(config, eventBus);
 

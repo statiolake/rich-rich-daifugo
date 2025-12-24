@@ -1,0 +1,76 @@
+/**
+ * ローカルルール設定
+ * 各ルールのON/OFF状態を管理
+ */
+export interface RuleSettings {
+  // 場をクリアするルール
+  eightCut: boolean;           // 8切り
+  ambulance: boolean;          // 救急車（9x2）
+  rokurokubi: boolean;         // ろくろ首（6x2）
+
+  // 革命バリエーション
+  emperor: boolean;            // エンペラー（4種マーク連番）
+  coup: boolean;               // クーデター（9x3）
+  greatRevolution: boolean;    // 大革命（2x4で即勝利）
+  omen: boolean;               // オーメン（6x3で革命＋以後革命なし）
+
+  // 特殊勝利条件
+  forbiddenFinish: boolean;    // 禁止上がり（J/2/8/Jokerで上がれない）
+
+  // カード強度ルール
+  sandstorm: boolean;          // 砂嵐（3x3が何にでも勝つ）
+  spadeThreeReturn: boolean;   // スぺ3返し（スペードの3がJokerに勝つ）
+  stairs: boolean;             // 階段（同じマークの連番）
+
+  // フィールド効果
+  fourStop: boolean;           // 4止め（4x2で8切りを止める）
+  suitLock: boolean;           // マークしばり
+  numberLock: boolean;         // 数字しばり
+
+  // ターン操作
+  fiveSkip: boolean;           // 5スキップ
+  sevenPass: boolean;          // 7渡し
+  tenDiscard: boolean;         // 10捨て
+  nineReverse: boolean;        // 9リバース
+
+  // 特殊効果
+  queenBomber: boolean;        // クイーンボンバー
+  downNumber: boolean;         // ダウンナンバー
+
+  // ゲーム終了後のルール
+  cityFall: boolean;           // 都落ち
+  gekokujou: boolean;          // 下剋上
+  luckySeven: boolean;         // ラッキーセブン
+  catastrophe: boolean;        // 天変地異
+}
+
+/**
+ * デフォルトルール設定
+ * 全てのルールをONにする
+ */
+export const DEFAULT_RULE_SETTINGS: RuleSettings = {
+  eightCut: true,
+  ambulance: true,
+  rokurokubi: true,
+  emperor: true,
+  coup: true,
+  greatRevolution: true,
+  omen: true,
+  forbiddenFinish: true,
+  sandstorm: true,
+  spadeThreeReturn: true,
+  stairs: true,
+  fourStop: true,
+  suitLock: true,
+  numberLock: true,
+  fiveSkip: true,
+  sevenPass: true,
+  tenDiscard: true,
+  nineReverse: true,
+  queenBomber: true,
+  downNumber: true,
+  cityFall: true,
+  gekokujou: true,
+  luckySeven: true,
+  catastrophe: true,
+};

@@ -1,5 +1,6 @@
 import { Player } from '../player/Player';
 import { Field } from './Field';
+import { RuleSettings, DEFAULT_RULE_SETTINGS } from './RuleSettings';
 
 export enum GamePhaseType {
   SETUP = 'SETUP',
@@ -17,9 +18,10 @@ export interface GameState {
   passCount: number;
   round: number;
   phase: GamePhaseType;
+  ruleSettings: RuleSettings;
 }
 
-export function createGameState(players: Player[]): GameState {
+export function createGameState(players: Player[], ruleSettings: RuleSettings = DEFAULT_RULE_SETTINGS): GameState {
   return {
     players,
     currentPlayerIndex: 0,
@@ -29,5 +31,6 @@ export function createGameState(players: Player[]): GameState {
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,
+    ruleSettings,
   };
 }

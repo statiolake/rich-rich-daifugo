@@ -29,7 +29,7 @@ export class GameEngine {
       return createPlayer(pConfig.id, pConfig.name, pConfig.type);
     });
 
-    this.gameState = createGameState(players);
+    this.gameState = createGameState(players, config.ruleSettings);
 
     // RuleEngine を初期化
     this.ruleEngine = new RuleEngine();

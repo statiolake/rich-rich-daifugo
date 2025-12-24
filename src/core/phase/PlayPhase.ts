@@ -98,7 +98,7 @@ export class PlayPhase implements GamePhase {
     let triggeredRules = false;
 
     // 8切り判定（場をクリアする）
-    if (this.triggersEightCut(play)) {
+    if (gameState.ruleSettings.eightCut && this.triggersEightCut(play)) {
       console.log('8切りが発動しました！');
 
       // イベント発火
@@ -108,7 +108,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 救急車判定（9x2で場をクリア）
-    if (this.triggersAmbulance(play)) {
+    if (gameState.ruleSettings.ambulance && this.triggersAmbulance(play)) {
       console.log('救急車が発動しました！');
 
       // イベント発火
@@ -118,7 +118,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // ろくろ首判定（6x2で場をクリア）
-    if (this.triggersRokurokubi(play)) {
+    if (gameState.ruleSettings.rokurokubi && this.triggersRokurokubi(play)) {
       console.log('ろくろ首が発動しました！');
 
       // イベント発火
@@ -141,7 +141,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // エンペラー判定（4種マーク連番で革命）
-    if (this.triggersEmperor(play)) {
+    if (gameState.ruleSettings.emperor && this.triggersEmperor(play)) {
       gameState.isRevolution = !gameState.isRevolution;
       console.log(`エンペラーが発動しました！ isRevolution: ${gameState.isRevolution}`);
 
@@ -154,7 +154,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // クーデター判定（9x3で革命）
-    if (this.triggersCoup(play)) {
+    if (gameState.ruleSettings.coup && this.triggersCoup(play)) {
       gameState.isRevolution = !gameState.isRevolution;
       console.log(`クーデターが発動しました！ isRevolution: ${gameState.isRevolution}`);
 
@@ -167,7 +167,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 大革命判定（2x4で革命 + 即勝利）
-    if (this.triggersGreatRevolution(play)) {
+    if (gameState.ruleSettings.greatRevolution && this.triggersGreatRevolution(play)) {
       gameState.isRevolution = !gameState.isRevolution;
       console.log(`大革命が発動しました！ isRevolution: ${gameState.isRevolution}`);
 
@@ -207,14 +207,19 @@ export class PlayPhase implements GamePhase {
     }
 
     // 8切り・救急車・ろくろ首の場合、場をクリア
-    if (this.triggersEightCut(play) || this.triggersAmbulance(play) || this.triggersRokurokubi(play)) {
+    const shouldClearField =
+      (gameState.ruleSettings.eightCut && this.triggersEightCut(play)) ||
+      (gameState.ruleSettings.ambulance && this.triggersAmbulance(play)) ||
+      (gameState.ruleSettings.rokurokubi && this.triggersRokurokubi(play));
+
+    if (shouldClearField) {
       gameState.field.clear();
       gameState.passCount = 0;
       console.log('場が流れました');
     }
 
     // 大革命の即勝利処理
-    if (this.triggersGreatRevolution(play)) {
+    if (gameState.ruleSettings.greatRevolution && this.triggersGreatRevolution(play)) {
       // 残りの手札をすべて削除して即座に上がり
       const remainingCards = player.hand.getCards();
       if (remainingCards.length > 0) {
@@ -231,7 +236,7 @@ export class PlayPhase implements GamePhase {
       const forbiddenRanks = ['J', '2', '8', 'JOKER'];
       const hasForbiddenCard = cards.some(card => forbiddenRanks.includes(card.rank));
 
-      if (hasForbiddenCard) {
+      if (gameState.ruleSettings.forbiddenFinish && hasForbiddenCard) {
         console.log(`${player.name} は禁止カードで上がることはできません`);
         // カードを手札に戻す
         player.hand.add(cards);

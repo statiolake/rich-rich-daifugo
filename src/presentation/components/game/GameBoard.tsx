@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { PlayerArea } from '../player/PlayerArea';
 import { HumanControl } from '../player/HumanControl';
@@ -5,8 +6,10 @@ import { UnifiedCardLayer } from './UnifiedCardLayer';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { getRankName } from '../../../core/domain/player/PlayerRank';
 import { RuleCutIn } from '../effects/RuleCutIn';
+import { RuleSettingsPanel } from '../settings/RuleSettingsPanel';
 
 export const GameBoard: React.FC = () => {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const gameState = useGameStore(state => state.gameState);
   const startGame = useGameStore(state => state.startGame);
   const reset = useGameStore(state => state.reset);
@@ -15,18 +18,34 @@ export const GameBoard: React.FC = () => {
 
   if (!gameState) {
     return (
-      <div className="w-full h-screen bg-gradient-to-br from-green-800 to-green-600 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-6xl font-bold text-white mb-8">大富豪</h1>
-          <p className="text-xl text-white/80 mb-8">Rich Rich Daifugo</p>
-          <button
-            onClick={() => startGame()}
-            className="px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-lg shadow-lg transition-colors"
-          >
-            ゲーム開始
-          </button>
+      <>
+        <div className="w-full h-screen bg-gradient-to-br from-green-800 to-green-600 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-6xl font-bold text-white mb-8">大富豪</h1>
+            <p className="text-xl text-white/80 mb-8">Rich Rich Daifugo</p>
+            <div className="flex flex-col gap-4">
+              <button
+                onClick={() => startGame()}
+                className="px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-lg shadow-lg transition-colors"
+              >
+                ゲーム開始
+              </button>
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="px-8 py-4 bg-blue-500 hover:bg-blue-600 text-white text-xl font-bold rounded-lg shadow-lg transition-colors"
+              >
+                ルールスイッチ
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+
+        {/* ルール設定パネル */}
+        <RuleSettingsPanel
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      </>
     );
   }
 

@@ -2,6 +2,7 @@ import { GameConfig } from './GameConfig';
 import { PlayerType } from '../domain/player/Player';
 import { HumanStrategy } from '../strategy/HumanStrategy';
 import { RandomCPUStrategy } from '../strategy/RandomCPUStrategy';
+import { RuleSettings, DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
 
 export class GameConfigFactory {
   /**
@@ -9,11 +10,13 @@ export class GameConfigFactory {
    * @param playerCount 総プレイヤー数（2-5人）
    * @param humanPlayerCount 人間プレイヤー数（0-playerCount）
    * @param playerName 最初の人間プレイヤーの名前
+   * @param ruleSettings ルール設定（省略時はデフォルト）
    */
   static createStandardGame(
     playerCount: number = 4,
     humanPlayerCount: number = 1,
-    playerName: string = 'あなた'
+    playerName: string = 'あなた',
+    ruleSettings: RuleSettings = DEFAULT_RULE_SETTINGS
   ): GameConfig {
     const playerConfigs = [];
 
@@ -39,6 +42,7 @@ export class GameConfigFactory {
 
     return {
       players: playerConfigs,
+      ruleSettings: { ...ruleSettings },
     };
   }
 

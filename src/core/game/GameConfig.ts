@@ -1,5 +1,6 @@
 import { PlayerType } from '../domain/player/Player';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
+import { RuleSettings, DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
 
 export interface PlayerConfig {
   id: string;
@@ -10,10 +11,12 @@ export interface PlayerConfig {
 
 export interface GameConfig {
   players: PlayerConfig[];
+  ruleSettings: RuleSettings;
 }
 
 export function createDefaultConfig(): GameConfig {
   return {
     players: [],
+    ruleSettings: { ...DEFAULT_RULE_SETTINGS },
   };
 }

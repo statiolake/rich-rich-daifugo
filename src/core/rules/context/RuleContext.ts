@@ -1,4 +1,5 @@
 import { Field } from '../../domain/game/Field';
+import { RuleSettings } from '../../domain/game/RuleSettings';
 
 /**
  * ルールコンテキスト
@@ -11,4 +12,7 @@ export interface RuleContext {
 
   // 場の状態
   field: Field;
+
+  // ルール設定
+  ruleSettings: RuleSettings;
 }
