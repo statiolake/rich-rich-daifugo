@@ -334,6 +334,76 @@ export class PlayPhase implements GamePhase {
       }
     }
 
+    // 7渡し判定（手札から1枚ランダムに次のプレイヤーに渡す）
+    if (gameState.ruleSettings.sevenPass && this.triggersSevenPass(play) && !player.hand.isEmpty()) {
+      const remainingCards = player.hand.getCards();
+      if (remainingCards.length > 0) {
+        // ランダムに1枚選ぶ
+        const randomCard = remainingCards[Math.floor(Math.random() * remainingCards.length)];
+        player.hand.remove([randomCard]);
+
+        // 次のプレイヤーに渡す（一時的に次のプレイヤーを取得）
+        const direction = gameState.isReversed ? -1 : 1;
+        const nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+        let nextPlayer = gameState.players[nextIndex];
+
+        // 上がっていないプレイヤーを探す
+        let searchIndex = nextIndex;
+        let attempts = 0;
+        while (nextPlayer.isFinished && attempts < gameState.players.length) {
+          searchIndex = (searchIndex + direction + gameState.players.length) % gameState.players.length;
+          nextPlayer = gameState.players[searchIndex];
+          attempts++;
+        }
+
+        if (!nextPlayer.isFinished) {
+          nextPlayer.hand.add([randomCard]);
+          console.log(`7渡し発動！${player.name}が${nextPlayer.name}に${randomCard.rank}${randomCard.suit}を渡しました`);
+
+          // イベント発火
+          this.eventBus?.emit('sevenPass:triggered', {
+            fromPlayer: player.name,
+            toPlayer: nextPlayer.name
+          });
+        }
+      }
+    }
+
+    // 10捨て判定（手札から1枚ランダムに捨てる）
+    if (gameState.ruleSettings.tenDiscard && this.triggersTenDiscard(play) && !player.hand.isEmpty()) {
+      const remainingCards = player.hand.getCards();
+      if (remainingCards.length > 0) {
+        // ランダムに1枚選ぶ
+        const randomCard = remainingCards[Math.floor(Math.random() * remainingCards.length)];
+        player.hand.remove([randomCard]);
+        console.log(`10捨て発動！${player.name}が${randomCard.rank}${randomCard.suit}を捨てました`);
+
+        // イベント発火
+        this.eventBus?.emit('tenDiscard:triggered', {
+          player: player.name
+        });
+      }
+    }
+
+    // クイーンボンバー判定（全員が手札から1枚ランダムに捨てる）
+    if (gameState.ruleSettings.queenBomber && this.triggersQueenBomber(play)) {
+      console.log('クイーンボンバー発動！全員が1枚捨てます');
+
+      gameState.players.forEach(p => {
+        if (!p.isFinished && !p.hand.isEmpty()) {
+          const cards = p.hand.getCards();
+          if (cards.length > 0) {
+            const randomCard = cards[Math.floor(Math.random() * cards.length)];
+            p.hand.remove([randomCard]);
+            console.log(`${p.name}が${randomCard.rank}${randomCard.suit}を捨てました`);
+          }
+        }
+      });
+
+      // イベント発火
+      this.eventBus?.emit('queenBomber:triggered', {});
+    }
+
     // 9リバース判定
     if (gameState.ruleSettings.nineReverse && this.triggersNineReverse(play)) {
       gameState.isReversed = !gameState.isReversed;
@@ -505,6 +575,21 @@ export class PlayPhase implements GamePhase {
   private triggersNineReverse(play: Play): boolean {
     // 9が含まれているかチェック
     return play.cards.some(card => card.rank === '9');
+  }
+
+  private triggersSevenPass(play: Play): boolean {
+    // 7が含まれているかチェック
+    return play.cards.some(card => card.rank === '7');
+  }
+
+  private triggersTenDiscard(play: Play): boolean {
+    // 10が含まれているかチェック
+    return play.cards.some(card => card.rank === '10');
+  }
+
+  private triggersQueenBomber(play: Play): boolean {
+    // Qが含まれているかチェック
+    return play.cards.some(card => card.rank === 'Q');
   }
 
   private nextPlayer(gameState: GameState): void {

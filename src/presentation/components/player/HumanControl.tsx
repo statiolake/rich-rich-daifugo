@@ -122,9 +122,24 @@ export const HumanControl: React.FC = () => {
       effects.push('5スキップ');
     }
 
+    // 7渡し判定
+    if (ruleSettings.sevenPass && play.cards.some(card => card.rank === '7')) {
+      effects.push('7渡し');
+    }
+
     // 9リバース判定
     if (ruleSettings.nineReverse && play.cards.some(card => card.rank === '9')) {
       effects.push('9リバース');
+    }
+
+    // 10捨て判定
+    if (ruleSettings.tenDiscard && play.cards.some(card => card.rank === '10')) {
+      effects.push('10捨て');
+    }
+
+    // クイーンボンバー判定
+    if (ruleSettings.queenBomber && play.cards.some(card => card.rank === 'Q')) {
+      effects.push('クイーンボンバー');
     }
 
     // スぺ3返し判定

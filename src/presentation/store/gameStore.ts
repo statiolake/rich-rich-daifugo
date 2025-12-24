@@ -183,6 +183,36 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
+      // 7渡しイベントリスナー
+      eventBus.on('sevenPass:triggered', (data: { fromPlayer: string; toPlayer: string }) => {
+        get().enqueueCutIn({
+          id: `sevenpass-${Date.now()}`,
+          text: '7渡し！',
+          variant: 'blue',
+          duration: 500
+        });
+      });
+
+      // 10捨てイベントリスナー
+      eventBus.on('tenDiscard:triggered', (data: { player: string }) => {
+        get().enqueueCutIn({
+          id: `tendiscard-${Date.now()}`,
+          text: '10捨て！',
+          variant: 'red',
+          duration: 500
+        });
+      });
+
+      // クイーンボンバーイベントリスナー
+      eventBus.on('queenBomber:triggered', () => {
+        get().enqueueCutIn({
+          id: `queenbomber-${Date.now()}`,
+          text: 'クイーンボンバー！',
+          variant: 'red',
+          duration: 500
+        });
+      });
+
       // 救急車イベントリスナー
       eventBus.on('ambulance:triggered', () => {
         get().enqueueCutIn({
