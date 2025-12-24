@@ -27,16 +27,9 @@ export class PlayPhase implements GamePhase {
     gameState.passCount = 0;
     gameState.isElevenBack = false; // 新しいラウンド開始時に11バックをリセット
 
-    // 【デバッグ用】人間プレイヤーを必ず先行にする
-    const humanPlayerIndex = gameState.players.findIndex(p => p.type === PlayerType.HUMAN);
-    if (humanPlayerIndex !== -1) {
-      gameState.currentPlayerIndex = humanPlayerIndex;
-      console.log('デバッグ: 人間プレイヤーを先行にしました');
-    } else {
-      // 初回ラウンドはランダムなプレイヤーから開始
-      // 2回目以降は大富豪から開始（まだ実装していないので常にランダム）
-      gameState.currentPlayerIndex = Math.floor(Math.random() * gameState.players.length);
-    }
+    // 初回ラウンドはランダムなプレイヤーから開始
+    // 2回目以降は大富豪から開始（まだ実装していないので常にランダム）
+    gameState.currentPlayerIndex = Math.floor(Math.random() * gameState.players.length);
 
     console.log(`Play phase started. Starting player: ${gameState.players[gameState.currentPlayerIndex].name}`);
   }
