@@ -57,6 +57,7 @@ export const HumanControl: React.FC = () => {
     if (!play) return [];
 
     const effects: string[] = [];
+    const ruleSettings = gameState.ruleSettings;
 
     // 革命判定
     if (play.triggersRevolution) {
@@ -69,22 +70,22 @@ export const HumanControl: React.FC = () => {
     }
 
     // 8切り判定
-    if (play.cards.some(card => card.rank === '8')) {
+    if (ruleSettings.eightCut && play.cards.some(card => card.rank === '8')) {
       effects.push('8切り');
     }
 
     // 救急車判定（9x2）
-    if (play.type === 'PAIR' && play.cards.every(card => card.rank === '9')) {
+    if (ruleSettings.ambulance && play.type === 'PAIR' && play.cards.every(card => card.rank === '9')) {
       effects.push('救急車');
     }
 
     // ろくろ首判定（6x2）
-    if (play.type === 'PAIR' && play.cards.every(card => card.rank === '6')) {
+    if (ruleSettings.rokurokubi && play.type === 'PAIR' && play.cards.every(card => card.rank === '6')) {
       effects.push('ろくろ首');
     }
 
     // エンペラー判定（4種マーク連番）
-    if (play.type === 'STAIR' && play.cards.length === 4) {
+    if (ruleSettings.emperor && play.type === 'STAIR' && play.cards.length === 4) {
       const suits = new Set(play.cards.map(card => card.suit));
       if (suits.size === 4) {
         effects.push(gameState.isRevolution ? 'エンペラー終了' : 'エンペラー');
@@ -92,23 +93,23 @@ export const HumanControl: React.FC = () => {
     }
 
     // クーデター判定（9x3）
-    if (play.type === 'TRIPLE' && play.cards.every(card => card.rank === '9')) {
+    if (ruleSettings.coup && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '9')) {
       effects.push(gameState.isRevolution ? 'クーデター終了' : 'クーデター');
     }
 
     // 大革命判定（2x4）
-    if (play.type === 'QUAD' && play.cards.every(card => card.rank === '2')) {
+    if (ruleSettings.greatRevolution && play.type === 'QUAD' && play.cards.every(card => card.rank === '2')) {
       effects.push('大革命＋即勝利');
     }
 
     // 砂嵐判定（3x3）
-    if (play.type === 'TRIPLE' && play.cards.every(card => card.rank === '3')) {
+    if (ruleSettings.sandstorm && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '3')) {
       effects.push('砂嵐');
     }
 
     // スぺ3返し判定
     const fieldPlay = gameState.field.getCurrentPlay();
-    if (play.type === 'SINGLE' && selectedCards.length === 1 &&
+    if (ruleSettings.spadeThreeReturn && play.type === 'SINGLE' && selectedCards.length === 1 &&
         selectedCards[0].rank === '3' && selectedCards[0].suit === 'SPADE' &&
         fieldPlay && fieldPlay.cards.length === 1 && fieldPlay.cards[0].rank === 'JOKER') {
       effects.push('スぺ3返し');
@@ -119,7 +120,7 @@ export const HumanControl: React.FC = () => {
     if (remainingCards === 0) {
       const forbiddenRanks = ['J', '2', '8', 'JOKER'];
       const hasForbiddenCard = selectedCards.some(card => forbiddenRanks.includes(card.rank));
-      if (hasForbiddenCard) {
+      if (ruleSettings.forbiddenFinish && hasForbiddenCard) {
         effects.push('⚠️禁止上がり');
       }
     }
