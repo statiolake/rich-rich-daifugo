@@ -64,7 +64,11 @@ export const HumanControl: React.FC = () => {
       case 'tenDiscard':
         return '10捨て：捨てるカードを1枚選んでください';
       case 'queenBomber':
-        return 'クイーンボンバー：捨てるカードを1枚選んでください';
+        // Qボンバーの場合、現在のプレイヤー名を表示
+        if (humanPlayer.hand.isEmpty()) {
+          return `クイーンボンバー：${humanPlayer.name}の手札がないのでスキップします`;
+        }
+        return `クイーンボンバー：${humanPlayer.name}が捨てるカードを1枚選んでください`;
       default:
         return 'カードを選んでください';
     }
@@ -233,12 +237,13 @@ export const HumanControl: React.FC = () => {
             </div>
 
             {/* 確定ボタン */}
-            {selectedCards.length === cardSelectionRequest?.count && (
+            {(selectedCards.length === cardSelectionRequest?.count ||
+              (humanPlayer.hand.isEmpty() && cardSelectionRequest?.reason === 'queenBomber')) && (
               <button
                 onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
                 className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
               >
-                決定
+                {humanPlayer.hand.isEmpty() ? 'スキップ' : '決定'}
               </button>
             )}
           </motion.div>

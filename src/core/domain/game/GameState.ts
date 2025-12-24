@@ -16,6 +16,7 @@ export interface CardSelectionRequest {
   reason: CardSelectionReason; // 選択理由
   count: number; // 選択する枚数
   targetPlayerId?: string; // 7渡しの場合の渡し先
+  startPlayerId?: string; // クイーンボンバーの開始プレイヤーID（一周検出用）
 }
 
 export interface GameState {

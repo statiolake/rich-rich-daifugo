@@ -392,14 +392,20 @@ export class PlayPhase implements GamePhase {
     if (gameState.ruleSettings.queenBomber && this.triggersQueenBomber(play)) {
       console.log('クイーンボンバー発動！全員が1枚捨てます');
 
-      // 最初の未完了プレイヤーにカード選択リクエストを設定
-      const firstPlayerWithCards = gameState.players.find(p => !p.isFinished && !p.hand.isEmpty());
-      if (firstPlayerWithCards) {
-        gameState.cardSelectionRequest = {
-          playerId: firstPlayerWithCards.id.value,
-          reason: 'queenBomber',
-          count: 1,
-        };
+      // 未完了プレイヤーで手札があるプレイヤーがいるかチェック
+      const playersWithCards = gameState.players.filter(p => !p.isFinished && !p.hand.isEmpty());
+
+      if (playersWithCards.length > 0) {
+        // 最初の未完了プレイヤーにカード選択リクエストを設定
+        const firstPlayer = gameState.players.find(p => !p.isFinished);
+        if (firstPlayer) {
+          gameState.cardSelectionRequest = {
+            playerId: firstPlayer.id.value,
+            reason: 'queenBomber',
+            count: 1,
+            startPlayerId: firstPlayer.id.value, // 一周検出用
+          };
+        }
       }
 
       // イベント発火
@@ -618,13 +624,19 @@ export class PlayPhase implements GamePhase {
 
     // カードが手札にあるか確認
     const playerCards = player.hand.getCards();
-    const allCardsValid = selectedCards.every(card =>
-      playerCards.some(c => c.suit === card.suit && c.rank === card.rank)
-    );
 
-    if (!allCardsValid || selectedCards.length !== request.count) {
-      console.error('Invalid card selection');
-      return;
+    // 手札が空の場合は空配列でOK（クイーンボンバーでスキップする場合）
+    if (playerCards.length === 0 && selectedCards.length === 0 && request.reason === 'queenBomber') {
+      // スキップとして処理
+    } else {
+      const allCardsValid = selectedCards.every(card =>
+        playerCards.some(c => c.suit === card.suit && c.rank === card.rank)
+      );
+
+      if (!allCardsValid || selectedCards.length !== request.count) {
+        console.error('Invalid card selection');
+        return;
+      }
     }
 
     // 選択理由に応じて処理
@@ -649,22 +661,35 @@ export class PlayPhase implements GamePhase {
 
       case 'queenBomber':
         // クイーンボンバー：カードを捨てて、次のプレイヤーへ
-        player.hand.remove(selectedCards);
-        console.log(`クイーンボンバー：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
+        if (selectedCards.length > 0) {
+          player.hand.remove(selectedCards);
+          console.log(`クイーンボンバー：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
+        } else {
+          console.log(`クイーンボンバー：${player.name}は手札がないのでスキップ`);
+        }
 
         // 次の未完了プレイヤーを探す
         const currentIndex = gameState.players.findIndex(p => p.id.value === playerId);
         let nextIndex = (currentIndex + 1) % gameState.players.length;
         let attempts = 0;
+        const startPlayerId = request.startPlayerId;
 
         while (attempts < gameState.players.length) {
           const nextPlayer = gameState.players[nextIndex];
-          if (!nextPlayer.isFinished && !nextPlayer.hand.isEmpty()) {
-            // 次のプレイヤーにリクエスト
+
+          // 開始プレイヤーに戻ってきたら終了
+          if (startPlayerId && nextPlayer.id.value === startPlayerId) {
+            gameState.cardSelectionRequest = null;
+            return;
+          }
+
+          if (!nextPlayer.isFinished) {
+            // 手札がなくてもリクエストを送る（UIやCPU側で空の場合の処理を行う）
             gameState.cardSelectionRequest = {
               playerId: nextPlayer.id.value,
               reason: 'queenBomber',
               count: 1,
+              startPlayerId: startPlayerId, // 開始プレイヤーを引き継ぐ
             };
             return; // まだ選択が必要なので、ここで終了
           }
