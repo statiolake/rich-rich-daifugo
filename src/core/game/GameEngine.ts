@@ -8,6 +8,7 @@ import { PlayerStrategy } from '../strategy/PlayerStrategy';
 import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { createPlayer } from '../domain/player/Player';
+import { Card } from '../domain/card/Card';
 
 export class GameEngine {
   private gameState: GameState;
@@ -144,6 +145,17 @@ export class GameEngine {
 
   isGameRunning(): boolean {
     return this.isRunning;
+  }
+
+  /**
+   * カード選択を処理する（7渡し、10捨て、クイーンボンバー用）
+   */
+  handleCardSelection(playerId: string, selectedCards: Card[]): void {
+    const playPhase = this.phases.get(GamePhaseType.PLAY) as PlayPhase;
+    if (playPhase && this.gameState.phase === GamePhaseType.PLAY) {
+      playPhase.handleCardSelection(this.gameState, playerId, selectedCards);
+      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
+    }
   }
 
   private async waitForFrame(): Promise<void> {

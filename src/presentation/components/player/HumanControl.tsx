@@ -14,6 +14,7 @@ export const HumanControl: React.FC = () => {
   const playCards = useGameStore(state => state.playCards);
   const pass = useGameStore(state => state.pass);
   const clearError = useGameStore(state => state.clearError);
+  const submitCardSelection = useGameStore(state => state.submitCardSelection);
 
   // ウィンドウ高さを state で管理（リサイズ対応）
   const [screenHeight, setScreenHeight] = useState(window.innerHeight);
@@ -41,6 +42,10 @@ export const HumanControl: React.FC = () => {
 
   const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
 
+  // カード選択リクエストがあるか確認
+  const cardSelectionRequest = gameState.cardSelectionRequest;
+  const needsCardSelection = cardSelectionRequest && cardSelectionRequest.playerId === humanPlayer.id.value;
+
   // RuleEngine で出せるかを判定
   const ruleEngine = getRuleEngine();
   const canPlaySelected = selectedCards.length > 0 &&
@@ -48,6 +53,22 @@ export const HumanControl: React.FC = () => {
   const canPass = ruleEngine.canPass(gameState.field).valid;
   // パスを目立たせるのは、合法手が一つもないときだけ
   const shouldHighlightPass = validCombinations.length === 0 && canPass;
+
+  // カード選択の説明テキスト
+  const getSelectionDescription = () => {
+    if (!cardSelectionRequest) return '';
+    switch (cardSelectionRequest.reason) {
+      case 'sevenPass':
+        const targetPlayer = gameState.players.find(p => p.id.value === cardSelectionRequest.targetPlayerId);
+        return `7渡し：${targetPlayer?.name}に渡すカードを1枚選んでください`;
+      case 'tenDiscard':
+        return '10捨て：捨てるカードを1枚選んでください';
+      case 'queenBomber':
+        return 'クイーンボンバー：捨てるカードを1枚選んでください';
+      default:
+        return 'カードを選んでください';
+    }
+  };
 
   // 選択中のカードから発動する効果を判定
   const getEffects = (): string[] => {
@@ -197,7 +218,31 @@ export const HumanControl: React.FC = () => {
 
       {/* 操作ボタン */}
       <AnimatePresence mode="wait">
-        {isHumanTurn ? (
+        {needsCardSelection ? (
+          <motion.div
+            key="card-selection"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="flex flex-col items-center gap-4 pointer-events-auto"
+          >
+            {/* 説明テキスト */}
+            <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
+              {getSelectionDescription()}
+            </div>
+
+            {/* 確定ボタン */}
+            {selectedCards.length === cardSelectionRequest?.count && (
+              <button
+                onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
+                className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+              >
+                決定
+              </button>
+            )}
+          </motion.div>
+        ) : isHumanTurn ? (
           <motion.div
             key="buttons"
             initial={{ opacity: 0, y: 20 }}

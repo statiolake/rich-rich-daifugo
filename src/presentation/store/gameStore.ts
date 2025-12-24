@@ -55,6 +55,7 @@ interface GameStore {
   removeCutIn: (id: string) => void;
   processQueue: () => void;
   waitForCutIn: () => Promise<void>;
+  submitCardSelection: (playerId: string, cards: Card[]) => void; // カード選択を送信
 
   // Computed values
   getValidCombinations: () => Card[][];
@@ -431,6 +432,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       throw new Error('Game engine not initialized');
     }
     return engine.getRuleEngine();
+  },
+
+  submitCardSelection: (playerId: string, cards: Card[]) => {
+    const { engine } = get();
+    if (!engine) {
+      console.error('Game engine not initialized');
+      return;
+    }
+
+    try {
+      engine.handleCardSelection(playerId, cards);
+      set({ selectedCards: [] }); // 選択をクリア
+    } catch (error) {
+      console.error('Card selection error:', error);
+      set({ error: error instanceof Error ? error.message : 'カード選択に失敗しました' });
+    }
   },
 
   enqueueCutIn: (cutIn) => {

@@ -499,7 +499,7 @@ describe('Card Effects Tests', () => {
       const playPhase = new PlayPhase(new Map(), ruleEngine, eventBus);
 
       // 手札をクリアしてJのみにする
-      humanPlayer.hand.remove(humanPlayer.hand.getCards());
+      humanPlayer.hand.remove([...humanPlayer.hand.getCards()]);
       const cardJ = CardFactory.create(Suit.SPADE, 'J');
       humanPlayer.hand.add([cardJ]);
 
@@ -528,7 +528,7 @@ describe('Card Effects Tests', () => {
       const playPhase = new PlayPhase(new Map(), ruleEngine, eventBus);
 
       // 手札をクリアして2を4枚だけにする
-      humanPlayer.hand.remove(humanPlayer.hand.getCards());
+      humanPlayer.hand.remove([...humanPlayer.hand.getCards()]);
       const card2_1 = CardFactory.create(Suit.SPADE, '2');
       const card2_2 = CardFactory.create(Suit.HEART, '2');
       const card2_3 = CardFactory.create(Suit.DIAMOND, '2');

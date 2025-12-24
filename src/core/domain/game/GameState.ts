@@ -9,6 +9,15 @@ export enum GamePhaseType {
   RESULT = 'RESULT',
 }
 
+export type CardSelectionReason = 'sevenPass' | 'tenDiscard' | 'queenBomber';
+
+export interface CardSelectionRequest {
+  playerId: string; // 選択するプレイヤーのID
+  reason: CardSelectionReason; // 選択理由
+  count: number; // 選択する枚数
+  targetPlayerId?: string; // 7渡しの場合の渡し先
+}
+
 export interface GameState {
   players: Player[];
   currentPlayerIndex: number;
@@ -24,6 +33,7 @@ export interface GameState {
   round: number;
   phase: GamePhaseType;
   ruleSettings: RuleSettings;
+  cardSelectionRequest: CardSelectionRequest | null; // カード選択リクエスト
 }
 
 export function createGameState(players: Player[], ruleSettings: RuleSettings = DEFAULT_RULE_SETTINGS): GameState {
@@ -42,5 +52,6 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     round: 1,
     phase: GamePhaseType.SETUP,
     ruleSettings,
+    cardSelectionRequest: null,
   };
 }

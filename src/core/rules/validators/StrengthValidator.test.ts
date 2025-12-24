@@ -33,7 +33,7 @@ describe('StrengthValidator - XOR Logic', () => {
     it('4 の上に 3 を出せない', () => {
       const field = new Field();
       const card4 = CardFactory.create(Suit.SPADE, '4');
-      const card3 = CardFactory.create(Suit.SPADE, '3');
+      const card3 = CardFactory.create(Suit.HEART, '3'); // 異なるスートにしてダウンナンバーを避ける
 
       // 場に4を出す
       const play4 = PlayAnalyzer.analyze([card4])!;
@@ -141,7 +141,7 @@ describe('StrengthValidator - XOR Logic', () => {
     it('4 の上に 3 を出せない (通常と同じ)', () => {
       const field = new Field();
       const card4 = CardFactory.create(Suit.SPADE, '4');
-      const card3 = CardFactory.create(Suit.SPADE, '3');
+      const card3 = CardFactory.create(Suit.HEART, '3'); // 異なるスートにしてダウンナンバーを避ける
 
       // 場に4を出す
       const play4 = PlayAnalyzer.analyze([card4])!;

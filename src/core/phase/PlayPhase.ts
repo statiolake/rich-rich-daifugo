@@ -340,71 +340,67 @@ export class PlayPhase implements GamePhase {
       }
     }
 
-    // 7渡し判定（手札から1枚ランダムに次のプレイヤーに渡す）
+    // 7渡し判定（手札から1枚を次のプレイヤーに渡す）
     if (gameState.ruleSettings.sevenPass && this.triggersSevenPass(play) && !player.hand.isEmpty()) {
-      const remainingCards = player.hand.getCards();
-      if (remainingCards.length > 0) {
-        // ランダムに1枚選ぶ
-        const randomCard = remainingCards[Math.floor(Math.random() * remainingCards.length)];
-        player.hand.remove([randomCard]);
+      // 次のプレイヤーを探す
+      const direction = gameState.isReversed ? -1 : 1;
+      const nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+      let nextPlayer = gameState.players[nextIndex];
 
-        // 次のプレイヤーに渡す（一時的に次のプレイヤーを取得）
-        const direction = gameState.isReversed ? -1 : 1;
-        const nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
-        let nextPlayer = gameState.players[nextIndex];
-
-        // 上がっていないプレイヤーを探す
-        let searchIndex = nextIndex;
-        let attempts = 0;
-        while (nextPlayer.isFinished && attempts < gameState.players.length) {
-          searchIndex = (searchIndex + direction + gameState.players.length) % gameState.players.length;
-          nextPlayer = gameState.players[searchIndex];
-          attempts++;
-        }
-
-        if (!nextPlayer.isFinished) {
-          nextPlayer.hand.add([randomCard]);
-          console.log(`7渡し発動！${player.name}が${nextPlayer.name}に${randomCard.rank}${randomCard.suit}を渡しました`);
-
-          // イベント発火
-          this.eventBus?.emit('sevenPass:triggered', {
-            fromPlayer: player.name,
-            toPlayer: nextPlayer.name
-          });
-        }
+      // 上がっていないプレイヤーを探す
+      let searchIndex = nextIndex;
+      let attempts = 0;
+      while (nextPlayer.isFinished && attempts < gameState.players.length) {
+        searchIndex = (searchIndex + direction + gameState.players.length) % gameState.players.length;
+        nextPlayer = gameState.players[searchIndex];
+        attempts++;
       }
-    }
 
-    // 10捨て判定（手札から1枚ランダムに捨てる）
-    if (gameState.ruleSettings.tenDiscard && this.triggersTenDiscard(play) && !player.hand.isEmpty()) {
-      const remainingCards = player.hand.getCards();
-      if (remainingCards.length > 0) {
-        // ランダムに1枚選ぶ
-        const randomCard = remainingCards[Math.floor(Math.random() * remainingCards.length)];
-        player.hand.remove([randomCard]);
-        console.log(`10捨て発動！${player.name}が${randomCard.rank}${randomCard.suit}を捨てました`);
+      if (!nextPlayer.isFinished) {
+        // カード選択リクエストを設定
+        gameState.cardSelectionRequest = {
+          playerId: player.id.value,
+          reason: 'sevenPass',
+          count: 1,
+          targetPlayerId: nextPlayer.id.value,
+        };
 
         // イベント発火
-        this.eventBus?.emit('tenDiscard:triggered', {
-          player: player.name
+        this.eventBus?.emit('sevenPass:triggered', {
+          fromPlayer: player.name,
+          toPlayer: nextPlayer.name
         });
       }
     }
 
-    // クイーンボンバー判定（全員が手札から1枚ランダムに捨てる）
+    // 10捨て判定（手札から1枚を捨てる）
+    if (gameState.ruleSettings.tenDiscard && this.triggersTenDiscard(play) && !player.hand.isEmpty()) {
+      // カード選択リクエストを設定
+      gameState.cardSelectionRequest = {
+        playerId: player.id.value,
+        reason: 'tenDiscard',
+        count: 1,
+      };
+
+      // イベント発火
+      this.eventBus?.emit('tenDiscard:triggered', {
+        player: player.name
+      });
+    }
+
+    // クイーンボンバー判定（全員が手札から1枚を捨てる）
     if (gameState.ruleSettings.queenBomber && this.triggersQueenBomber(play)) {
       console.log('クイーンボンバー発動！全員が1枚捨てます');
 
-      gameState.players.forEach(p => {
-        if (!p.isFinished && !p.hand.isEmpty()) {
-          const cards = p.hand.getCards();
-          if (cards.length > 0) {
-            const randomCard = cards[Math.floor(Math.random() * cards.length)];
-            p.hand.remove([randomCard]);
-            console.log(`${p.name}が${randomCard.rank}${randomCard.suit}を捨てました`);
-          }
-        }
-      });
+      // 最初の未完了プレイヤーにカード選択リクエストを設定
+      const firstPlayerWithCards = gameState.players.find(p => !p.isFinished && !p.hand.isEmpty());
+      if (firstPlayerWithCards) {
+        gameState.cardSelectionRequest = {
+          playerId: firstPlayerWithCards.id.value,
+          reason: 'queenBomber',
+          count: 1,
+        };
+      }
 
       // イベント発火
       this.eventBus?.emit('queenBomber:triggered', {});
@@ -599,6 +595,92 @@ export class PlayPhase implements GamePhase {
   private triggersQueenBomber(play: Play): boolean {
     // Qが含まれているかチェック
     return play.cards.some(card => card.rank === 'Q');
+  }
+
+  /**
+   * カード選択を処理する
+   * @param gameState ゲーム状態
+   * @param playerId プレイヤーID
+   * @param selectedCards 選択されたカード
+   */
+  handleCardSelection(gameState: GameState, playerId: string, selectedCards: Card[]): void {
+    const request = gameState.cardSelectionRequest;
+    if (!request || request.playerId !== playerId) {
+      console.error('Invalid card selection request');
+      return;
+    }
+
+    const player = gameState.players.find(p => p.id.value === playerId);
+    if (!player) {
+      console.error('Player not found');
+      return;
+    }
+
+    // カードが手札にあるか確認
+    const playerCards = player.hand.getCards();
+    const allCardsValid = selectedCards.every(card =>
+      playerCards.some(c => c.suit === card.suit && c.rank === card.rank)
+    );
+
+    if (!allCardsValid || selectedCards.length !== request.count) {
+      console.error('Invalid card selection');
+      return;
+    }
+
+    // 選択理由に応じて処理
+    switch (request.reason) {
+      case 'sevenPass':
+        // 7渡し：次のプレイヤーに渡す
+        if (request.targetPlayerId) {
+          const targetPlayer = gameState.players.find(p => p.id.value === request.targetPlayerId);
+          if (targetPlayer) {
+            player.hand.remove(selectedCards);
+            targetPlayer.hand.add(selectedCards);
+            console.log(`7渡し：${player.name}が${targetPlayer.name}に${selectedCards[0].rank}${selectedCards[0].suit}を渡しました`);
+          }
+        }
+        break;
+
+      case 'tenDiscard':
+        // 10捨て：カードを捨てる
+        player.hand.remove(selectedCards);
+        console.log(`10捨て：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
+        break;
+
+      case 'queenBomber':
+        // クイーンボンバー：カードを捨てて、次のプレイヤーへ
+        player.hand.remove(selectedCards);
+        console.log(`クイーンボンバー：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
+
+        // 次の未完了プレイヤーを探す
+        const currentIndex = gameState.players.findIndex(p => p.id.value === playerId);
+        let nextIndex = (currentIndex + 1) % gameState.players.length;
+        let attempts = 0;
+
+        while (attempts < gameState.players.length) {
+          const nextPlayer = gameState.players[nextIndex];
+          if (!nextPlayer.isFinished && !nextPlayer.hand.isEmpty()) {
+            // 次のプレイヤーにリクエスト
+            gameState.cardSelectionRequest = {
+              playerId: nextPlayer.id.value,
+              reason: 'queenBomber',
+              count: 1,
+            };
+            return; // まだ選択が必要なので、ここで終了
+          }
+          nextIndex = (nextIndex + 1) % gameState.players.length;
+          attempts++;
+        }
+
+        // 全員が選択完了
+        gameState.cardSelectionRequest = null;
+        break;
+    }
+
+    // 7渡し、10捨ての場合はリクエストをクリア
+    if (request.reason !== 'queenBomber') {
+      gameState.cardSelectionRequest = null;
+    }
   }
 
   private nextPlayer(gameState: GameState): void {
