@@ -49,18 +49,24 @@ export function calculateCPUHandPosition(
  */
 export function calculateFieldPosition(
   playIndex: number,
-  cardIndex: number
+  cardIndex: number,
+  totalCardsInPlay: number = 1
 ): { x: number; y: number; rotation: number } {
-  const centerX = window.innerWidth / 2 - 32;
-  const centerY = window.innerHeight / 2 - 48;
+  const screenCenterX = window.innerWidth / 2;
+  const screenCenterY = window.innerHeight / 2 - 48;
 
-  // 完全に重ねる（playIndexはz-indexで区別）
-  const cardOffsetX = cardIndex * 70; // 同じプレイ内のカードは横並び
+  const cardSpacing = 70; // カード間のスペース
+  const totalWidth = (totalCardsInPlay - 1) * cardSpacing; // 全体の幅
+
+  // 全体の中心が画面中央に来るように、最初のカードの位置を計算
+  const startX = screenCenterX - totalWidth / 2 - 32; // 32はカード幅の半分
+  const cardOffsetX = cardIndex * cardSpacing;
+
   const rotation = (playIndex % 3 - 1) * 2; // -2, 0, 2度
 
   return {
-    x: centerX + cardOffsetX,
-    y: centerY,
+    x: startX + cardOffsetX,
+    y: screenCenterY,
     rotation,
   };
 }

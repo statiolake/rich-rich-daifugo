@@ -100,11 +100,12 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
 
     // 2. 場のカードを更新
     gameState.field.getHistory().forEach((playHistory, playIndex) => {
+      const totalCardsInPlay = playHistory.play.cards.length;
       playHistory.play.cards.forEach((card, cardIndex) => {
         const pos = updated.get(card.id);
         if (!pos) return;
 
-        const targetPos = calculateFieldPosition(playIndex, cardIndex);
+        const targetPos = calculateFieldPosition(playIndex, cardIndex, totalCardsInPlay);
 
         if (pos.location !== 'field') {
           updated.set(card.id, {
