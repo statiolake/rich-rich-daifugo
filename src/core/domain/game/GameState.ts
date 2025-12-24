@@ -15,6 +15,9 @@ export interface GameState {
   field: Field;
   isRevolution: boolean;
   isElevenBack: boolean;
+  isOmenActive: boolean; // オーメン発動後、以降革命が起きない
+  isEightCutPending: boolean; // 8切りが発動予定（4止めで止められる可能性がある）
+  suitLock: string | null; // マークしばり（例: 'SPADE', 'HEART', 'DIAMOND', 'CLUB'）
   passCount: number;
   round: number;
   phase: GamePhaseType;
@@ -28,6 +31,9 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     field: new Field(),
     isRevolution: false,
     isElevenBack: false,
+    isOmenActive: false,
+    isEightCutPending: false,
+    suitLock: null,
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,

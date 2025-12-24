@@ -13,6 +13,9 @@ export interface RuleContext {
   // 場の状態
   field: Field;
 
+  // 縛り状態
+  suitLock: string | null; // マークしばり
+
   // ルール設定
   ruleSettings: RuleSettings;
 }

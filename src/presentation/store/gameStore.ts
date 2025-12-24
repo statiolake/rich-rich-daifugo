@@ -133,6 +133,36 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
+      // 4止めイベントリスナー
+      eventBus.on('fourStop:triggered', () => {
+        get().enqueueCutIn({
+          id: `fourstop-${Date.now()}`,
+          text: '4止め！',
+          variant: 'green',
+          duration: 500
+        });
+      });
+
+      // マークしばりイベントリスナー
+      eventBus.on('suitLock:triggered', (data: { suit: string }) => {
+        get().enqueueCutIn({
+          id: `suitlock-${Date.now()}`,
+          text: `マークしばり！（${data.suit}）`,
+          variant: 'blue',
+          duration: 500
+        });
+      });
+
+      // 5スキップイベントリスナー
+      eventBus.on('fiveSkip:triggered', () => {
+        get().enqueueCutIn({
+          id: `fiveskip-${Date.now()}`,
+          text: '5スキップ！',
+          variant: 'green',
+          duration: 500
+        });
+      });
+
       // 救急車イベントリスナー
       eventBus.on('ambulance:triggered', () => {
         get().enqueueCutIn({
@@ -170,6 +200,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
           text: data.isRevolution ? 'クーデター発生！' : 'クーデター終了',
           variant: 'red',
           duration: 500
+        });
+      });
+
+      // オーメンイベントリスナー
+      eventBus.on('omen:triggered', (data) => {
+        get().enqueueCutIn({
+          id: `omen-${Date.now()}`,
+          text: 'オーメン発動！以後革命なし',
+          variant: 'red',
+          duration: 800
         });
       });
 

@@ -32,6 +32,7 @@ export class RuleEngine {
       isRevolution: gameState.isRevolution,
       isElevenBack: gameState.isElevenBack,
       field: field,
+      suitLock: gameState.suitLock,
       ruleSettings: gameState.ruleSettings,
     };
 
@@ -47,6 +48,7 @@ export class RuleEngine {
       isRevolution: false, // パスには関係ない
       isElevenBack: false, // パスには関係ない
       field: field,
+      suitLock: null, // パスには関係ない
       ruleSettings: DEFAULT_RULE_SETTINGS, // パスには関係ないがデフォルトを設定
     };
 

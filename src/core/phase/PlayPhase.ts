@@ -26,6 +26,8 @@ export class PlayPhase implements GamePhase {
     gameState.field.clear();
     gameState.passCount = 0;
     gameState.isElevenBack = false; // 新しいラウンド開始時に11バックをリセット
+    gameState.isEightCutPending = false; // 8切りフラグをリセット
+    gameState.suitLock = null; // 縛りをリセット
 
     // 初回ラウンドはランダムなプレイヤーから開始
     // 2回目以降は大富豪から開始（まだ実装していないので常にランダム）
@@ -94,12 +96,49 @@ export class PlayPhase implements GamePhase {
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
+    // マークしばりチェック（ルール有効時のみ）
+    if (gameState.ruleSettings.suitLock) {
+      const history = gameState.field.getHistory();
+      if (history.length >= 2) {
+        const prevPlayHistory = history[history.length - 2];
+        const currentPlayHistory = history[history.length - 1];
+
+        // 両方のプレイがすべて同じマークか確認
+        const prevSuit = prevPlayHistory.play.cards.length > 0 ? prevPlayHistory.play.cards[0].suit : null;
+        const currentSuit = currentPlayHistory.play.cards.length > 0 ? currentPlayHistory.play.cards[0].suit : null;
+
+        const prevAllSameSuit = prevPlayHistory.play.cards.every(c => c.suit === prevSuit);
+        const currentAllSameSuit = currentPlayHistory.play.cards.every(c => c.suit === currentSuit);
+
+        // 連続で同じマークが出されたら縛り発動
+        if (prevAllSameSuit && currentAllSameSuit && prevSuit === currentSuit && prevSuit && !gameState.suitLock) {
+          gameState.suitLock = prevSuit;
+          console.log(`マークしばりが発動しました！（${prevSuit}）`);
+
+          // イベント発火
+          this.eventBus?.emit('suitLock:triggered', { suit: prevSuit });
+        }
+      }
+    }
+
     // ルール発動フラグ
     let triggeredRules = false;
+
+    // 4止め判定（8切りを止める）
+    if (gameState.ruleSettings.fourStop && this.triggersFourStop(play) && gameState.isEightCutPending) {
+      console.log('4止めが発動しました！8切りを止めます');
+      gameState.isEightCutPending = false;
+
+      // イベント発火
+      this.eventBus?.emit('fourStop:triggered', {});
+
+      triggeredRules = true;
+    }
 
     // 8切り判定（場をクリアする）
     if (gameState.ruleSettings.eightCut && this.triggersEightCut(play)) {
       console.log('8切りが発動しました！');
+      gameState.isEightCutPending = true;
 
       // イベント発火
       this.eventBus?.emit('eightCut:triggered', {});
@@ -166,8 +205,22 @@ export class PlayPhase implements GamePhase {
       triggeredRules = true;
     }
 
+    // オーメン判定（6x3で革命 + 以後革命なし）
+    if (gameState.ruleSettings.omen && this.triggersOmen(play) && !gameState.isOmenActive) {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.isOmenActive = true;
+      console.log(`オーメンが発動しました！ isRevolution: ${gameState.isRevolution}, 以後革命なし`);
+
+      // イベント発火
+      this.eventBus?.emit('omen:triggered', {
+        isRevolution: gameState.isRevolution
+      });
+
+      triggeredRules = true;
+    }
+
     // 大革命判定（2x4で革命 + 即勝利）
-    if (gameState.ruleSettings.greatRevolution && this.triggersGreatRevolution(play)) {
+    if (gameState.ruleSettings.greatRevolution && this.triggersGreatRevolution(play) && !gameState.isOmenActive) {
       gameState.isRevolution = !gameState.isRevolution;
       console.log(`大革命が発動しました！ isRevolution: ${gameState.isRevolution}`);
 
@@ -182,7 +235,8 @@ export class PlayPhase implements GamePhase {
     }
 
     // 革命判定（イベント発火のみ、awaitしない）
-    if (play.triggersRevolution) {
+    // オーメンが有効な場合は革命が発動しない
+    if (play.triggersRevolution && !gameState.isOmenActive) {
       gameState.isRevolution = !gameState.isRevolution;
       console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
 
@@ -207,14 +261,17 @@ export class PlayPhase implements GamePhase {
     }
 
     // 8切り・救急車・ろくろ首の場合、場をクリア
+    // 8切りは、4止めで止められた場合は発動しない
     const shouldClearField =
-      (gameState.ruleSettings.eightCut && this.triggersEightCut(play)) ||
+      (gameState.ruleSettings.eightCut && this.triggersEightCut(play) && gameState.isEightCutPending) ||
       (gameState.ruleSettings.ambulance && this.triggersAmbulance(play)) ||
       (gameState.ruleSettings.rokurokubi && this.triggersRokurokubi(play));
 
     if (shouldClearField) {
       gameState.field.clear();
       gameState.passCount = 0;
+      gameState.isEightCutPending = false; // 場をクリアしたら8切りフラグもリセット
+      gameState.suitLock = null; // 場をクリアしたら縛りもリセット
       console.log('場が流れました');
     }
 
@@ -252,7 +309,20 @@ export class PlayPhase implements GamePhase {
       }
     }
 
+    // 5スキップ判定
+    const shouldSkipNext = gameState.ruleSettings.fiveSkip && this.triggersFiveSkip(play);
+    if (shouldSkipNext) {
+      console.log('5スキップが発動しました！');
+      // イベント発火
+      this.eventBus?.emit('fiveSkip:triggered', {});
+    }
+
     this.nextPlayer(gameState);
+
+    // 5スキップの場合は、さらにもう1人スキップ
+    if (shouldSkipNext) {
+      this.nextPlayer(gameState);
+    }
   }
 
   private async handlePass(gameState: GameState, player: Player): Promise<void> {
@@ -266,6 +336,8 @@ export class PlayPhase implements GamePhase {
       console.log('場が流れました');
       gameState.field.clear();
       gameState.passCount = 0;
+      gameState.isEightCutPending = false; // 場が流れたら8切りフラグもリセット
+      gameState.suitLock = null; // 場が流れたら縛りもリセット
 
       // 11バックをリセット
       if (gameState.isElevenBack) {
@@ -381,6 +453,17 @@ export class PlayPhase implements GamePhase {
     // 6のスリーカード（3枚）かチェック
     return play.type === PlayType.TRIPLE &&
            play.cards.every(card => card.rank === '6');
+  }
+
+  private triggersFourStop(play: Play): boolean {
+    // 4のペア（2枚）かチェック
+    return play.type === PlayType.PAIR &&
+           play.cards.every(card => card.rank === '4');
+  }
+
+  private triggersFiveSkip(play: Play): boolean {
+    // 5が含まれているかチェック
+    return play.cards.some(card => card.rank === '5');
   }
 
   private nextPlayer(gameState: GameState): void {

@@ -2,6 +2,7 @@ import { Card } from '../../domain/card/Card';
 import { Player } from '../../domain/player/Player';
 import { RuleContext } from '../context/RuleContext';
 import { BasicValidator, ValidationResult } from '../validators/BasicValidator';
+import { ConstraintValidator } from '../validators/ConstraintValidator';
 import { StrengthValidator } from '../validators/StrengthValidator';
 
 /**
@@ -10,10 +11,12 @@ import { StrengthValidator } from '../validators/StrengthValidator';
  */
 export class ValidationPipeline {
   private basicValidator: BasicValidator;
+  private constraintValidator: ConstraintValidator;
   private strengthValidator: StrengthValidator;
 
   constructor() {
     this.basicValidator = new BasicValidator();
+    this.constraintValidator = new ConstraintValidator();
     this.strengthValidator = new StrengthValidator();
   }
 
@@ -22,7 +25,8 @@ export class ValidationPipeline {
    *
    * 検証順序：
    * 1. 基本検証（所有権、組み合わせ）
-   * 2. 強さ判定（革命を考慮）
+   * 2. 制約検証（縛りなど）
+   * 3. 強さ判定（革命を考慮）
    */
   validate(
     player: Player,
@@ -35,7 +39,13 @@ export class ValidationPipeline {
       return basicResult;
     }
 
-    // ステップ2: 強さ判定
+    // ステップ2: 制約検証
+    const constraintResult = this.constraintValidator.validate(player, cards, context);
+    if (!constraintResult.valid) {
+      return constraintResult;
+    }
+
+    // ステップ3: 強さ判定
     return this.strengthValidator.validate(player, cards, context);
   }
 

@@ -24,7 +24,7 @@ describe('StrengthValidator - XOR Logic', () => {
 
       // 4を出す
       const cards = [card4];
-      const context = { isRevolution: false, isElevenBack: false, field, ruleSettings: DEFAULT_RULE_SETTINGS };
+      const context = { isRevolution: false, isElevenBack: false, field, suitLock: null, ruleSettings: DEFAULT_RULE_SETTINGS };
 
       const result = validator.validate(player, cards, context);
       expect(result.valid).toBe(true);
@@ -41,7 +41,7 @@ describe('StrengthValidator - XOR Logic', () => {
 
       // 3を出そうとする
       const cards = [card3];
-      const context = { isRevolution: false, isElevenBack: false, field, ruleSettings: DEFAULT_RULE_SETTINGS };
+      const context = { isRevolution: false, isElevenBack: false, field, suitLock: null, ruleSettings: DEFAULT_RULE_SETTINGS };
 
       const result = validator.validate(player, cards, context);
       expect(result.valid).toBe(false);
@@ -60,7 +60,7 @@ describe('StrengthValidator - XOR Logic', () => {
 
       // 3を出す（革命中なので弱い方が強い）
       const cards = [card3];
-      const context = { isRevolution: true, isElevenBack: false, field, ruleSettings: DEFAULT_RULE_SETTINGS };
+      const context = { isRevolution: true, isElevenBack: false, field, suitLock: null, ruleSettings: DEFAULT_RULE_SETTINGS };
 
       const result = validator.validate(player, cards, context);
       expect(result.valid).toBe(true);
@@ -77,7 +77,7 @@ describe('StrengthValidator - XOR Logic', () => {
 
       // 4を出そうとする（革命中なので強い方が弱い）
       const cards = [card4];
-      const context = { isRevolution: true, isElevenBack: false, field, ruleSettings: DEFAULT_RULE_SETTINGS };
+      const context = { isRevolution: true, isElevenBack: false, field, suitLock: null, ruleSettings: DEFAULT_RULE_SETTINGS };
 
       const result = validator.validate(player, cards, context);
       expect(result.valid).toBe(false);
@@ -96,7 +96,7 @@ describe('StrengthValidator - XOR Logic', () => {
 
       // 3を出す（11バック中なので弱い方が強い）
       const cards = [card3];
-      const context = { isRevolution: false, isElevenBack: true, field, ruleSettings: DEFAULT_RULE_SETTINGS };
+      const context = { isRevolution: false, isElevenBack: true, field, suitLock: null, ruleSettings: DEFAULT_RULE_SETTINGS };
 
       const result = validator.validate(player, cards, context);
       expect(result.valid).toBe(true);
@@ -113,7 +113,7 @@ describe('StrengthValidator - XOR Logic', () => {
 
       // 4を出そうとする（11バック中なので強い方が弱い）
       const cards = [card4];
-      const context = { isRevolution: false, isElevenBack: true, field, ruleSettings: DEFAULT_RULE_SETTINGS };
+      const context = { isRevolution: false, isElevenBack: true, field, suitLock: null, ruleSettings: DEFAULT_RULE_SETTINGS };
 
       const result = validator.validate(player, cards, context);
       expect(result.valid).toBe(false);
@@ -132,7 +132,7 @@ describe('StrengthValidator - XOR Logic', () => {
 
       // 4を出す（両方activeなのでXORで通常に戻る）
       const cards = [card4];
-      const context = { isRevolution: true, isElevenBack: true, field, ruleSettings: DEFAULT_RULE_SETTINGS };
+      const context = { isRevolution: true, isElevenBack: true, field, suitLock: null, ruleSettings: DEFAULT_RULE_SETTINGS };
 
       const result = validator.validate(player, cards, context);
       expect(result.valid).toBe(true);
@@ -149,7 +149,7 @@ describe('StrengthValidator - XOR Logic', () => {
 
       // 3を出そうとする（両方activeなのでXORで通常に戻る）
       const cards = [card3];
-      const context = { isRevolution: true, isElevenBack: true, field, ruleSettings: DEFAULT_RULE_SETTINGS };
+      const context = { isRevolution: true, isElevenBack: true, field, suitLock: null, ruleSettings: DEFAULT_RULE_SETTINGS };
 
       const result = validator.validate(player, cards, context);
       expect(result.valid).toBe(false);

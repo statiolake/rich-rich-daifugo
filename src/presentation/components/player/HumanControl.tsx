@@ -69,6 +69,11 @@ export const HumanControl: React.FC = () => {
       effects.push(gameState.isElevenBack ? 'イレブンバック解除' : 'イレブンバック');
     }
 
+    // 4止め判定（8切りを止める）
+    if (ruleSettings.fourStop && play.type === 'PAIR' && play.cards.every(card => card.rank === '4') && gameState.isEightCutPending) {
+      effects.push('4止め');
+    }
+
     // 8切り判定
     if (ruleSettings.eightCut && play.cards.some(card => card.rank === '8')) {
       effects.push('8切り');
@@ -97,6 +102,11 @@ export const HumanControl: React.FC = () => {
       effects.push(gameState.isRevolution ? 'クーデター終了' : 'クーデター');
     }
 
+    // オーメン判定（6x3）
+    if (ruleSettings.omen && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '6') && !gameState.isOmenActive) {
+      effects.push('オーメン');
+    }
+
     // 大革命判定（2x4）
     if (ruleSettings.greatRevolution && play.type === 'QUAD' && play.cards.every(card => card.rank === '2')) {
       effects.push('大革命＋即勝利');
@@ -105,6 +115,11 @@ export const HumanControl: React.FC = () => {
     // 砂嵐判定（3x3）
     if (ruleSettings.sandstorm && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '3')) {
       effects.push('砂嵐');
+    }
+
+    // 5スキップ判定
+    if (ruleSettings.fiveSkip && play.cards.some(card => card.rank === '5')) {
+      effects.push('5スキップ');
     }
 
     // スぺ3返し判定
