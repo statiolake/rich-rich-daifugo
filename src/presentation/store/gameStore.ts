@@ -119,6 +119,66 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
+      // 8切りイベントリスナー
+      eventBus.on('eightCut:triggered', () => {
+        get().enqueueCutIn({
+          id: `eightcut-${Date.now()}`,
+          text: '8切り！',
+          variant: 'blue',
+          duration: 500
+        });
+      });
+
+      // 救急車イベントリスナー
+      eventBus.on('ambulance:triggered', () => {
+        get().enqueueCutIn({
+          id: `ambulance-${Date.now()}`,
+          text: '救急車！',
+          variant: 'green',
+          duration: 500
+        });
+      });
+
+      // ろくろ首イベントリスナー
+      eventBus.on('rokurokubi:triggered', () => {
+        get().enqueueCutIn({
+          id: `rokurokubi-${Date.now()}`,
+          text: 'ろくろ首！',
+          variant: 'blue',
+          duration: 500
+        });
+      });
+
+      // エンペラーイベントリスナー
+      eventBus.on('emperor:triggered', (data) => {
+        get().enqueueCutIn({
+          id: `emperor-${Date.now()}`,
+          text: data.isRevolution ? 'エンペラー発動！' : 'エンペラー終了',
+          variant: 'gold',
+          duration: 500
+        });
+      });
+
+      // クーデターイベントリスナー
+      eventBus.on('coup:triggered', (data) => {
+        get().enqueueCutIn({
+          id: `coup-${Date.now()}`,
+          text: data.isRevolution ? 'クーデター発生！' : 'クーデター終了',
+          variant: 'red',
+          duration: 500
+        });
+      });
+
+      // 大革命イベントリスナー
+      eventBus.on('greatRevolution:triggered', (data) => {
+        get().enqueueCutIn({
+          id: `greatrevolution-${Date.now()}`,
+          text: '大革命発生！即勝利！',
+          variant: 'gold',
+          duration: 500
+        });
+      });
+
       // カットイン待機関数を注入
       engine.setWaitForCutIn(get().waitForCutIn);
 

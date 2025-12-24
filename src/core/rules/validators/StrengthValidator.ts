@@ -30,6 +30,32 @@ export class StrengthValidator {
 
     const fieldPlay = context.field.getCurrentPlay()!;
 
+    // 砂嵐チェック: 3のスリーカードは何にでも勝つ
+    const isSandstorm = this.isSandstorm(currentPlay);
+    if (isSandstorm) {
+      // タイプが同じか確認（スリーカードにはスリーカードで対抗）
+      if (fieldPlay.type !== currentPlay.type) {
+        return {
+          valid: false,
+          reason: '場のカードと同じタイプの組み合わせを出してください',
+        };
+      }
+      return { valid: true };
+    }
+
+    // 場に砂嵐がある場合、3のスリーカード以外は出せない
+    if (this.isSandstorm(fieldPlay)) {
+      return {
+        valid: false,
+        reason: '砂嵐には3のスリーカードでしか対抗できません',
+      };
+    }
+
+    // スぺ3返しチェック: スペードの3がJokerに勝つ
+    if (this.isSpadeThree(currentPlay) && this.isJoker(fieldPlay)) {
+      return { valid: true };
+    }
+
     // XORロジック: 革命と11バックのどちらか一方だけがtrueなら強さ判定が反転
     // - 通常モード (revolution: false, elevenBack: false) → shouldReverse: false
     // - 11バックのみ (revolution: false, elevenBack: true) → shouldReverse: true
@@ -46,5 +72,31 @@ export class StrengthValidator {
     }
 
     return { valid: true };
+  }
+
+  /**
+   * 砂嵐（3のスリーカード）かどうかを判定
+   */
+  private isSandstorm(play: Play): boolean {
+    return play.type === 'TRIPLE' && play.cards.every(card => card.rank === '3');
+  }
+
+  /**
+   * スペードの3（単一カード）かどうかを判定
+   */
+  private isSpadeThree(play: Play): boolean {
+    return play.type === 'SINGLE' &&
+           play.cards.length === 1 &&
+           play.cards[0].rank === '3' &&
+           play.cards[0].suit === 'SPADE';
+  }
+
+  /**
+   * Joker（単一カード）かどうかを判定
+   */
+  private isJoker(play: Play): boolean {
+    return play.type === 'SINGLE' &&
+           play.cards.length === 1 &&
+           play.cards[0].rank === 'JOKER';
   }
 }

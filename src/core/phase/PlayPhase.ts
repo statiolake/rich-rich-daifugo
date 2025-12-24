@@ -2,7 +2,7 @@ import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
 import { Card } from '../domain/card/Card';
-import { PlayAnalyzer, Play } from '../domain/card/Play';
+import { PlayAnalyzer, Play, PlayType } from '../domain/card/Play';
 import { Player, PlayerType } from '../domain/player/Player';
 import { PlayerRank } from '../domain/player/PlayerRank';
 import { RuleEngine } from '../rules/base/RuleEngine';
@@ -97,6 +97,36 @@ export class PlayPhase implements GamePhase {
     // ルール発動フラグ
     let triggeredRules = false;
 
+    // 8切り判定（場をクリアする）
+    if (this.triggersEightCut(play)) {
+      console.log('8切りが発動しました！');
+
+      // イベント発火
+      this.eventBus?.emit('eightCut:triggered', {});
+
+      triggeredRules = true;
+    }
+
+    // 救急車判定（9x2で場をクリア）
+    if (this.triggersAmbulance(play)) {
+      console.log('救急車が発動しました！');
+
+      // イベント発火
+      this.eventBus?.emit('ambulance:triggered', {});
+
+      triggeredRules = true;
+    }
+
+    // ろくろ首判定（6x2で場をクリア）
+    if (this.triggersRokurokubi(play)) {
+      console.log('ろくろ首が発動しました！');
+
+      // イベント発火
+      this.eventBus?.emit('rokurokubi:triggered', {});
+
+      triggeredRules = true;
+    }
+
     // 11バック判定（イベント発火のみ、awaitしない）
     if (this.triggersElevenBack(play)) {
       gameState.isElevenBack = !gameState.isElevenBack;
@@ -108,6 +138,47 @@ export class PlayPhase implements GamePhase {
       });
 
       triggeredRules = true;
+    }
+
+    // エンペラー判定（4種マーク連番で革命）
+    if (this.triggersEmperor(play)) {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`エンペラーが発動しました！ isRevolution: ${gameState.isRevolution}`);
+
+      // イベント発火
+      this.eventBus?.emit('emperor:triggered', {
+        isRevolution: gameState.isRevolution
+      });
+
+      triggeredRules = true;
+    }
+
+    // クーデター判定（9x3で革命）
+    if (this.triggersCoup(play)) {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`クーデターが発動しました！ isRevolution: ${gameState.isRevolution}`);
+
+      // イベント発火
+      this.eventBus?.emit('coup:triggered', {
+        isRevolution: gameState.isRevolution
+      });
+
+      triggeredRules = true;
+    }
+
+    // 大革命判定（2x4で革命 + 即勝利）
+    if (this.triggersGreatRevolution(play)) {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`大革命が発動しました！ isRevolution: ${gameState.isRevolution}`);
+
+      // イベント発火
+      this.eventBus?.emit('greatRevolution:triggered', {
+        isRevolution: gameState.isRevolution
+      });
+
+      triggeredRules = true;
+
+      // 即勝利処理は後で handlePlayerFinish を呼ぶ前にチェック
     }
 
     // 革命判定（イベント発火のみ、awaitしない）
@@ -135,9 +206,45 @@ export class PlayPhase implements GamePhase {
       gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
     }
 
-    // 手札が空になったら上がり
-    if (player.hand.isEmpty()) {
+    // 8切り・救急車・ろくろ首の場合、場をクリア
+    if (this.triggersEightCut(play) || this.triggersAmbulance(play) || this.triggersRokurokubi(play)) {
+      gameState.field.clear();
+      gameState.passCount = 0;
+      console.log('場が流れました');
+    }
+
+    // 大革命の即勝利処理
+    if (this.triggersGreatRevolution(play)) {
+      // 残りの手札をすべて削除して即座に上がり
+      const remainingCards = player.hand.getCards();
+      if (remainingCards.length > 0) {
+        player.hand.remove([...remainingCards]);
+      }
       this.handlePlayerFinish(gameState, player);
+      this.nextPlayer(gameState);
+      return;
+    }
+
+    // 手札が空になったら上がり（禁止上がりチェック）
+    if (player.hand.isEmpty()) {
+      // 禁止上がりチェック: J, 2, 8, Joker で上がれない
+      const forbiddenRanks = ['J', '2', '8', 'JOKER'];
+      const hasForbiddenCard = cards.some(card => forbiddenRanks.includes(card.rank));
+
+      if (hasForbiddenCard) {
+        console.log(`${player.name} は禁止カードで上がることはできません`);
+        // カードを手札に戻す
+        player.hand.add(cards);
+        // 場からもプレイを削除
+        gameState.field.clear();
+        gameState.passCount = 0;
+        // イベント発火
+        this.eventBus?.emit('forbiddenFinish:attempted', {
+          playerName: player.name
+        });
+      } else {
+        this.handlePlayerFinish(gameState, player);
+      }
     }
 
     this.nextPlayer(gameState);
@@ -223,6 +330,52 @@ export class PlayPhase implements GamePhase {
   private triggersElevenBack(play: Play): boolean {
     // Jが含まれているかチェック
     return play.cards.some(card => card.rank === 'J');
+  }
+
+  private triggersEightCut(play: Play): boolean {
+    // 8が含まれているかチェック
+    return play.cards.some(card => card.rank === '8');
+  }
+
+  private triggersAmbulance(play: Play): boolean {
+    // 9のペア（2枚）かチェック
+    return play.type === PlayType.PAIR &&
+           play.cards.every(card => card.rank === '9');
+  }
+
+  private triggersRokurokubi(play: Play): boolean {
+    // 6のペア（2枚）かチェック
+    return play.type === PlayType.PAIR &&
+           play.cards.every(card => card.rank === '6');
+  }
+
+  private triggersEmperor(play: Play): boolean {
+    // 4種類のマークの連番（階段）かチェック
+    if (play.type !== PlayType.STAIR || play.cards.length !== 4) {
+      return false;
+    }
+
+    // 4つの異なるマークがあるかチェック
+    const suits = new Set(play.cards.map(card => card.suit));
+    return suits.size === 4;
+  }
+
+  private triggersCoup(play: Play): boolean {
+    // 9のスリーカード（3枚）かチェック
+    return play.type === PlayType.TRIPLE &&
+           play.cards.every(card => card.rank === '9');
+  }
+
+  private triggersGreatRevolution(play: Play): boolean {
+    // 2のフォーカード（4枚）かチェック
+    return play.type === PlayType.QUAD &&
+           play.cards.every(card => card.rank === '2');
+  }
+
+  private triggersOmen(play: Play): boolean {
+    // 6のスリーカード（3枚）かチェック
+    return play.type === PlayType.TRIPLE &&
+           play.cards.every(card => card.rank === '6');
   }
 
   private nextPlayer(gameState: GameState): void {

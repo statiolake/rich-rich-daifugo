@@ -172,7 +172,7 @@ export class PlayAnalyzer {
   }
 
   /**
-   * 階段（連続した数字）かどうかを判定
+   * 階段（同じマークの連続した数字）かどうかを判定
    * 最低3枚以上
    */
   static isStair(cards: Card[]): boolean {
@@ -180,6 +180,12 @@ export class PlayAnalyzer {
 
     // ジョーカーは階段では使えない（シンプルなルール）
     if (cards.some(c => c.rank === 'JOKER')) {
+      return false;
+    }
+
+    // 同じマークかチェック
+    const suits = new Set(cards.map(c => c.suit));
+    if (suits.size !== 1) {
       return false;
     }
 
