@@ -49,9 +49,9 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     player.hand.add([cardQ]);
     playPhase['handlePlay'](gameState, player, [cardQ]);
 
-    // カード選択リクエストが設定されているはず
+    // カード選択リクエストが設定されているはず（最初はqueenBomberSelect）
     expect(gameState.cardSelectionRequest).not.toBeNull();
-    expect(gameState.cardSelectionRequest?.reason).toBe('queenBomber');
+    expect(gameState.cardSelectionRequest?.reason).toBe('queenBomberSelect');
     expect(gameState.cardSelectionRequest?.count).toBe(1);
   });
 
@@ -85,7 +85,7 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     expect(gameState.cardSelectionRequest?.playerId).toBe('player3');
   });
 
-  it('全員が手札を持っていない場合、リクエストが設定されない', () => {
+  it('全員が手札を持っていない場合、queenBomberSelectが設定される', () => {
     const player = gameState.players[0];
 
     // 全員の手札をクリア
@@ -98,16 +98,17 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     player.hand.add([cardQ]);
     playPhase['handlePlay'](gameState, player, [cardQ]);
 
-    // リクエストが設定されていないはず
-    expect(gameState.cardSelectionRequest).toBeNull();
+    // queenBomberSelectが設定されるはず（発動プレイヤーがカードを選択する）
+    expect(gameState.cardSelectionRequest).not.toBeNull();
+    expect(gameState.cardSelectionRequest?.reason).toBe('queenBomberSelect');
   });
 
   it('全員がカードを捨て終わったらリクエストがクリアされる', () => {
     const player = gameState.players[0];
 
-    // 各プレイヤーに1枚ずつ手札を配る
-    gameState.players.forEach((p, i) => {
-      const card = CardFactory.create(Suit.SPADE, String(3 + i) as any);
+    // 各プレイヤーに同じカード（3）を配る
+    gameState.players.forEach((p) => {
+      const card = CardFactory.create(Suit.SPADE, '3');
       p.hand.add([card]);
     });
 
@@ -116,14 +117,32 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     player.hand.add([cardQ]);
     playPhase['handlePlay'](gameState, player, [cardQ]);
 
+    // queenBomberSelectが設定されている
+    expect(gameState.cardSelectionRequest?.reason).toBe('queenBomberSelect');
+
+    // Player 1が3を指定
+    const card3 = CardFactory.create(Suit.SPADE, '3');
+    playPhase['handleCardSelection'](gameState, player.id.value, [card3]);
+
+    // queenBomberに移行し、Player 2から始まる
+    expect(gameState.cardSelectionRequest?.reason).toBe('queenBomber');
+    expect(gameState.cardSelectionRequest?.specifiedCard?.rank).toBe('3');
+
     // 各プレイヤーが順番にカードを捨てる
     for (let i = 0; i < gameState.players.length; i++) {
+      if (!gameState.cardSelectionRequest) break;
+
       const currentPlayer = gameState.players.find(p => p.id.value === gameState.cardSelectionRequest?.playerId);
       if (!currentPlayer) break;
 
       const cards = currentPlayer.hand.getCards();
-      if (cards.length > 0) {
-        playPhase['handleCardSelection'](gameState, currentPlayer.id.value, [cards[0]]);
+      const specifiedCard = gameState.cardSelectionRequest.specifiedCard;
+      // 指定されたカードを選択
+      const selectedCard = cards.find(c => c.rank === specifiedCard?.rank && c.suit === specifiedCard?.suit);
+      if (selectedCard) {
+        playPhase['handleCardSelection'](gameState, currentPlayer.id.value, [selectedCard]);
+      } else {
+        playPhase['handleCardSelection'](gameState, currentPlayer.id.value, []);
       }
     }
 

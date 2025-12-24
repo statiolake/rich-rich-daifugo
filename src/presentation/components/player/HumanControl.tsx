@@ -63,12 +63,15 @@ export const HumanControl: React.FC = () => {
         return `7渡し：${targetPlayer?.name}に渡すカードを1枚選んでください`;
       case 'tenDiscard':
         return '10捨て：捨てるカードを1枚選んでください';
+      case 'queenBomberSelect':
+        return `クイーンボンバー：全員が捨てるカードを1枚選んでください`;
       case 'queenBomber':
-        // Qボンバーの場合、現在のプレイヤー名を表示
-        if (humanPlayer.hand.isEmpty()) {
-          return `クイーンボンバー：${humanPlayer.name}の手札がないのでスキップします`;
+        // 指定されたカードを表示
+        const specifiedCard = cardSelectionRequest.specifiedCard;
+        if (specifiedCard) {
+          return `クイーンボンバー：${specifiedCard.rank}${specifiedCard.suit}を捨ててください`;
         }
-        return `クイーンボンバー：${humanPlayer.name}が捨てるカードを1枚選んでください`;
+        return 'クイーンボンバー：指定されたカードを捨ててください';
       default:
         return 'カードを選んでください';
     }
@@ -237,14 +240,55 @@ export const HumanControl: React.FC = () => {
             </div>
 
             {/* 確定ボタン */}
-            {(selectedCards.length === cardSelectionRequest?.count ||
-              (humanPlayer.hand.isEmpty() && cardSelectionRequest?.reason === 'queenBomber')) && (
-              <button
-                onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
-                className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
-              >
-                {humanPlayer.hand.isEmpty() ? 'スキップ' : '決定'}
-              </button>
+            {cardSelectionRequest?.reason === 'queenBomber' ? (
+              // クイーンボンバーの場合：指定されたカードがあるかチェック
+              (() => {
+                const specifiedCard = cardSelectionRequest.specifiedCard;
+                if (!specifiedCard) return null;
+
+                // 手札に指定されたカードがあるかチェック
+                const hasCard = humanPlayer.hand.getCards().some(
+                  c => c.rank === specifiedCard.rank && c.suit === specifiedCard.suit
+                );
+
+                if (!hasCard) {
+                  // 手札にない場合：スキップボタンのみ
+                  return (
+                    <button
+                      onClick={() => submitCardSelection(humanPlayer.id.value, [])}
+                      className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-gray-500 hover:bg-gray-600 text-white cursor-pointer"
+                    >
+                      手札にない
+                    </button>
+                  );
+                } else {
+                  // 手札にある場合：指定されたカードを選択済みなら決定ボタン
+                  const isSpecifiedCardSelected = selectedCards.some(
+                    c => c.rank === specifiedCard.rank && c.suit === specifiedCard.suit
+                  );
+                  if (isSpecifiedCardSelected) {
+                    return (
+                      <button
+                        onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
+                        className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+                      >
+                        決定
+                      </button>
+                    );
+                  }
+                  return null;
+                }
+              })()
+            ) : (
+              // その他の場合：通常の確定ボタン
+              selectedCards.length === cardSelectionRequest?.count && (
+                <button
+                  onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
+                  className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+                >
+                  決定
+                </button>
+              )
             )}
           </motion.div>
         ) : isHumanTurn ? (

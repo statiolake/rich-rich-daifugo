@@ -388,25 +388,16 @@ export class PlayPhase implements GamePhase {
       });
     }
 
-    // クイーンボンバー判定（全員が手札から1枚を捨てる）
+    // クイーンボンバー判定（全員が指定されたカードを捨てる）
     if (gameState.ruleSettings.queenBomber && this.triggersQueenBomber(play)) {
-      console.log('クイーンボンバー発動！全員が1枚捨てます');
+      console.log('クイーンボンバー発動！カードを選んでください');
 
-      // 未完了プレイヤーで手札があるプレイヤーがいるかチェック
-      const playersWithCards = gameState.players.filter(p => !p.isFinished && !p.hand.isEmpty());
-
-      if (playersWithCards.length > 0) {
-        // 最初の未完了プレイヤーにカード選択リクエストを設定
-        const firstPlayer = gameState.players.find(p => !p.isFinished);
-        if (firstPlayer) {
-          gameState.cardSelectionRequest = {
-            playerId: firstPlayer.id.value,
-            reason: 'queenBomber',
-            count: 1,
-            startPlayerId: firstPlayer.id.value, // 一周検出用
-          };
-        }
-      }
+      // まず発動プレイヤーがカードを選択
+      gameState.cardSelectionRequest = {
+        playerId: player.id.value,
+        reason: 'queenBomberSelect',
+        count: 1,
+      };
 
       // イベント発火
       this.eventBus?.emit('queenBomber:triggered', {});
@@ -628,6 +619,24 @@ export class PlayPhase implements GamePhase {
     // 手札が空の場合は空配列でOK（クイーンボンバーでスキップする場合）
     if (playerCards.length === 0 && selectedCards.length === 0 && request.reason === 'queenBomber') {
       // スキップとして処理
+    } else if (request.reason === 'queenBomber' && request.specifiedCard) {
+      // クイーンボンバーで指定されたカードがない場合は空配列でOK
+      const hasSpecifiedCard = playerCards.some(
+        c => c.rank === request.specifiedCard!.rank && c.suit === request.specifiedCard!.suit
+      );
+      if (!hasSpecifiedCard && selectedCards.length === 0) {
+        // 指定されたカードがないのでスキップ
+      } else if (hasSpecifiedCard && selectedCards.length === 1) {
+        // 指定されたカードを選択しているかチェック
+        const selectedCard = selectedCards[0];
+        if (selectedCard.rank !== request.specifiedCard.rank || selectedCard.suit !== request.specifiedCard.suit) {
+          console.error('Must select the specified card for Queen Bomber');
+          return;
+        }
+      } else {
+        console.error('Invalid card selection for Queen Bomber');
+        return;
+      }
     } else {
       const allCardsValid = selectedCards.every(card =>
         playerCards.some(c => c.suit === card.suit && c.rank === card.rank)
@@ -641,6 +650,47 @@ export class PlayPhase implements GamePhase {
 
     // 選択理由に応じて処理
     switch (request.reason) {
+      case 'queenBomberSelect':
+        // クイーンボンバー：発動プレイヤーがカードを選択
+        if (selectedCards.length !== 1) {
+          console.error('Queen Bomber requires exactly 1 card selection');
+          return;
+        }
+
+        const selectedCard = selectedCards[0];
+        console.log(`クイーンボンバー：${selectedCard.rank}${selectedCard.suit}が指定されました`);
+
+        // 次の未完了プレイヤーから、指定されたカードを捨てさせる
+        const currentIndex = gameState.players.findIndex(p => p.id.value === playerId);
+        let nextIndex = (currentIndex + 1) % gameState.players.length;
+        let attempts = 0;
+
+        // 手札がある未完了プレイヤーがいるかチェック
+        const playersWithCards = gameState.players.filter(p => !p.isFinished && !p.hand.isEmpty());
+
+        if (playersWithCards.length > 0) {
+          // 次の未完了プレイヤーを探す
+          while (attempts < gameState.players.length) {
+            const nextPlayer = gameState.players[nextIndex];
+            if (!nextPlayer.isFinished) {
+              gameState.cardSelectionRequest = {
+                playerId: nextPlayer.id.value,
+                reason: 'queenBomber',
+                count: 1,
+                specifiedCard: selectedCard,
+                startPlayerId: nextPlayer.id.value, // 一周検出用
+              };
+              return;
+            }
+            nextIndex = (nextIndex + 1) % gameState.players.length;
+            attempts++;
+          }
+        }
+
+        // 誰も手札がない場合はクリア
+        gameState.cardSelectionRequest = null;
+        break;
+
       case 'sevenPass':
         // 7渡し：次のプレイヤーに渡す
         if (request.targetPlayerId) {
@@ -660,22 +710,30 @@ export class PlayPhase implements GamePhase {
         break;
 
       case 'queenBomber':
-        // クイーンボンバー：カードを捨てて、次のプレイヤーへ
+        // クイーンボンバー：指定されたカードを捨てる
+        const specifiedCard = request.specifiedCard;
+        if (!specifiedCard) {
+          console.error('No card specified for Queen Bomber');
+          return;
+        }
+
         if (selectedCards.length > 0) {
+          // カードを捨てる
           player.hand.remove(selectedCards);
           console.log(`クイーンボンバー：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
         } else {
-          console.log(`クイーンボンバー：${player.name}は手札がないのでスキップ`);
+          // 手札にない、またはスキップ
+          console.log(`クイーンボンバー：${player.name}は${specifiedCard.rank}${specifiedCard.suit}を持っていないのでスキップ`);
         }
 
         // 次の未完了プレイヤーを探す
-        const currentIndex = gameState.players.findIndex(p => p.id.value === playerId);
-        let nextIndex = (currentIndex + 1) % gameState.players.length;
-        let attempts = 0;
+        const currentIdx = gameState.players.findIndex(p => p.id.value === playerId);
+        let nextIdx = (currentIdx + 1) % gameState.players.length;
+        let attemptCount = 0;
         const startPlayerId = request.startPlayerId;
 
-        while (attempts < gameState.players.length) {
-          const nextPlayer = gameState.players[nextIndex];
+        while (attemptCount < gameState.players.length) {
+          const nextPlayer = gameState.players[nextIdx];
 
           // 開始プレイヤーに戻ってきたら終了
           if (startPlayerId && nextPlayer.id.value === startPlayerId) {
@@ -684,17 +742,18 @@ export class PlayPhase implements GamePhase {
           }
 
           if (!nextPlayer.isFinished) {
-            // 手札がなくてもリクエストを送る（UIやCPU側で空の場合の処理を行う）
+            // 次のプレイヤーにリクエスト
             gameState.cardSelectionRequest = {
               playerId: nextPlayer.id.value,
               reason: 'queenBomber',
               count: 1,
+              specifiedCard: specifiedCard, // 指定カードを引き継ぐ
               startPlayerId: startPlayerId, // 開始プレイヤーを引き継ぐ
             };
             return; // まだ選択が必要なので、ここで終了
           }
-          nextIndex = (nextIndex + 1) % gameState.players.length;
-          attempts++;
+          nextIdx = (nextIdx + 1) % gameState.players.length;
+          attemptCount++;
         }
 
         // 全員が選択完了
@@ -702,8 +761,8 @@ export class PlayPhase implements GamePhase {
         break;
     }
 
-    // 7渡し、10捨ての場合はリクエストをクリア
-    if (request.reason !== 'queenBomber') {
+    // 7渡し、10捨ての場合はリクエストをクリア（queenBomber系は上で処理済み）
+    if (request.reason !== 'queenBomber' && request.reason !== 'queenBomberSelect') {
       gameState.cardSelectionRequest = null;
     }
   }

@@ -9,7 +9,9 @@ export enum GamePhaseType {
   RESULT = 'RESULT',
 }
 
-export type CardSelectionReason = 'sevenPass' | 'tenDiscard' | 'queenBomber';
+import { Card } from '../card/Card';
+
+export type CardSelectionReason = 'sevenPass' | 'tenDiscard' | 'queenBomber' | 'queenBomberSelect';
 
 export interface CardSelectionRequest {
   playerId: string; // 選択するプレイヤーのID
@@ -17,6 +19,7 @@ export interface CardSelectionRequest {
   count: number; // 選択する枚数
   targetPlayerId?: string; // 7渡しの場合の渡し先
   startPlayerId?: string; // クイーンボンバーの開始プレイヤーID（一周検出用）
+  specifiedCard?: Card; // クイーンボンバーで指定されたカード（ランクとスート）
 }
 
 export interface GameState {
