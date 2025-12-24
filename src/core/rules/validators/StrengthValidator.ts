@@ -58,6 +58,20 @@ export class StrengthValidator {
       return { valid: true };
     }
 
+    // ダウンナンバーチェック: 同じマークで1つ下の数字を出せる（ルールがONの場合のみ）
+    if (context.ruleSettings.downNumber &&
+        fieldPlay.type === PlayType.SINGLE &&
+        currentPlay.type === PlayType.SINGLE &&
+        cards.length === 1 && fieldPlay.cards.length === 1) {
+      const fieldCard = fieldPlay.cards[0];
+      const playCard = cards[0];
+
+      // 同じマークで、強さが1つ下の場合は許可
+      if (playCard.suit === fieldCard.suit && playCard.strength === fieldCard.strength - 1) {
+        return { valid: true };
+      }
+    }
+
     // XORロジック: 革命と11バックのどちらか一方だけがtrueなら強さ判定が反転
     // - 通常モード (revolution: false, elevenBack: false) → shouldReverse: false
     // - 11バックのみ (revolution: false, elevenBack: true) → shouldReverse: true

@@ -38,6 +38,22 @@ export class ConstraintValidator {
       }
     }
 
+    // ダウンナンバーチェック（同じマークで1つ下の数字を出せる）
+    if (context.ruleSettings.downNumber && !context.field.isEmpty()) {
+      const fieldPlay = context.field.getCurrentPlay();
+      if (fieldPlay && fieldPlay.type === PlayType.SINGLE && cards.length === 1) {
+        const fieldCard = fieldPlay.cards[0];
+        const playCard = cards[0];
+
+        // 同じマークで、強さが1つ下（strength - 1）の場合は許可
+        if (playCard.suit === fieldCard.suit && playCard.strength === fieldCard.strength - 1) {
+          // ダウンナンバー成立 - 強さチェックをスキップするためのフラグを返す
+          // 注: これは特殊なケースなので、StrengthValidatorで別途処理が必要
+          return { valid: true };
+        }
+      }
+    }
+
     return { valid: true };
   }
 }
