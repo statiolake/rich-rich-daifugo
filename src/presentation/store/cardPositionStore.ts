@@ -123,7 +123,10 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
         const info = cardToFieldInfo.get(cardId)!;
         const targetPos = calculateFieldPosition(info.playIndex, info.cardIndex, info.totalCards);
 
-        if (pos.location !== 'field') {
+        const locationChanged = pos.location !== 'field';
+        const positionChanged = pos.x !== targetPos.x || pos.y !== targetPos.y;
+
+        if (locationChanged || positionChanged) {
           updated.set(cardId, {
             ...pos,
             x: targetPos.x,
@@ -133,7 +136,7 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
             isFaceUp: true,
             opacity: 1,
             scale: 1,
-            transitionDuration: 400,
+            transitionDuration: locationChanged ? 400 : 200,
             zIndex: 200 + info.playIndex * 10 + info.cardIndex,
           });
         }
