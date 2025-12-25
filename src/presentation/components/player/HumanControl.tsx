@@ -434,5 +434,6 @@ export const HumanControl: React.FC = () => {
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 };
