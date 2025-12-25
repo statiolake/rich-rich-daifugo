@@ -139,6 +139,29 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
       });
     }
 
+    // 4. 手札にも場にも属さないカードを捨て札に（10捨て、クイーンボンバーなど）
+    // 手札と場のカードIDのセットを作成
+    const inPlayCardIds = new Set<string>();
+    gameState.players.forEach(player => {
+      player.hand.getCards().forEach(card => inPlayCardIds.add(card.id));
+    });
+    gameState.field.getHistory().forEach(playHistory => {
+      playHistory.play.cards.forEach(card => inPlayCardIds.add(card.id));
+    });
+
+    // 手札にも場にも属さず、location が 'hand' または 'field' のカードを捨て札に
+    updated.forEach((pos, cardId) => {
+      if (!inPlayCardIds.has(cardId) && (pos.location === 'hand' || pos.location === 'field')) {
+        updated.set(cardId, {
+          ...pos,
+          opacity: 0,
+          scale: 0.8,
+          location: 'discarded',
+          transitionDuration: 500,
+        });
+      }
+    });
+
     set({ cards: updated });
   },
 
