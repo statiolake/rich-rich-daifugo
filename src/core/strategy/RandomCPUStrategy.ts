@@ -83,16 +83,16 @@ export class RandomCPUStrategy implements PlayerStrategy {
         break;
 
       case 'queenBomber':
-        // クイーンボンバー：指定されたカードを探す
+        // クイーンボンバー：指定されたランクのカードを探す
         const specifiedCard = request.specifiedCard;
         if (specifiedCard) {
           const matchingCard = player.hand.getCards().find(
-            c => c.rank === specifiedCard.rank && c.suit === specifiedCard.suit
+            c => c.rank === specifiedCard.rank
           );
           if (matchingCard) {
             selectedCards = [matchingCard];
           }
-          // 手札にない場合は空配列のまま（スキップ）
+          // 指定されたランクのカードが手札にない場合は空配列のまま（スキップ）
         }
         break;
     }

@@ -67,10 +67,10 @@ export const HumanControl: React.FC = () => {
       case 'queenBomberSelect':
         return `クイーンボンバー：全員が捨てるカードを1枚選んでください`;
       case 'queenBomber':
-        // 指定されたカードを表示
+        // 指定されたランクを表示
         const specifiedCard = cardSelectionRequest.specifiedCard;
         if (specifiedCard) {
-          return `クイーンボンバー：${specifiedCard.rank}${specifiedCard.suit}を捨ててください`;
+          return `クイーンボンバー：${specifiedCard.rank}を捨ててください`;
         }
         return 'クイーンボンバー：指定されたカードを捨ててください';
       default:
@@ -290,9 +290,9 @@ export const HumanControl: React.FC = () => {
                 const specifiedCard = cardSelectionRequest.specifiedCard;
                 if (!specifiedCard) return null;
 
-                // 手札に指定されたカードがあるかチェック
+                // 手札に指定されたランクがあるかチェック
                 const hasCard = humanPlayer.hand.getCards().some(
-                  c => c.rank === specifiedCard.rank && c.suit === specifiedCard.suit
+                  c => c.rank === specifiedCard.rank
                 );
 
                 if (!hasCard) {
@@ -306,9 +306,9 @@ export const HumanControl: React.FC = () => {
                     </button>
                   );
                 } else {
-                  // 手札にある場合：指定されたカードを選択済みなら決定ボタン
+                  // 手札にある場合：指定されたランクを選択済みなら決定ボタン
                   const isSpecifiedCardSelected = selectedCards.some(
-                    c => c.rank === specifiedCard.rank && c.suit === specifiedCard.suit
+                    c => c.rank === specifiedCard.rank
                   );
                   if (isSpecifiedCardSelected) {
                     return (

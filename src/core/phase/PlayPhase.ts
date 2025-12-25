@@ -666,17 +666,17 @@ export class PlayPhase implements GamePhase {
     } else if (playerCards.length === 0 && selectedCards.length === 0 && request.reason === 'queenBomber') {
       // 手札が空の場合は空配列でOK（クイーンボンバーでスキップする場合）
     } else if (request.reason === 'queenBomber' && request.specifiedCard) {
-      // クイーンボンバーで指定されたカードがない場合は空配列でOK
-      const hasSpecifiedCard = playerCards.some(
-        c => c.rank === request.specifiedCard!.rank && c.suit === request.specifiedCard!.suit
+      // クイーンボンバーで指定されたランクのカードがない場合は空配列でOK
+      const hasSpecifiedRank = playerCards.some(
+        c => c.rank === request.specifiedCard!.rank
       );
-      if (!hasSpecifiedCard && selectedCards.length === 0) {
-        // 指定されたカードがないのでスキップ
-      } else if (hasSpecifiedCard && selectedCards.length === 1) {
-        // 指定されたカードを選択しているかチェック
+      if (!hasSpecifiedRank && selectedCards.length === 0) {
+        // 指定されたランクのカードがないのでスキップ
+      } else if (hasSpecifiedRank && selectedCards.length === 1) {
+        // 指定されたランクのカードを選択しているかチェック
         const selectedCard = selectedCards[0];
-        if (selectedCard.rank !== request.specifiedCard.rank || selectedCard.suit !== request.specifiedCard.suit) {
-          console.error('Must select the specified card for Queen Bomber');
+        if (selectedCard.rank !== request.specifiedCard.rank) {
+          console.error('Must select a card with the specified rank for Queen Bomber');
           return;
         }
       } else {
