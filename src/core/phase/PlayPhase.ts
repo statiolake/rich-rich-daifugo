@@ -696,7 +696,7 @@ export class PlayPhase implements GamePhase {
 
     // 選択理由に応じて処理
     switch (request.reason) {
-      case 'queenBomberSelect':
+      case 'queenBomberSelect': {
         // クイーンボンバー：発動プレイヤーがカードを選択
         if (selectedCards.length !== 1) {
           console.error('Queen Bomber requires exactly 1 card selection');
@@ -739,6 +739,7 @@ export class PlayPhase implements GamePhase {
         // queenBomberSelectが完了したら次のプレイヤーに進む
         this.nextPlayer(gameState);
         break;
+      }
 
       case 'sevenPass':
         // 7渡し：次のプレイヤーに渡す
@@ -764,7 +765,7 @@ export class PlayPhase implements GamePhase {
         this.nextPlayer(gameState);
         break;
 
-      case 'queenBomber':
+      case 'queenBomber': {
         // クイーンボンバー：指定されたランクのカードを捨てる
         const specifiedRank = request.specifiedRank;
         if (!specifiedRank) {
@@ -818,6 +819,7 @@ export class PlayPhase implements GamePhase {
         // 全員が選択完了したら次のプレイヤーに進む
         this.nextPlayer(gameState);
         break;
+      }
     }
   }
 
