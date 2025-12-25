@@ -9,6 +9,7 @@ import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { createPlayer } from '../domain/player/Player';
 import { Card } from '../domain/card/Card';
+import { HumanStrategy } from '../strategy/HumanStrategy';
 
 export class GameEngine {
   private gameState: GameState;
@@ -149,12 +150,23 @@ export class GameEngine {
 
   /**
    * カード選択を処理する（7渡し、10捨て、クイーンボンバー用）
+   * HumanPlayerの場合、HumanStrategyのsubmitCardSelectionを呼び出す
    */
   handleCardSelection(playerId: string, selectedCards: Card[]): void {
-    const playPhase = this.phases.get(GamePhaseType.PLAY) as PlayPhase;
-    if (playPhase && this.gameState.phase === GamePhaseType.PLAY) {
-      playPhase.handleCardSelection(this.gameState, playerId, selectedCards);
-      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
+    if (this.gameState.phase !== GamePhaseType.PLAY) {
+      return;
+    }
+
+    const strategy = this.strategyMap.get(playerId);
+    if (!strategy) {
+      console.error(`Strategy not found for player ${playerId}`);
+      return;
+    }
+
+    // HumanStrategyの場合、submitCardSelectionを呼び出してPromiseを解決
+    if (strategy instanceof HumanStrategy) {
+      strategy.submitCardSelection(selectedCards);
+      // state:updatedは、PlayPhaseのupdate()内のhandleCardSelection呼び出し後に発火される
     }
   }
 

@@ -6,6 +6,7 @@ import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerServi
 import { useMemo, useState } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
 import { PlayAnalyzer } from '../../../core/domain/card/Play';
+import { CardFactory, Suit, Rank } from '../../../core/domain/card/Card';
 
 export const HumanControl: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
@@ -239,7 +240,50 @@ export const HumanControl: React.FC = () => {
               {getSelectionDescription()}
             </div>
 
-            {/* 確定ボタン */}
+            {/* クイーンボンバー選択：全ランクのボタンを表示 */}
+            {cardSelectionRequest?.reason === 'queenBomberSelect' && (
+              <div className="flex flex-wrap justify-center gap-2 max-w-4xl">
+                {(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as Rank[]).map((rank) => {
+                  // 仮のカード（スートは?を表現するためSPADEを使用）
+                  const card = CardFactory.create(Suit.SPADE, rank);
+                  const isSelected = selectedCards.length > 0 && selectedCards[0].rank === rank;
+
+                  return (
+                    <button
+                      key={rank}
+                      onClick={() => {
+                        // 他のカードを選択解除してから選択
+                        useGameStore.setState({ selectedCards: [card] });
+                      }}
+                      className={`
+                        px-6 py-4 text-xl font-bold rounded-lg shadow-lg transition-all cursor-pointer
+                        ${isSelected
+                          ? 'bg-yellow-500 text-black ring-4 ring-yellow-300 scale-110'
+                          : 'bg-white text-gray-800 hover:bg-gray-200'
+                        }
+                      `}
+                    >
+                      <div className="flex flex-col items-center">
+                        <div className="text-2xl">{rank}</div>
+                        <div className="text-sm text-gray-500">?</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 確定ボタン - queenBomberSelect用 */}
+            {cardSelectionRequest?.reason === 'queenBomberSelect' && selectedCards.length === 1 && (
+              <button
+                onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
+                className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+              >
+                決定
+              </button>
+            )}
+
+            {/* 確定ボタン - queenBomber用 */}
             {cardSelectionRequest?.reason === 'queenBomber' ? (
               // クイーンボンバーの場合：指定されたカードがあるかチェック
               (() => {

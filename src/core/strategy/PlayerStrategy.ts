@@ -1,7 +1,7 @@
 import { Card } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
 import { Field } from '../domain/game/Field';
-import { GameState } from '../domain/game/GameState';
+import { GameState, CardSelectionRequest } from '../domain/game/GameState';
 
 export interface PlayDecision {
   type: 'PLAY' | 'PASS';
@@ -27,5 +27,18 @@ export interface PlayerStrategy {
   decideExchangeCards(
     player: Player,
     count: number
+  ): Promise<Card[]>;
+
+  /**
+   * カード選択リクエストに応じてカードを選択する
+   * @param player プレイヤー
+   * @param request カード選択リクエスト
+   * @param gameState ゲーム状態
+   * @returns 選択したカードの配列（スキップの場合は空配列）
+   */
+  decideCardSelection(
+    player: Player,
+    request: CardSelectionRequest,
+    gameState: GameState
   ): Promise<Card[]>;
 }

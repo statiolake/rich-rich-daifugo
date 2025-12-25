@@ -1,7 +1,7 @@
 import { Card } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
 import { Field } from '../domain/game/Field';
-import { GameState } from '../domain/game/GameState';
+import { GameState, CardSelectionRequest } from '../domain/game/GameState';
 import { PlayerStrategy, PlayDecision } from './PlayerStrategy';
 
 export class HumanStrategy implements PlayerStrategy {
@@ -10,6 +10,10 @@ export class HumanStrategy implements PlayerStrategy {
   } | null = null;
 
   private pendingExchangeDecision: {
+    resolve: (cards: Card[]) => void;
+  } | null = null;
+
+  private pendingCardSelection: {
     resolve: (cards: Card[]) => void;
   } | null = null;
 
@@ -61,6 +65,27 @@ export class HumanStrategy implements PlayerStrategy {
     }
   }
 
+  async decideCardSelection(
+    player: Player,
+    request: CardSelectionRequest,
+    gameState: GameState
+  ): Promise<Card[]> {
+    // UIからの入力を待つ
+    return new Promise<Card[]>((resolve) => {
+      this.pendingCardSelection = { resolve };
+    });
+  }
+
+  /**
+   * UIから呼ばれる：カード選択を提出
+   */
+  submitCardSelection(cards: Card[]): void {
+    if (this.pendingCardSelection) {
+      this.pendingCardSelection.resolve(cards);
+      this.pendingCardSelection = null;
+    }
+  }
+
   /**
    * 現在入力待ちかどうか
    */
@@ -70,5 +95,9 @@ export class HumanStrategy implements PlayerStrategy {
 
   isPendingExchange(): boolean {
     return this.pendingExchangeDecision !== null;
+  }
+
+  isPendingCardSelection(): boolean {
+    return this.pendingCardSelection !== null;
   }
 }
