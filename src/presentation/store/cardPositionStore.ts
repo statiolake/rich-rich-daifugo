@@ -60,55 +60,71 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
     const { cards } = get();
     const updated = new Map(cards);
 
-    // 1. 手札のカードを更新
+    // 手札と場のカードIDのセットを作成
+    const handCardIds = new Set<string>();
+    const fieldCardIds = new Set<string>();
+    const cardToHandInfo = new Map<string, { playerIndex: number; playerId: string; cardIndex: number; isHuman: boolean }>();
+    const cardToFieldInfo = new Map<string, { playIndex: number; cardIndex: number; totalCards: number }>();
+
+    // 1. 手札のカードを収集
     gameState.players.forEach((player, playerIndex) => {
       player.hand.getCards().forEach((card, cardIndex) => {
-        const pos = updated.get(card.id);
-        if (!pos) return;
+        handCardIds.add(card.id);
+        cardToHandInfo.set(card.id, {
+          playerIndex,
+          playerId: player.id.value,
+          cardIndex,
+          isHuman: player.type === PlayerType.HUMAN,
+        });
+      });
+    });
 
-        // 位置計算
-        const isHuman = player.type === PlayerType.HUMAN;
-        const targetPos = isHuman
-          ? calculateHumanHandPosition(cardIndex, player.hand.size())
-          : calculateCPUHandPosition(
-              playerIndex,
-              cardIndex,
-              gameState.players.length
-            );
+    // 2. 場のカードを収集
+    gameState.field.getHistory().forEach((playHistory, playIndex) => {
+      const totalCardsInPlay = playHistory.play.cards.length;
+      playHistory.play.cards.forEach((card, cardIndex) => {
+        fieldCardIds.add(card.id);
+        cardToFieldInfo.set(card.id, {
+          playIndex,
+          cardIndex,
+          totalCards: totalCardsInPlay,
+        });
+      });
+    });
 
-        // 位置が変化した場合、またはlocation/ownerIdが変化した場合に更新
+    // 3. すべてのカードを総なめして位置を決定
+    updated.forEach((pos, cardId) => {
+      if (handCardIds.has(cardId)) {
+        // 手札にあるカード
+        const info = cardToHandInfo.get(cardId)!;
+        const targetPos = info.isHuman
+          ? calculateHumanHandPosition(info.cardIndex, gameState.players[info.playerIndex].hand.size())
+          : calculateCPUHandPosition(info.playerIndex, info.cardIndex, gameState.players.length);
+
+        const locationChanged = pos.location !== 'hand' || pos.ownerId !== info.playerId;
         const positionChanged = pos.x !== targetPos.x || pos.y !== targetPos.y;
-        const locationChanged =
-          pos.location !== 'hand' || pos.ownerId !== player.id.value;
 
         if (locationChanged || positionChanged) {
-          updated.set(card.id, {
+          updated.set(cardId, {
             ...pos,
             x: targetPos.x,
             y: targetPos.y,
             location: 'hand',
-            ownerId: player.id.value,
-            isFaceUp: isHuman,
+            ownerId: info.playerId,
+            isFaceUp: info.isHuman,
             opacity: 1,
-            // カードが場から戻ってきた場合は長めに、位置調整の場合は短めに
+            scale: 1,
             transitionDuration: locationChanged ? 500 : 200,
-            zIndex: 100 + cardIndex,
+            zIndex: 100 + info.cardIndex,
           });
         }
-      });
-    });
-
-    // 2. 場のカードを更新
-    gameState.field.getHistory().forEach((playHistory, playIndex) => {
-      const totalCardsInPlay = playHistory.play.cards.length;
-      playHistory.play.cards.forEach((card, cardIndex) => {
-        const pos = updated.get(card.id);
-        if (!pos) return;
-
-        const targetPos = calculateFieldPosition(playIndex, cardIndex, totalCardsInPlay);
+      } else if (fieldCardIds.has(cardId)) {
+        // 場にあるカード
+        const info = cardToFieldInfo.get(cardId)!;
+        const targetPos = calculateFieldPosition(info.playIndex, info.cardIndex, info.totalCards);
 
         if (pos.location !== 'field') {
-          updated.set(card.id, {
+          updated.set(cardId, {
             ...pos,
             x: targetPos.x,
             y: targetPos.y,
@@ -116,18 +132,14 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
             location: 'field',
             isFaceUp: true,
             opacity: 1,
+            scale: 1,
             transitionDuration: 400,
-            zIndex: 200 + playIndex * 10 + cardIndex,
+            zIndex: 200 + info.playIndex * 10 + info.cardIndex,
           });
         }
-      });
-    });
-
-    // 3. 場が流れた場合（historyが空）
-    if (gameState.field.getHistory().length === 0) {
-      updated.forEach((pos, cardId) => {
-        if (pos.location === 'field') {
-          // 捨て札へ（画面外にフェードアウト）
+      } else {
+        // 手札にも場にもないカード = 捨て札
+        if (pos.location !== 'discarded') {
           updated.set(cardId, {
             ...pos,
             opacity: 0,
@@ -136,29 +148,6 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
             transitionDuration: 500,
           });
         }
-      });
-    }
-
-    // 4. 手札にも場にも属さないカードを捨て札に（10捨て、クイーンボンバーなど）
-    // 手札と場のカードIDのセットを作成
-    const inPlayCardIds = new Set<string>();
-    gameState.players.forEach(player => {
-      player.hand.getCards().forEach(card => inPlayCardIds.add(card.id));
-    });
-    gameState.field.getHistory().forEach(playHistory => {
-      playHistory.play.cards.forEach(card => inPlayCardIds.add(card.id));
-    });
-
-    // 手札にも場にも属さず、location が 'hand' または 'field' のカードを捨て札に
-    updated.forEach((pos, cardId) => {
-      if (!inPlayCardIds.has(cardId) && (pos.location === 'hand' || pos.location === 'field')) {
-        updated.set(cardId, {
-          ...pos,
-          opacity: 0,
-          scale: 0.8,
-          location: 'discarded',
-          transitionDuration: 500,
-        });
       }
     });
 
