@@ -199,46 +199,55 @@ export const HumanControl: React.FC = () => {
   const effects = getEffects();
 
   return (
-    <div
-      className="absolute left-0 right-0 p-6 bg-gradient-to-b from-black/70 via-black/50 to-transparent z-60 pointer-events-none"
-      style={{ top: `${screenHeight - 280}px` }}
-    >
-      {/* エラーメッセージ */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="mb-4 mx-auto max-w-md pointer-events-auto"
-          >
-            <div className="bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-between">
-              <span>{error}</span>
-              <button
-                onClick={clearError}
-                className="ml-4 text-white hover:text-gray-200 text-xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <>
+      {/* カード選択時のblurオーバーレイ */}
+      {needsCardSelection && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 z-65 pointer-events-none" />
+      )}
 
-      {/* 手札は UnifiedCardLayer で表示される */}
+      <div
+        className="absolute left-0 right-0 p-6 bg-gradient-to-b from-black/70 via-black/50 to-transparent pointer-events-none"
+        style={{
+          top: `${screenHeight - 280}px`,
+          zIndex: needsCardSelection ? 70 : 60
+        }}
+      >
+        {/* エラーメッセージ */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="mb-4 mx-auto max-w-md pointer-events-auto"
+            >
+              <div className="bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-between">
+                <span>{error}</span>
+                <button
+                  onClick={clearError}
+                  className="ml-4 text-white hover:text-gray-200 text-xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* 操作ボタン */}
-      <AnimatePresence mode="wait">
-        {needsCardSelection ? (
-          <motion.div
-            key="card-selection"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="flex flex-col items-center gap-4 pointer-events-auto"
-          >
+        {/* 手札は UnifiedCardLayer で表示される */}
+
+        {/* 操作ボタン */}
+        <AnimatePresence mode="wait">
+          {needsCardSelection ? (
+            <motion.div
+              key="card-selection"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="flex flex-col items-center gap-4 pointer-events-auto"
+            >
             {/* 説明テキスト */}
             <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
               {getSelectionDescription()}
@@ -246,7 +255,7 @@ export const HumanControl: React.FC = () => {
 
             {/* クイーンボンバー選択：全ランクのボタンを表示 */}
             {cardSelectionRequest?.reason === 'queenBomberSelect' && (
-              <div className="flex flex-wrap justify-center gap-2 max-w-4xl">
+              <div className="flex flex-nowrap justify-center gap-2 overflow-x-auto max-w-full px-4">
                 {(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as Rank[]).map((rank) => {
                   // 仮のカード（スートは?を表現するためSPADEを使用）
                   const card = CardFactory.create(Suit.SPADE, rank);
@@ -277,19 +286,19 @@ export const HumanControl: React.FC = () => {
               </div>
             )}
 
-            {/* 確定ボタン - queenBomberSelect用 */}
-            {cardSelectionRequest?.reason === 'queenBomberSelect' && selectedCards.length === 1 && (
-              <button
-                onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
-                className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
-              >
-                決定
-              </button>
-            )}
-
-            {/* 確定ボタン - queenBomber用 */}
-            {cardSelectionRequest?.reason === 'queenBomber' ? (
-              // クイーンボンバーの場合：指定されたカードがあるかチェック
+            {/* 確定ボタン */}
+            {cardSelectionRequest?.reason === 'queenBomberSelect' ? (
+              // クイーンボンバー選択：ランクを選んだら決定
+              selectedCards.length === 1 && (
+                <button
+                  onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
+                  className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+                >
+                  決定
+                </button>
+              )
+            ) : cardSelectionRequest?.reason === 'queenBomber' ? (
+              // クイーンボンバー：指定されたランクのカードを捨てる
               (() => {
                 const specifiedRank = cardSelectionRequest.specifiedRank;
                 if (!specifiedRank) return null;
@@ -328,7 +337,7 @@ export const HumanControl: React.FC = () => {
                 }
               })()
             ) : (
-              // その他の場合：通常の確定ボタン
+              // その他の場合：通常の確定ボタン（7渡し、10捨て）
               selectedCards.length === cardSelectionRequest?.count && (
                 <button
                   onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}

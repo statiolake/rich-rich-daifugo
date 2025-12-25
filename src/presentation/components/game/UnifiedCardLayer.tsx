@@ -33,6 +33,12 @@ export const UnifiedCardLayer: React.FC = () => {
     if (needsCardSelection && humanPlayer) {
       const handCards = humanPlayer.hand.getCards();
 
+      // クイーンボンバー選択の場合は手札をクリックできない（UIのボタンで選ぶ）
+      if (cardSelectionRequest.reason === 'queenBomberSelect') {
+        // 何もしない（手札をクリックできない）
+        return legal;
+      }
+
       // クイーンボンバーの場合は、指定されたランクのカードのみ選択可能
       if (cardSelectionRequest.reason === 'queenBomber' && cardSelectionRequest.specifiedRank) {
         handCards.forEach((card) => {
@@ -41,7 +47,7 @@ export const UnifiedCardLayer: React.FC = () => {
           }
         });
       } else {
-        // 7渡し、10捨て、クイーンボンバー選択の場合は全カード選択可能
+        // 7渡し、10捨ての場合は全カード選択可能
         handCards.forEach((card) => {
           legal.add(card.id);
         });
