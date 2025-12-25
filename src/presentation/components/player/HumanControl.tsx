@@ -68,11 +68,11 @@ export const HumanControl: React.FC = () => {
         return `クイーンボンバー：全員が捨てるカードを1枚選んでください`;
       case 'queenBomber':
         // 指定されたランクを表示
-        const specifiedCard = cardSelectionRequest.specifiedCard;
-        if (specifiedCard) {
-          return `クイーンボンバー：${specifiedCard.rank}を捨ててください`;
+        const specifiedRank = cardSelectionRequest.specifiedRank;
+        if (specifiedRank) {
+          return `クイーンボンバー：${specifiedRank}を捨ててください`;
         }
-        return 'クイーンボンバー：指定されたカードを捨ててください';
+        return 'クイーンボンバー：指定されたランクを捨ててください';
       default:
         return 'カードを選んでください';
     }
@@ -287,12 +287,12 @@ export const HumanControl: React.FC = () => {
             {cardSelectionRequest?.reason === 'queenBomber' ? (
               // クイーンボンバーの場合：指定されたカードがあるかチェック
               (() => {
-                const specifiedCard = cardSelectionRequest.specifiedCard;
-                if (!specifiedCard) return null;
+                const specifiedRank = cardSelectionRequest.specifiedRank;
+                if (!specifiedRank) return null;
 
                 // 手札に指定されたランクがあるかチェック
                 const hasCard = humanPlayer.hand.getCards().some(
-                  c => c.rank === specifiedCard.rank
+                  c => c.rank === specifiedRank
                 );
 
                 if (!hasCard) {
@@ -307,10 +307,10 @@ export const HumanControl: React.FC = () => {
                   );
                 } else {
                   // 手札にある場合：指定されたランクを選択済みなら決定ボタン
-                  const isSpecifiedCardSelected = selectedCards.some(
-                    c => c.rank === specifiedCard.rank
+                  const isSpecifiedRankSelected = selectedCards.some(
+                    c => c.rank === specifiedRank
                   );
-                  if (isSpecifiedCardSelected) {
+                  if (isSpecifiedRankSelected) {
                     return (
                       <button
                         onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}

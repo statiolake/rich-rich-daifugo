@@ -665,17 +665,17 @@ export class PlayPhase implements GamePhase {
       }
     } else if (playerCards.length === 0 && selectedCards.length === 0 && request.reason === 'queenBomber') {
       // 手札が空の場合は空配列でOK（クイーンボンバーでスキップする場合）
-    } else if (request.reason === 'queenBomber' && request.specifiedCard) {
+    } else if (request.reason === 'queenBomber' && request.specifiedRank) {
       // クイーンボンバーで指定されたランクのカードがない場合は空配列でOK
       const hasSpecifiedRank = playerCards.some(
-        c => c.rank === request.specifiedCard!.rank
+        c => c.rank === request.specifiedRank
       );
       if (!hasSpecifiedRank && selectedCards.length === 0) {
         // 指定されたランクのカードがないのでスキップ
       } else if (hasSpecifiedRank && selectedCards.length === 1) {
         // 指定されたランクのカードを選択しているかチェック
         const selectedCard = selectedCards[0];
-        if (selectedCard.rank !== request.specifiedCard.rank) {
+        if (selectedCard.rank !== request.specifiedRank) {
           console.error('Must select a card with the specified rank for Queen Bomber');
           return;
         }
@@ -704,9 +704,10 @@ export class PlayPhase implements GamePhase {
         }
 
         const selectedCard = selectedCards[0];
-        console.log(`クイーンボンバー：${selectedCard.rank}${selectedCard.suit}が指定されました`);
+        const specifiedRank = selectedCard.rank;
+        console.log(`クイーンボンバー：${specifiedRank}が指定されました`);
 
-        // 次の未完了プレイヤーから、指定されたカードを捨てさせる
+        // 次の未完了プレイヤーから、指定されたランクのカードを捨てさせる
         const currentIndex = gameState.players.findIndex(p => p.id.value === playerId);
         let nextIndex = (currentIndex + 1) % gameState.players.length;
         let attempts = 0;
@@ -723,7 +724,7 @@ export class PlayPhase implements GamePhase {
                 playerId: nextPlayer.id.value,
                 reason: 'queenBomber',
                 count: 1,
-                specifiedCard: selectedCard,
+                specifiedRank: specifiedRank,
                 startPlayerId: nextPlayer.id.value, // 一周検出用
               };
               return;
@@ -764,20 +765,20 @@ export class PlayPhase implements GamePhase {
         break;
 
       case 'queenBomber':
-        // クイーンボンバー：指定されたカードを捨てる
-        const specifiedCard = request.specifiedCard;
-        if (!specifiedCard) {
-          console.error('No card specified for Queen Bomber');
+        // クイーンボンバー：指定されたランクのカードを捨てる
+        const specifiedRank = request.specifiedRank;
+        if (!specifiedRank) {
+          console.error('No rank specified for Queen Bomber');
           return;
         }
 
         if (selectedCards.length > 0) {
           // カードを捨てる
           player.hand.remove(selectedCards);
-          console.log(`クイーンボンバー：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
+          console.log(`クイーンボンバー：${player.name}が${selectedCards[0].rank}を捨てました`);
         } else {
           // 手札にない、またはスキップ
-          console.log(`クイーンボンバー：${player.name}は${specifiedCard.rank}${specifiedCard.suit}を持っていないのでスキップ`);
+          console.log(`クイーンボンバー：${player.name}は${specifiedRank}を持っていないのでスキップ`);
         }
 
         // 次の未完了プレイヤーを探す
@@ -803,7 +804,7 @@ export class PlayPhase implements GamePhase {
               playerId: nextPlayer.id.value,
               reason: 'queenBomber',
               count: 1,
-              specifiedCard: specifiedCard, // 指定カードを引き継ぐ
+              specifiedRank: specifiedRank, // 指定ランクを引き継ぐ
               startPlayerId: startPlayerId, // 開始プレイヤーを引き継ぐ
             };
             return; // まだ選択が必要なので、ここで終了

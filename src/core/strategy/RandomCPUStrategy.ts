@@ -84,10 +84,10 @@ export class RandomCPUStrategy implements PlayerStrategy {
 
       case 'queenBomber':
         // クイーンボンバー：指定されたランクのカードを探す
-        const specifiedCard = request.specifiedCard;
-        if (specifiedCard) {
+        const specifiedRank = request.specifiedRank;
+        if (specifiedRank) {
           const matchingCard = player.hand.getCards().find(
-            c => c.rank === specifiedCard.rank
+            c => c.rank === specifiedRank
           );
           if (matchingCard) {
             selectedCards = [matchingCard];
