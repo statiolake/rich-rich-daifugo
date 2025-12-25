@@ -20,15 +20,39 @@ export const UnifiedCardLayer: React.FC = () => {
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
   const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length]);
 
+  // カード選択リクエストがあるか確認
+  const cardSelectionRequest = gameState?.cardSelectionRequest;
+  const humanPlayer = gameState ? LocalPlayerService.findLocalPlayer(gameState) : null;
+  const needsCardSelection = cardSelectionRequest && humanPlayer && cardSelectionRequest.playerId === humanPlayer.id.value;
+
   // 光らせるカードを決める
-  // 選択したカードが部分集合になっている出せる手をすべて見つけ、
-  // その手に含まれるカードの和集合を光らせる
   const legalCards = useMemo(() => {
     const legal = new Set<string>();
 
+    // カード選択リクエストがある場合は、手札の全カードを選択可能にする
+    if (needsCardSelection && humanPlayer) {
+      const handCards = humanPlayer.hand.getCards();
+
+      // クイーンボンバーの場合は、指定されたランクのカードのみ選択可能
+      if (cardSelectionRequest.reason === 'queenBomber' && cardSelectionRequest.specifiedRank) {
+        handCards.forEach((card) => {
+          if (card.rank === cardSelectionRequest.specifiedRank) {
+            legal.add(card.id);
+          }
+        });
+      } else {
+        // 7渡し、10捨て、クイーンボンバー選択の場合は全カード選択可能
+        handCards.forEach((card) => {
+          legal.add(card.id);
+        });
+      }
+      return legal;
+    }
+
+    // 通常のプレイ時は、選択したカードが部分集合になっている出せる手をすべて見つけ、
+    // その手に含まれるカードの和集合を光らせる
     validCombinations.forEach((combo) => {
       // この役が選択状態を部分集合として含むか確認
-      // つまり、選択したカードがすべてこの役に含まれているか
       const isSubset = selectedCards.every((selectedCard) =>
         combo.some((c) => c.id === selectedCard.id)
       );
@@ -42,7 +66,7 @@ export const UnifiedCardLayer: React.FC = () => {
     });
 
     return legal;
-  }, [validCombinations, selectedCards]);
+  }, [validCombinations, selectedCards, needsCardSelection, cardSelectionRequest, humanPlayer]);
 
   // 54枚のカードオブジェクトを取得（ジョーカーは固定IDなので毎回同じになる）
   const allCards = useMemo(() => CardFactory.createDeck(true), []);

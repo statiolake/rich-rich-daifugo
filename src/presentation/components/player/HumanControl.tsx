@@ -49,8 +49,12 @@ export const HumanControl: React.FC = () => {
 
   // RuleEngine で出せるかを判定
   const ruleEngine = getRuleEngine();
-  const canPlaySelected = selectedCards.length > 0 &&
-    ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState).valid;
+
+  // カード選択リクエスト時は別のバリデーション
+  const canPlaySelected = needsCardSelection
+    ? selectedCards.length > 0 // カード選択時は選択されていればOK
+    : selectedCards.length > 0 && ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState).valid;
+
   const canPass = ruleEngine.canPass(gameState.field).valid;
   // パスを目立たせるのは、合法手が一つもないときだけ
   const shouldHighlightPass = validCombinations.length === 0 && canPass;
