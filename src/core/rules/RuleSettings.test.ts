@@ -223,16 +223,6 @@ describe('Rule Settings - ON/OFF Functionality', () => {
         effects.push('スぺ3返し');
       }
 
-      // 禁止上がり判定
-      const remainingCards = humanPlayer.hand.size() - selectedCards.length;
-      if (remainingCards === 0) {
-        const forbiddenRanks = ['J', '2', '8', 'JOKER'];
-        const hasForbiddenCard = selectedCards.some((card: any) => forbiddenRanks.includes(card.rank));
-        if (ruleSettings.forbiddenFinish && hasForbiddenCard) {
-          effects.push('⚠️禁止上がり');
-        }
-      }
-
       return effects;
     };
 
@@ -292,31 +282,8 @@ describe('Rule Settings - ON/OFF Functionality', () => {
       });
     });
 
-    describe('禁止上がり preview', () => {
-      it('禁止上がりがONで最後のJを選択すると「⚠️禁止上がり」がエフェクトに含まれる', () => {
-        const player = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
-        const cardJ = CardFactory.create(Suit.SPADE, 'J');
-        player.hand.add([cardJ]); // 手札1枚のみ
-
-        const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, forbiddenFinish: true });
-
-        const effects = getEffects([cardJ], gameState, player, true);
-
-        expect(effects).toContain('⚠️禁止上がり');
-      });
-
-      it('禁止上がりがOFFで最後のJを選択しても「⚠️禁止上がり」がエフェクトに含まれない', () => {
-        const player = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
-        const cardJ = CardFactory.create(Suit.SPADE, 'J');
-        player.hand.add([cardJ]); // 手札1枚のみ
-
-        const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, forbiddenFinish: false });
-
-        const effects = getEffects([cardJ], gameState, player, true);
-
-        expect(effects).not.toContain('⚠️禁止上がり');
-      });
-    });
+    // 禁止上がりのプレビューテストは削除
+    // バリデーションエラーになるので、そもそもカードを選択できない
 
     describe('救急車 preview', () => {
       it('救急車がONの場合、9x2を選択すると「救急車」がエフェクトに含まれる', () => {

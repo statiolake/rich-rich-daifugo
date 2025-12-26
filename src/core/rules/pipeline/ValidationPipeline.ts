@@ -4,6 +4,7 @@ import { RuleContext } from '../context/RuleContext';
 import { BasicValidator, ValidationResult } from '../validators/BasicValidator';
 import { ConstraintValidator } from '../validators/ConstraintValidator';
 import { StrengthValidator } from '../validators/StrengthValidator';
+import { ForbiddenFinishValidator } from '../validators/ForbiddenFinishValidator';
 
 /**
  * 検証パイプライン
@@ -13,11 +14,13 @@ export class ValidationPipeline {
   private basicValidator: BasicValidator;
   private constraintValidator: ConstraintValidator;
   private strengthValidator: StrengthValidator;
+  private forbiddenFinishValidator: ForbiddenFinishValidator;
 
   constructor() {
     this.basicValidator = new BasicValidator();
     this.constraintValidator = new ConstraintValidator();
     this.strengthValidator = new StrengthValidator();
+    this.forbiddenFinishValidator = new ForbiddenFinishValidator();
   }
 
   /**
@@ -27,6 +30,7 @@ export class ValidationPipeline {
    * 1. 基本検証（所有権、組み合わせ）
    * 2. 制約検証（縛りなど）
    * 3. 強さ判定（革命を考慮）
+   * 4. 禁止上がり（J, 2, 8, Joker で上がれない）
    */
   validate(
     player: Player,
@@ -46,7 +50,13 @@ export class ValidationPipeline {
     }
 
     // ステップ3: 強さ判定
-    return this.strengthValidator.validate(player, cards, context);
+    const strengthResult = this.strengthValidator.validate(player, cards, context);
+    if (!strengthResult.valid) {
+      return strengthResult;
+    }
+
+    // ステップ4: 禁止上がり
+    return this.forbiddenFinishValidator.validate(player, cards, context);
   }
 
   /**

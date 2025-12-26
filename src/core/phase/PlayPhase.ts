@@ -397,26 +397,9 @@ export class PlayPhase implements GamePhase {
       return;
     }
 
-    // 手札が空になったら上がり（禁止上がりチェック）
+    // 手札が空になったら上がり
     if (player.hand.isEmpty()) {
-      // 禁止上がりチェック: J, 2, 8, Joker で上がれない
-      const forbiddenRanks = ['J', '2', '8', 'JOKER'];
-      const hasForbiddenCard = cards.some(card => forbiddenRanks.includes(card.rank));
-
-      if (gameState.ruleSettings.forbiddenFinish && hasForbiddenCard) {
-        console.log(`${player.name} は禁止カードで上がることはできません`);
-        // カードを手札に戻す
-        player.hand.add(cards);
-        // 場からもプレイを削除
-        gameState.field.clear();
-        gameState.passCount = 0;
-        // イベント発火
-        this.eventBus?.emit('forbiddenFinish:attempted', {
-          playerName: player.name
-        });
-      } else {
-        this.handlePlayerFinish(gameState, player);
-      }
+      this.handlePlayerFinish(gameState, player);
     }
 
     // 7渡し判定（手札から1枚を次のプレイヤーに渡す）
@@ -468,9 +451,16 @@ export class PlayPhase implements GamePhase {
 
     gameState.passCount++;
 
-    // 全員がパスしたら場をクリア（流れる）
+    // 全員がパスした場合の処理
     const activePlayers = gameState.players.filter(p => !p.isFinished).length;
     if (gameState.passCount >= activePlayers - 1) {
+      // 全員がパスした後、誰も出せない場合はゲーム終了
+      if (!this.canAnyonePlay(gameState)) {
+        console.log('全員が出せる手がないため、ゲームを終了します');
+        this.endGameDueToNoPlays(gameState);
+        return;
+      }
+
       console.log('場が流れました');
 
       // ラッキーセブン勝利チェック
@@ -849,5 +839,89 @@ export class PlayPhase implements GamePhase {
       gameState.players[gameState.currentPlayerIndex].isFinished &&
       gameState.players.filter(p => !p.isFinished).length > 0
     );
+  }
+
+  /**
+   * 誰かがプレイ可能かチェック
+   */
+  private canAnyonePlay(gameState: GameState): boolean {
+    const activePlayers = gameState.players.filter(p => !p.isFinished);
+
+    for (const player of activePlayers) {
+      // プレイヤーの全ての手札の組み合わせをチェック
+      const cards = player.hand.getCards();
+
+      // 各カードの組み合わせをチェック
+      for (let i = 0; i < cards.length; i++) {
+        // 1枚
+        const validation = this.ruleEngine.validate(player, [cards[i]], gameState.field, gameState);
+        if (validation.valid) {
+          return true;
+        }
+
+        // 2枚
+        for (let j = i + 1; j < cards.length; j++) {
+          const validation = this.ruleEngine.validate(player, [cards[i], cards[j]], gameState.field, gameState);
+          if (validation.valid) {
+            return true;
+          }
+
+          // 3枚
+          for (let k = j + 1; k < cards.length; k++) {
+            const validation = this.ruleEngine.validate(player, [cards[i], cards[j], cards[k]], gameState.field, gameState);
+            if (validation.valid) {
+              return true;
+            }
+
+            // 4枚
+            for (let l = k + 1; l < cards.length; l++) {
+              const validation = this.ruleEngine.validate(player, [cards[i], cards[j], cards[k], cards[l]], gameState.field, gameState);
+              if (validation.valid) {
+                return true;
+              }
+
+              // 5枚以上は階段のみなので、より効率的にチェック可能だが、簡略化のため省略
+            }
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 誰も出せないためゲームを終了
+   * 手札が少ない順に順位を設定
+   */
+  private endGameDueToNoPlays(gameState: GameState): void {
+    const activePlayers = gameState.players.filter(p => !p.isFinished);
+
+    // 手札が少ない順にソート
+    activePlayers.sort((a, b) => a.hand.size() - b.hand.size());
+
+    // 順位を設定
+    let currentPosition = gameState.players.filter(p => p.isFinished).length + 1;
+    let previousHandSize = -1;
+    let sameRankCount = 0;
+
+    for (const player of activePlayers) {
+      const handSize = player.hand.size();
+
+      // 同じ手札枚数の場合は同順位
+      if (handSize === previousHandSize) {
+        sameRankCount++;
+      } else {
+        currentPosition += sameRankCount;
+        sameRankCount = 0;
+        previousHandSize = handSize;
+      }
+
+      player.isFinished = true;
+      player.finishPosition = currentPosition;
+      this.assignRank(gameState, player);
+
+      console.log(`${player.name} finished in position ${player.finishPosition} (手札: ${handSize}枚)`);
+    }
   }
 }

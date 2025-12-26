@@ -192,16 +192,6 @@ export const HumanControl: React.FC = () => {
       triggerEffects.push('ラッキーセブン');
     }
 
-    // 禁止上がり判定
-    const remainingCards = humanPlayer.hand.size() - selectedCards.length;
-    if (remainingCards === 0) {
-      const forbiddenRanks = ['J', '2', '8', 'JOKER'];
-      const hasForbiddenCard = selectedCards.some(card => forbiddenRanks.includes(card.rank));
-      if (ruleSettings.forbiddenFinish && hasForbiddenCard) {
-        triggerEffects.push('⚠️禁止上がり');
-      }
-    }
-
     return { playableReasons, triggerEffects };
   };
 

@@ -43,6 +43,7 @@ describe('Card Effects Tests', () => {
       const state = createTestGameState({
         ...DEFAULT_RULE_SETTINGS,
         eightCut: true,
+        forbiddenFinish: false, // 8で上がるのを許可
       });
       const humanPlayer = setHumanPlayerAsCurrent(state);
 
@@ -73,6 +74,7 @@ describe('Card Effects Tests', () => {
       const state = createTestGameState({
         ...DEFAULT_RULE_SETTINGS,
         eightCut: true,
+        forbiddenFinish: false, // 8で上がるのを許可
       });
       const humanPlayer = setHumanPlayerAsCurrent(state);
       const initialPlayerIndex = state.currentPlayerIndex;
@@ -476,9 +478,10 @@ describe('Card Effects Tests', () => {
       // 最初は11バックではない
       expect(state.isElevenBack).toBe(false);
 
-      // Jを出す
+      // Jと他のカードを追加（上がらないようにする）
       const cardJ = CardFactory.create(Suit.SPADE, 'J');
-      humanPlayer.hand.add([cardJ]);
+      const card3 = CardFactory.create(Suit.HEART, '3');
+      humanPlayer.hand.add([cardJ, card3]);
       playPhase['handlePlay'](state, humanPlayer, [cardJ]);
 
       // 11バックが発動しているはず
@@ -487,30 +490,44 @@ describe('Card Effects Tests', () => {
   });
 
   describe('禁止上がり (forbidden-finish)', () => {
-    it('J, 2, 8, Jokerでは上がれない', () => {
+    it('J, 2, 8, Jokerでは上がれない（バリデーションエラー）', () => {
       const state = createTestGameState({
         ...DEFAULT_RULE_SETTINGS,
         forbiddenFinish: true,
       });
       const humanPlayer = setHumanPlayerAsCurrent(state);
 
-      // PlayPhaseを作成
+      // RuleEngineを作成
       const ruleEngine = new RuleEngine();
-      const playPhase = new PlayPhase(new Map(), ruleEngine, eventBus);
 
       // 手札をクリアしてJのみにする
       humanPlayer.hand.remove([...humanPlayer.hand.getCards()]);
       const cardJ = CardFactory.create(Suit.SPADE, 'J');
       humanPlayer.hand.add([cardJ]);
 
-      // Jで上がろうとする
-      playPhase['handlePlay'](state, humanPlayer, [cardJ]);
+      // Jで上がろうとするとバリデーションエラー
+      const validation = ruleEngine.validate(humanPlayer, [cardJ], state.field, state);
+      expect(validation.valid).toBe(false);
+      expect(validation.reason).toContain('上がることができません');
 
-      // 上がっていない（禁止上がり）
-      expect(humanPlayer.isFinished).toBe(false);
+      // 同様に2, 8, Jokerもテスト
+      humanPlayer.hand.remove([...humanPlayer.hand.getCards()]);
+      const card2 = CardFactory.create(Suit.SPADE, '2');
+      humanPlayer.hand.add([card2]);
+      const validation2 = ruleEngine.validate(humanPlayer, [card2], state.field, state);
+      expect(validation2.valid).toBe(false);
 
-      // 手札が戻されているはず
-      expect(humanPlayer.hand.isEmpty()).toBe(false);
+      humanPlayer.hand.remove([...humanPlayer.hand.getCards()]);
+      const card8 = CardFactory.create(Suit.SPADE, '8');
+      humanPlayer.hand.add([card8]);
+      const validation8 = ruleEngine.validate(humanPlayer, [card8], state.field, state);
+      expect(validation8.valid).toBe(false);
+
+      humanPlayer.hand.remove([...humanPlayer.hand.getCards()]);
+      const cardJoker = CardFactory.create(Suit.SPADE, 'JOKER');
+      humanPlayer.hand.add([cardJoker]);
+      const validationJoker = ruleEngine.validate(humanPlayer, [cardJoker], state.field, state);
+      expect(validationJoker.valid).toBe(false);
     });
   });
 
