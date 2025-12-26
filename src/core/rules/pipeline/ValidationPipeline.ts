@@ -68,6 +68,6 @@ export class ValidationPipeline {
       return { valid: false, reason: '場が空の時はパスできません' };
     }
 
-    return { valid: true };
+    return { valid: true, reason: '' };
   }
 }

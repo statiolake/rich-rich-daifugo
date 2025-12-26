@@ -15,14 +15,14 @@ export class ForbiddenFinishValidator {
   ): ValidationResult {
     // 禁止上がりルールが無効な場合はチェックしない
     if (!context.ruleSettings.forbiddenFinish) {
-      return { valid: true };
+      return { valid: true, reason: '' };
     }
 
     // これらのカードをプレイした後に手札が空になるかチェック
     const remainingCards = player.hand.size() - cards.length;
     if (remainingCards !== 0) {
       // 上がらない場合はチェック不要
-      return { valid: true };
+      return { valid: true, reason: '' };
     }
 
     // 禁止カード: J, 2, 8, Joker
@@ -36,6 +36,6 @@ export class ForbiddenFinishValidator {
       };
     }
 
-    return { valid: true };
+    return { valid: true, reason: '' };
   }
 }

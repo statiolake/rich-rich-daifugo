@@ -49,11 +49,11 @@ export class ConstraintValidator {
         if (playCard.suit === fieldCard.suit && playCard.strength === fieldCard.strength - 1) {
           // ダウンナンバー成立 - 強さチェックをスキップするためのフラグを返す
           // 注: これは特殊なケースなので、StrengthValidatorで別途処理が必要
-          return { valid: true };
+          return { valid: true, reason: '' };
         }
       }
     }
 
-    return { valid: true };
+    return { valid: true, reason: '' };
   }
 }

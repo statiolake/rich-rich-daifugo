@@ -8,7 +8,7 @@ import { RuleContext } from '../context/RuleContext';
  */
 export interface ValidationResult {
   valid: boolean;
-  reason?: string;
+  reason?: string; // 出せる場合も出せない場合も、その理由を返す（任意）
 }
 
 /**
@@ -51,7 +51,7 @@ export class BasicValidator {
       }
     }
 
-    return { valid: true };
+    return { valid: true, reason: '' };
   }
 
   /**
@@ -75,6 +75,6 @@ export class BasicValidator {
       };
     }
 
-    return { valid: true };
+    return { valid: true, reason: '' };
   }
 }

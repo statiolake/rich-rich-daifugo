@@ -19,13 +19,13 @@ export class StrengthValidator {
   ): ValidationResult {
     // 場が空ならどんなカードでも出せる
     if (context.field.isEmpty()) {
-      return { valid: true };
+      return { valid: true, reason: '' };
     }
 
     const currentPlay = PlayAnalyzer.analyze(cards);
     if (!currentPlay) {
       // 組み合わせが無効な場合（すでに BasicValidator でチェックされている）
-      return { valid: true };
+      return { valid: true, reason: '' };
     }
 
     const fieldPlay = context.field.getCurrentPlay()!;
@@ -41,7 +41,7 @@ export class StrengthValidator {
             reason: '場のカードと同じタイプの組み合わせを出してください',
           };
         }
-        return { valid: true };
+        return { valid: true, reason: '砂嵐' };
       }
 
       // 場に砂嵐がある場合、3のスリーカード以外は出せない
@@ -55,7 +55,7 @@ export class StrengthValidator {
 
     // スぺ3返しチェック: スペードの3がJokerに勝つ（ルールがONの場合のみ）
     if (context.ruleSettings.spadeThreeReturn && this.isSpadeThree(currentPlay) && this.isJoker(fieldPlay)) {
-      return { valid: true };
+      return { valid: true, reason: 'スぺ3返し' };
     }
 
     // ダウンナンバーチェック: 同じマークで1つ下の数字を出せる（ルールがONの場合のみ）
@@ -68,7 +68,7 @@ export class StrengthValidator {
 
       // 同じマークで、強さが1つ下の場合は許可
       if (playCard.suit === fieldCard.suit && playCard.strength === fieldCard.strength - 1) {
-        return { valid: true };
+        return { valid: true, reason: 'ダウンナンバー' };
       }
     }
 
@@ -87,7 +87,7 @@ export class StrengthValidator {
       };
     }
 
-    return { valid: true };
+    return { valid: true, reason: '' };
   }
 
   /**
