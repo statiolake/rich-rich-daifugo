@@ -59,6 +59,27 @@ export const UnifiedCardLayer: React.FC = () => {
     }
   }, [isPendingCardSelection, isPendingRankSelection, clearSelection]);
 
+  // 禁止上がりのカードを決める（バリデーターを使用）
+  const forbiddenFinishCards = useMemo(() => {
+    const forbidden = new Set<string>();
+
+    if (!humanPlayer || !gameState) return forbidden;
+
+    const ruleEngine = getRuleEngine();
+    const handCards = humanPlayer.hand.getCards();
+
+    // 各カードについてバリデーションを実行
+    handCards.forEach((card) => {
+      const validation = ruleEngine.validate(humanPlayer, [card], gameState.field, gameState);
+      // バリデーション失敗で、理由に「上がることができません」が含まれている場合
+      if (!validation.valid && validation.reason?.includes('上がることができません')) {
+        forbidden.add(card.id);
+      }
+    });
+
+    return forbidden;
+  }, [humanPlayer, gameState, getRuleEngine]);
+
   // 光らせるカードを決める
   const legalCards = useMemo(() => {
     const legal = new Set<string>();
@@ -174,7 +195,8 @@ export const UnifiedCardLayer: React.FC = () => {
 
         // bottom type（確定後）の時はdim
         const isHandCard = cardPos.isFaceUp && cardPos.location === 'hand' && cardPos.ownerId === localPlayerId;
-        const shouldDim = isHandCard && isValidatorBottomType;
+        const isForbiddenFinish = isHandCard && forbiddenFinishCards.has(card.id);
+        const shouldDim = isHandCard && (isValidatorBottomType || isForbiddenFinish);
 
         return (
           <motion.div
@@ -197,23 +219,33 @@ export const UnifiedCardLayer: React.FC = () => {
               ease: [0.4, 0, 0.2, 1],
             }}
           >
-            <Card
-              card={card}
-              isSelected={isSelected}
-              isFaceUp={cardPos.isFaceUp}
-              onClick={isClickable ? () => handleCardClick(card.id) : undefined}
-              className={
-                isHandCard
-                  ? shouldDim
-                    ? 'opacity-50'
-                    : legalCards.has(card.id)
-                    ? isSelected
-                      ? 'drop-shadow-[0_0_40px_rgba(250,204,21,1)] drop-shadow-[0_0_80px_rgba(234,179,8,0.9)]'
-                      : 'ring-2 ring-blue-400 border-blue-300 border-2 drop-shadow-[0_0_30px_rgba(96,165,250,0.95)] drop-shadow-[0_0_60px_rgba(147,197,253,0.7)]'
+            <div className="relative">
+              <Card
+                card={card}
+                isSelected={isSelected}
+                isFaceUp={cardPos.isFaceUp}
+                onClick={isClickable ? () => handleCardClick(card.id) : undefined}
+                className={
+                  isHandCard
+                    ? shouldDim
+                      ? 'opacity-50'
+                      : legalCards.has(card.id)
+                      ? isSelected
+                        ? 'drop-shadow-[0_0_40px_rgba(250,204,21,1)] drop-shadow-[0_0_80px_rgba(234,179,8,0.9)]'
+                        : 'ring-2 ring-blue-400 border-blue-300 border-2 drop-shadow-[0_0_30px_rgba(96,165,250,0.95)] drop-shadow-[0_0_60px_rgba(147,197,253,0.7)]'
+                      : ''
                     : ''
-                  : ''
-              }
-            />
+                }
+              />
+              {/* 禁止上がりのバッテンマーク */}
+              {isForbiddenFinish && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="text-red-600 text-6xl font-bold drop-shadow-[0_0_10px_rgba(0,0,0,0.8)]">
+                    ✕
+                  </div>
+                </div>
+              )}
+            </div>
           </motion.div>
         );
       })}

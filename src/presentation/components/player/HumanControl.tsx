@@ -359,21 +359,21 @@ export const HumanControl: React.FC = () => {
                 {/* 効果プレビュー */}
                 <AnimatePresence>
                   {(playableReasons.length > 0 || triggerEffects.length > 0) && (
-                    <div className="absolute bottom-full left-1/2 mb-3" style={{ transform: 'translateX(-50%)' }}>
+                    <div className="absolute bottom-full left-1/2 mb-3 w-screen max-w-4xl" style={{ transform: 'translateX(-50%)' }}>
                       <motion.div
                         initial={{ opacity: 0, y: 10, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.9 }}
                         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                        className="flex flex-col gap-2 items-center"
+                        className="flex flex-col gap-2 items-center px-4"
                       >
                         {/* 出せる理由（青系バッジ） */}
                         {playableReasons.length > 0 && (
-                          <div className="flex flex-wrap gap-2 justify-center">
+                          <div className="flex flex-col gap-2 items-center max-w-full">
                             {playableReasons.map((reason, index) => (
                               <div
                                 key={index}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-blue-300"
+                                className="bg-blue-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-blue-300 whitespace-nowrap"
                               >
                                 {reason}
                               </div>
@@ -383,11 +383,11 @@ export const HumanControl: React.FC = () => {
 
                         {/* 発動するイベント（黄色系バッジ） */}
                         {triggerEffects.length > 0 && (
-                          <div className="flex flex-wrap gap-2 justify-center">
+                          <div className="flex flex-col gap-2 items-center max-w-full">
                             {triggerEffects.map((effect, index) => (
                               <div
                                 key={index}
-                                className="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-yellow-300"
+                                className="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-yellow-300 whitespace-nowrap"
                               >
                                 {effect}
                               </div>
