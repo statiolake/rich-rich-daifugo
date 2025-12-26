@@ -1,11 +1,26 @@
-import { Card } from '../domain/card/Card';
+import { Card, Rank } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
 import { Field } from '../domain/game/Field';
-import { GameState, CardSelectionRequest } from '../domain/game/GameState';
+import { GameState } from '../domain/game/GameState';
+import { ValidationResult } from '../rules/validators/BasicValidator';
 
 export interface PlayDecision {
   type: 'PLAY' | 'PASS';
   cards?: Card[];
+}
+
+/**
+ * カード選択のバリデーター
+ * 選択されたカードが有効かどうかを判定する
+ */
+export type CardValidator = (cards: Card[]) => ValidationResult;
+
+/**
+ * カード選択時のコンテキスト情報
+ */
+export interface CardSelectionContext {
+  message?: string; // 表示メッセージ
+  specifiedRank?: Rank; // Qボンバーで指定されたランク
 }
 
 export interface PlayerStrategy {
@@ -30,15 +45,24 @@ export interface PlayerStrategy {
   ): Promise<Card[]>;
 
   /**
-   * カード選択リクエストに応じてカードを選択する
+   * 手札からカードを選択する（プレイ、10捨て、Qボンバーなど全てに対応）
    * @param player プレイヤー
-   * @param request カード選択リクエスト
-   * @param gameState ゲーム状態
+   * @param validator 選択したカードが有効かどうかを判定する関数
+   * @param context 選択時のコンテキスト情報（表示用）
    * @returns 選択したカードの配列（スキップの場合は空配列）
    */
-  decideCardSelection(
+  selectCards(
     player: Player,
-    request: CardSelectionRequest,
-    gameState: GameState
+    validator: CardValidator,
+    context?: CardSelectionContext
   ): Promise<Card[]>;
+
+  /**
+   * ランクを選択する（Qボンバーで使用）
+   * @param player プレイヤー
+   * @returns 選択したランク
+   */
+  selectRank(
+    player: Player
+  ): Promise<Rank>;
 }

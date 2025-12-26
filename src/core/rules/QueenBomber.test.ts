@@ -5,176 +5,351 @@ import { PlayPhase } from '../phase/PlayPhase';
 import { RuleEngine } from './base/RuleEngine';
 import { CardFactory, Suit } from '../domain/card/Card';
 import { DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
-import { GameEventEmitter } from '../domain/events/GameEventEmitter';
+import { HumanStrategy } from '../strategy/HumanStrategy';
 
 describe('クイーンボンバー (Queen Bomber)', () => {
-  let gameState: GameState;
   let playPhase: PlayPhase;
-  let eventBus: GameEventEmitter;
+  let strategyMap: Map<string, any>;
+  let ruleEngine: RuleEngine;
 
   beforeEach(() => {
-    // 4人のプレイヤーを作成
-    const players = [
-      createPlayer('player1', 'Player 1', PlayerType.HUMAN),
-      createPlayer('player2', 'Player 2', PlayerType.CPU),
-      createPlayer('player3', 'Player 3', PlayerType.CPU),
-      createPlayer('player4', 'Player 4', PlayerType.CPU),
-    ];
+    ruleEngine = new RuleEngine();
+    strategyMap = new Map();
+    playPhase = new PlayPhase(strategyMap, ruleEngine);
+    playPhase.setWaitForCutIn(async () => {});
+  });
 
-    gameState = createGameState(players, {
+  it('Qを出すと全プレイヤーがカードを捨てる', async () => {
+    const player1 = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
+    const player2 = createPlayer('player2', 'Player 2', PlayerType.HUMAN);
+    const player3 = createPlayer('player3', 'Player 3', PlayerType.HUMAN);
+    const player4 = createPlayer('player4', 'Player 4', PlayerType.HUMAN);
+
+    // 各プレイヤーに手札を配る
+    const queenCard = CardFactory.create(Suit.SPADE, 'Q');
+    player1.hand.add([queenCard, CardFactory.create(Suit.HEART, 'K')]);
+
+    const threeSpade1 = CardFactory.create(Suit.SPADE, '3');
+    player2.hand.add([threeSpade1, CardFactory.create(Suit.CLUB, '4')]);
+
+    const threeHeart = CardFactory.create(Suit.HEART, '3');
+    player3.hand.add([threeHeart, CardFactory.create(Suit.DIAMOND, '5')]);
+
+    const threeClub = CardFactory.create(Suit.CLUB, '3');
+    player4.hand.add([threeClub, CardFactory.create(Suit.SPADE, '6')]);
+
+    const gameState = createGameState([player1, player2, player3, player4], {
       ...DEFAULT_RULE_SETTINGS,
       queenBomber: true,
     });
     gameState.phase = GamePhaseType.PLAY;
     gameState.currentPlayerIndex = 0;
 
-    eventBus = {
-      emit: () => {}, // モックの実装
-    };
-    const ruleEngine = new RuleEngine();
-    playPhase = new PlayPhase(new Map(), ruleEngine, eventBus);
-  });
+    const humanStrategy1 = new HumanStrategy();
+    const humanStrategy2 = new HumanStrategy();
+    const humanStrategy3 = new HumanStrategy();
+    const humanStrategy4 = new HumanStrategy();
+    strategyMap.set(player1.id.value, humanStrategy1);
+    strategyMap.set(player2.id.value, humanStrategy2);
+    strategyMap.set(player3.id.value, humanStrategy3);
+    strategyMap.set(player4.id.value, humanStrategy4);
 
-  it('Qを出すとカード選択リクエストが設定される', () => {
-    const player = gameState.players[0];
-
-    // 各プレイヤーに手札を配る
-    gameState.players.forEach(p => {
-      const card = CardFactory.create(Suit.SPADE, '3');
-      p.hand.add([card]);
-    });
-
-    // Qを出す
-    const cardQ = CardFactory.create(Suit.SPADE, 'Q');
-    player.hand.add([cardQ]);
-    playPhase['handlePlay'](gameState, player, [cardQ]);
-
-    // カード選択リクエストが設定されているはず（最初はqueenBomberSelect）
-    expect(gameState.cardSelectionRequest).not.toBeNull();
-    expect(gameState.cardSelectionRequest?.reason).toBe('queenBomberSelect');
-    expect(gameState.cardSelectionRequest?.count).toBe(1);
-  });
-
-  it('カードを持っていないプレイヤーがいる場合、スキップされる', () => {
-    const player = gameState.players[0];
-
-    // Player 1とPlayer 3だけに手札を配る（Player 2とPlayer 4は手札なし）
-    player.hand.add([CardFactory.create(Suit.SPADE, '3')]);
-    gameState.players[2].hand.add([CardFactory.create(Suit.HEART, '4')]);
-
-    // Qを出す
-    const cardQ = CardFactory.create(Suit.SPADE, 'Q');
-    player.hand.add([cardQ]);
-    playPhase['handlePlay'](gameState, player, [cardQ]);
-
-    // Player 1から始まる（Qを出したプレイヤー自身）
-    expect(gameState.cardSelectionRequest?.playerId).toBe('player1');
-
-    // Player 1が選択
-    const card1 = player.hand.getCards()[0];
-    playPhase['handleCardSelection'](gameState, 'player1', [card1]);
-
-    // Player 2に移動（手札がない）
-    expect(gameState.cardSelectionRequest?.playerId).toBe('player2');
-
-    // Player 2は手札がないが、リクエストは来ている
-    // 実装では、手札がない場合はスキップする必要がある
-    playPhase['handleCardSelection'](gameState, 'player2', []);
-
-    // Player 3に移動するはず
-    expect(gameState.cardSelectionRequest?.playerId).toBe('player3');
-  });
-
-  it('全員が手札を持っていない場合、queenBomberSelectが設定される', () => {
-    const player = gameState.players[0];
-
-    // 全員の手札をクリア
-    gameState.players.forEach(p => {
-      p.hand.remove([...p.hand.getCards()]);
-    });
-
-    // Qを出す
-    const cardQ = CardFactory.create(Suit.SPADE, 'Q');
-    player.hand.add([cardQ]);
-    playPhase['handlePlay'](gameState, player, [cardQ]);
-
-    // queenBomberSelectが設定されるはず（発動プレイヤーがカードを選択する）
-    expect(gameState.cardSelectionRequest).not.toBeNull();
-    expect(gameState.cardSelectionRequest?.reason).toBe('queenBomberSelect');
-  });
-
-  it('全員がカードを捨て終わったらリクエストがクリアされる', () => {
-    const player = gameState.players[0];
-
-    // 各プレイヤーに同じカード（3）を配る
-    gameState.players.forEach((p) => {
-      const card = CardFactory.create(Suit.SPADE, '3');
-      p.hand.add([card]);
-    });
-
-    // Qを出す
-    const cardQ = CardFactory.create(Suit.SPADE, 'Q');
-    player.hand.add([cardQ]);
-    playPhase['handlePlay'](gameState, player, [cardQ]);
-
-    // queenBomberSelectが設定されている
-    expect(gameState.cardSelectionRequest?.reason).toBe('queenBomberSelect');
+    // Player 1がQを出す
+    setTimeout(() => {
+      humanStrategy1.submitPlay([queenCard]);
+    }, 10);
 
     // Player 1が3を指定
-    const card3 = CardFactory.create(Suit.SPADE, '3');
-    playPhase['handleCardSelection'](gameState, player.id.value, [card3]);
+    setTimeout(() => {
+      humanStrategy1.submitRankSelection('3');
+    }, 20);
 
-    // queenBomberに移行し、Player 2から始まる
-    expect(gameState.cardSelectionRequest?.reason).toBe('queenBomber');
-    expect(gameState.cardSelectionRequest?.specifiedCard?.rank).toBe('3');
+    // Player 2が3を捨てる
+    setTimeout(() => {
+      humanStrategy2.submitCardSelection([threeSpade1]);
+    }, 30);
 
-    // 各プレイヤーが順番にカードを捨てる
-    for (let i = 0; i < gameState.players.length; i++) {
-      if (!gameState.cardSelectionRequest) break;
+    // Player 3が3を捨てる
+    setTimeout(() => {
+      humanStrategy3.submitCardSelection([threeHeart]);
+    }, 40);
 
-      const currentPlayer = gameState.players.find(p => p.id.value === gameState.cardSelectionRequest?.playerId);
-      if (!currentPlayer) break;
+    // Player 4が3を捨てる
+    setTimeout(() => {
+      humanStrategy4.submitCardSelection([threeClub]);
+    }, 50);
 
-      const cards = currentPlayer.hand.getCards();
-      const specifiedCard = gameState.cardSelectionRequest.specifiedCard;
-      // 指定されたカードを選択
-      const selectedCard = cards.find(c => c.rank === specifiedCard?.rank && c.suit === specifiedCard?.suit);
-      if (selectedCard) {
-        playPhase['handleCardSelection'](gameState, currentPlayer.id.value, [selectedCard]);
-      } else {
-        playPhase['handleCardSelection'](gameState, currentPlayer.id.value, []);
-      }
-    }
+    // Player 1は3を持っていないのでスキップ
+    setTimeout(() => {
+      humanStrategy1.submitCardSelection([]);
+    }, 60);
 
-    // 全員が捨て終わったのでリクエストがクリアされているはず
-    expect(gameState.cardSelectionRequest).toBeNull();
+    await playPhase.update(gameState);
+
+    // 各プレイヤーの3が削除されたことを確認
+    expect(player2.hand.getCards().some(c => c.id === threeSpade1.id)).toBe(false);
+    expect(player3.hand.getCards().some(c => c.id === threeHeart.id)).toBe(false);
+    expect(player4.hand.getCards().some(c => c.id === threeClub.id)).toBe(false);
+
+    // Player 1は3を持っていないので手札は変わらない（Qを出したので1枚減る）
+    expect(player1.hand.size()).toBe(1);
   });
 
-  it('上がっているプレイヤーはスキップされる', () => {
-    const player = gameState.players[0];
+  it('カードを持っていないプレイヤーはスキップできる', async () => {
+    const player1 = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
+    const player2 = createPlayer('player2', 'Player 2', PlayerType.HUMAN);
+    const player3 = createPlayer('player3', 'Player 3', PlayerType.HUMAN);
+    const player4 = createPlayer('player4', 'Player 4', PlayerType.HUMAN);
+
+    const queenCard = CardFactory.create(Suit.SPADE, 'Q');
+    player1.hand.add([queenCard, CardFactory.create(Suit.HEART, 'K')]);
+
+    // Player 2とPlayer 4だけに3を持たせる
+    const threeSpade = CardFactory.create(Suit.SPADE, '3');
+    player2.hand.add([threeSpade, CardFactory.create(Suit.CLUB, '4')]);
+    player3.hand.add([CardFactory.create(Suit.DIAMOND, '5')]);
+
+    const threeClub = CardFactory.create(Suit.CLUB, '3');
+    player4.hand.add([threeClub, CardFactory.create(Suit.SPADE, '6')]);
+
+    const gameState = createGameState([player1, player2, player3, player4], {
+      ...DEFAULT_RULE_SETTINGS,
+      queenBomber: true,
+    });
+    gameState.phase = GamePhaseType.PLAY;
+    gameState.currentPlayerIndex = 0;
+
+    const humanStrategy1 = new HumanStrategy();
+    const humanStrategy2 = new HumanStrategy();
+    const humanStrategy3 = new HumanStrategy();
+    const humanStrategy4 = new HumanStrategy();
+    strategyMap.set(player1.id.value, humanStrategy1);
+    strategyMap.set(player2.id.value, humanStrategy2);
+    strategyMap.set(player3.id.value, humanStrategy3);
+    strategyMap.set(player4.id.value, humanStrategy4);
+
+    const player3InitialHandSize = player3.hand.size();
+
+    // Player 1がQを出す
+    setTimeout(() => {
+      humanStrategy1.submitPlay([queenCard]);
+    }, 10);
+
+    // Player 1が3を指定
+    setTimeout(() => {
+      humanStrategy1.submitRankSelection('3');
+    }, 20);
+
+    // Player 2が3を捨てる
+    setTimeout(() => {
+      humanStrategy2.submitCardSelection([threeSpade]);
+    }, 30);
+
+    // Player 3は3を持っていないのでスキップ
+    setTimeout(() => {
+      humanStrategy3.submitCardSelection([]);
+    }, 40);
+
+    // Player 4が3を捨てる
+    setTimeout(() => {
+      humanStrategy4.submitCardSelection([threeClub]);
+    }, 50);
+
+    // Player 1は3を持っていないのでスキップ
+    setTimeout(() => {
+      humanStrategy1.submitCardSelection([]);
+    }, 60);
+
+    await playPhase.update(gameState);
+
+    // Player 2とPlayer 4の3が削除されたことを確認
+    expect(player2.hand.getCards().some(c => c.id === threeSpade.id)).toBe(false);
+    expect(player4.hand.getCards().some(c => c.id === threeClub.id)).toBe(false);
+
+    // Player 3の手札は変わっていないことを確認
+    expect(player3.hand.size()).toBe(player3InitialHandSize);
+  });
+
+  it('全員が手札を持っていない場合でも動作する', async () => {
+    const player1 = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
+    const player2 = createPlayer('player2', 'Player 2', PlayerType.HUMAN);
+    const player3 = createPlayer('player3', 'Player 3', PlayerType.HUMAN);
+    const player4 = createPlayer('player4', 'Player 4', PlayerType.HUMAN);
+
+    const queenCard = CardFactory.create(Suit.SPADE, 'Q');
+    player1.hand.add([queenCard]);
+    // 他のプレイヤーには手札なし
+
+    const gameState = createGameState([player1, player2, player3, player4], {
+      ...DEFAULT_RULE_SETTINGS,
+      queenBomber: true,
+    });
+    gameState.phase = GamePhaseType.PLAY;
+    gameState.currentPlayerIndex = 0;
+
+    const humanStrategy1 = new HumanStrategy();
+    const humanStrategy2 = new HumanStrategy();
+    const humanStrategy3 = new HumanStrategy();
+    const humanStrategy4 = new HumanStrategy();
+    strategyMap.set(player1.id.value, humanStrategy1);
+    strategyMap.set(player2.id.value, humanStrategy2);
+    strategyMap.set(player3.id.value, humanStrategy3);
+    strategyMap.set(player4.id.value, humanStrategy4);
+
+    // Player 1がQを出す
+    setTimeout(() => {
+      humanStrategy1.submitPlay([queenCard]);
+    }, 10);
+
+    // Player 1が3を指定（誰も持っていない）
+    setTimeout(() => {
+      humanStrategy1.submitRankSelection('3');
+    }, 20);
+
+    // 全員スキップ
+    setTimeout(() => {
+      humanStrategy2.submitCardSelection([]);
+    }, 30);
+
+    setTimeout(() => {
+      humanStrategy3.submitCardSelection([]);
+    }, 40);
+
+    setTimeout(() => {
+      humanStrategy4.submitCardSelection([]);
+    }, 50);
+
+    setTimeout(() => {
+      humanStrategy1.submitCardSelection([]);
+    }, 60);
+
+    await playPhase.update(gameState);
+
+    // Player 1のQが削除されたことを確認
+    expect(player1.hand.getCards().some(c => c.id === queenCard.id)).toBe(false);
+    expect(player1.hand.size()).toBe(0);
+  });
+
+  it('上がっているプレイヤーはスキップされる', async () => {
+    const player1 = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
+    const player2 = createPlayer('player2', 'Player 2', PlayerType.HUMAN);
+    const player3 = createPlayer('player3', 'Player 3', PlayerType.HUMAN);
+    const player4 = createPlayer('player4', 'Player 4', PlayerType.HUMAN);
 
     // Player 2を上がり状態にする
-    gameState.players[1].isFinished = true;
-    gameState.players[1].finishPosition = 1;
+    player2.isFinished = true;
+    player2.finishPosition = 1;
 
-    // Player 1, 3, 4に手札を配る
-    player.hand.add([CardFactory.create(Suit.SPADE, '3')]);
-    gameState.players[2].hand.add([CardFactory.create(Suit.HEART, '4')]);
-    gameState.players[3].hand.add([CardFactory.create(Suit.DIAMOND, '5')]);
+    const queenCard = CardFactory.create(Suit.SPADE, 'Q');
+    player1.hand.add([queenCard, CardFactory.create(Suit.HEART, 'K')]);
 
-    // Qを出す
-    const cardQ = CardFactory.create(Suit.SPADE, 'Q');
-    player.hand.add([cardQ]);
-    playPhase['handlePlay'](gameState, player, [cardQ]);
+    const threeSpade = CardFactory.create(Suit.SPADE, '3');
+    player3.hand.add([threeSpade, CardFactory.create(Suit.DIAMOND, '5')]);
 
-    // Player 1から始まる
-    expect(gameState.cardSelectionRequest?.playerId).toBe('player1');
+    const threeClub = CardFactory.create(Suit.CLUB, '3');
+    player4.hand.add([threeClub, CardFactory.create(Suit.SPADE, '6')]);
 
-    // Player 1が選択
-    const card1 = player.hand.getCards()[0];
-    playPhase['handleCardSelection'](gameState, 'player1', [card1]);
+    const gameState = createGameState([player1, player2, player3, player4], {
+      ...DEFAULT_RULE_SETTINGS,
+      queenBomber: true,
+    });
+    gameState.phase = GamePhaseType.PLAY;
+    gameState.currentPlayerIndex = 0;
 
-    // Player 2はスキップされ、Player 3に移動するはず（Player 2は上がっている）
-    expect(gameState.cardSelectionRequest?.playerId).toBe('player3');
+    const humanStrategy1 = new HumanStrategy();
+    const humanStrategy3 = new HumanStrategy();
+    const humanStrategy4 = new HumanStrategy();
+    strategyMap.set(player1.id.value, humanStrategy1);
+    strategyMap.set(player3.id.value, humanStrategy3);
+    strategyMap.set(player4.id.value, humanStrategy4);
+
+    // Player 1がQを出す
+    setTimeout(() => {
+      humanStrategy1.submitPlay([queenCard]);
+    }, 10);
+
+    // Player 1が3を指定
+    setTimeout(() => {
+      humanStrategy1.submitRankSelection('3');
+    }, 20);
+
+    // Player 2はスキップされる（上がっているので、strategy の呼び出しもない）
+
+    // Player 3が3を捨てる
+    setTimeout(() => {
+      humanStrategy3.submitCardSelection([threeSpade]);
+    }, 30);
+
+    // Player 4が3を捨てる
+    setTimeout(() => {
+      humanStrategy4.submitCardSelection([threeClub]);
+    }, 40);
+
+    // Player 1は3を持っていないのでスキップ
+    setTimeout(() => {
+      humanStrategy1.submitCardSelection([]);
+    }, 50);
+
+    await playPhase.update(gameState);
+
+    // Player 3とPlayer 4の3が削除されたことを確認
+    expect(player3.hand.getCards().some(c => c.id === threeSpade.id)).toBe(false);
+    expect(player4.hand.getCards().some(c => c.id === threeClub.id)).toBe(false);
+
+    // Player 2は上がっているので手札はそのまま（実際は空）
+    expect(player2.isFinished).toBe(true);
+  });
+
+  it('複数のランクのカードを持っている場合、指定されたランクのみ捨てる', async () => {
+    const player1 = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
+    const player2 = createPlayer('player2', 'Player 2', PlayerType.HUMAN);
+
+    const queenCard = CardFactory.create(Suit.SPADE, 'Q');
+    player1.hand.add([queenCard, CardFactory.create(Suit.HEART, 'K')]);
+
+    const threeSpade = CardFactory.create(Suit.SPADE, '3');
+    const fourSpade = CardFactory.create(Suit.SPADE, '4');
+    const fiveSpade = CardFactory.create(Suit.SPADE, '5');
+    player2.hand.add([threeSpade, fourSpade, fiveSpade]);
+
+    const gameState = createGameState([player1, player2], {
+      ...DEFAULT_RULE_SETTINGS,
+      queenBomber: true,
+    });
+    gameState.phase = GamePhaseType.PLAY;
+    gameState.currentPlayerIndex = 0;
+
+    const humanStrategy1 = new HumanStrategy();
+    const humanStrategy2 = new HumanStrategy();
+    strategyMap.set(player1.id.value, humanStrategy1);
+    strategyMap.set(player2.id.value, humanStrategy2);
+
+    // Player 1がQを出す
+    setTimeout(() => {
+      humanStrategy1.submitPlay([queenCard]);
+    }, 10);
+
+    // Player 1が4を指定
+    setTimeout(() => {
+      humanStrategy1.submitRankSelection('4');
+    }, 20);
+
+    // Player 2が4を捨てる
+    setTimeout(() => {
+      humanStrategy2.submitCardSelection([fourSpade]);
+    }, 30);
+
+    // Player 1は4を持っていないのでスキップ
+    setTimeout(() => {
+      humanStrategy1.submitCardSelection([]);
+    }, 40);
+
+    await playPhase.update(gameState);
+
+    // 4だけが削除され、3と5は残っていることを確認
+    expect(player2.hand.getCards().some(c => c.id === threeSpade.id)).toBe(true);
+    expect(player2.hand.getCards().some(c => c.id === fourSpade.id)).toBe(false);
+    expect(player2.hand.getCards().some(c => c.id === fiveSpade.id)).toBe(true);
+    expect(player2.hand.size()).toBe(2);
   });
 });

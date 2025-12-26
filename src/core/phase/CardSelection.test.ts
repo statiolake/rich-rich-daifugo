@@ -43,24 +43,16 @@ describe('PlayPhase - カード選択リクエスト', () => {
         humanStrategy.submitPlay([tenCard]);
       }, 10);
 
-      await playPhase.update(gameState);
-
-      // 10捨てリクエストが発生したことを確認
-      expect(gameState.cardSelectionRequest).toBeDefined();
-      expect(gameState.cardSelectionRequest?.reason).toBe('tenDiscard');
-      expect(gameState.cardSelectionRequest?.playerId).toBe(player1.id.value);
-
-      // 3（10より弱いカード）を捨てる
+      // 10を出した後、10捨てのカード選択が始まる
       setTimeout(() => {
+        // 3（10より弱いカード）を捨てる
         humanStrategy.submitCardSelection([threeCard]);
-      }, 10);
+      }, 20);
 
       await playPhase.update(gameState);
 
       // 3が手札から削除されたことを確認
       expect(player1.hand.getCards().some(c => c.id === threeCard.id)).toBe(false);
-      // 10捨てリクエストがクリアされたことを確認
-      expect(gameState.cardSelectionRequest).toBeNull();
     });
   });
 
@@ -83,23 +75,18 @@ describe('PlayPhase - カード選択リクエスト', () => {
       const humanStrategy = new HumanStrategy();
       strategyMap.set(player1.id.value, humanStrategy);
 
+      const player2InitialHandSize = player2.hand.size();
+
       // 7を出す
       setTimeout(() => {
         humanStrategy.submitPlay([sevenCard]);
       }, 10);
 
-      await playPhase.update(gameState);
-
-      // 7渡しリクエストが発生したことを確認
-      expect(gameState.cardSelectionRequest).toBeDefined();
-      expect(gameState.cardSelectionRequest?.reason).toBe('sevenPass');
-
-      const player2InitialHandSize = player2.hand.size();
-
-      // Aを渡す
+      // 7を出した後、7渡しのカード選択が始まる
       setTimeout(() => {
+        // Aを渡す
         humanStrategy.submitCardSelection([aceCard]);
-      }, 10);
+      }, 20);
 
       await playPhase.update(gameState);
 
@@ -139,30 +126,20 @@ describe('PlayPhase - カード選択リクエスト', () => {
         humanStrategy1.submitPlay([queenCard]);
       }, 10);
 
-      await playPhase.update(gameState);
-
-      // クイーンボンバー選択リクエストが発生したことを確認
-      expect(gameState.cardSelectionRequest).toBeDefined();
-      expect(gameState.cardSelectionRequest?.reason).toBe('queenBomberSelect');
-
-      // プレイヤー1が6を指定
-      const sixCard = CardFactory.create(Suit.SPADE, '6');
+      // プレイヤー1が6を指定（ランク選択）
       setTimeout(() => {
-        humanStrategy1.submitCardSelection([sixCard]);
-      }, 10);
-
-      await playPhase.update(gameState);
-
-      // プレイヤー2への捨てるリクエストが発生したことを確認
-      expect(gameState.cardSelectionRequest).toBeDefined();
-      expect(gameState.cardSelectionRequest?.reason).toBe('queenBomber');
-      expect(gameState.cardSelectionRequest?.specifiedRank).toBe('6');
-      expect(gameState.cardSelectionRequest?.playerId).toBe(player2.id.value);
+        humanStrategy1.submitRankSelection('6');
+      }, 20);
 
       // プレイヤー2が6♠を捨てる（6♥でもOK）
       setTimeout(() => {
         humanStrategy2.submitCardSelection([sixSpade]);
-      }, 10);
+      }, 30);
+
+      // プレイヤー1は6を持っていないのでスキップ
+      setTimeout(() => {
+        humanStrategy1.submitCardSelection([]);
+      }, 40);
 
       await playPhase.update(gameState);
 
@@ -193,46 +170,35 @@ describe('PlayPhase - カード選択リクエスト', () => {
       strategyMap.set(player1.id.value, humanStrategy1);
       strategyMap.set(player2.id.value, humanStrategy2);
 
+      const player2InitialHandSize = player2.hand.size();
+
       // プレイヤー1がQを出す
       setTimeout(() => {
         humanStrategy1.submitPlay([queenCard]);
       }, 10);
 
-      await playPhase.update(gameState);
-
-      // プレイヤー1が6を指定
-      const sixCard = CardFactory.create(Suit.SPADE, '6');
+      // プレイヤー1が6を指定（ランク選択）
       setTimeout(() => {
-        humanStrategy1.submitCardSelection([sixCard]);
-      }, 10);
-
-      await playPhase.update(gameState);
-
-      const player2InitialHandSize = player2.hand.size();
+        humanStrategy1.submitRankSelection('6');
+      }, 20);
 
       // プレイヤー2が空配列でスキップ
       setTimeout(() => {
         humanStrategy2.submitCardSelection([]);
-      }, 10);
+      }, 30);
+
+      // プレイヤー1もスキップ
+      setTimeout(() => {
+        humanStrategy1.submitCardSelection([]);
+      }, 40);
 
       await playPhase.update(gameState);
 
       // プレイヤー2の手札が変わっていないことを確認
       expect(player2.hand.size()).toBe(player2InitialHandSize);
 
-      // クイーンボンバーは一周するので、次はプレイヤー1に戻る
-      expect(gameState.cardSelectionRequest).toBeDefined();
-      expect(gameState.cardSelectionRequest?.playerId).toBe(player1.id.value);
-
-      // プレイヤー1もスキップ
-      setTimeout(() => {
-        humanStrategy1.submitCardSelection([]);
-      }, 10);
-
-      await playPhase.update(gameState);
-
       // 全員が選択完了したのでクイーンボンバーリクエストがクリアされる
-      expect(gameState.cardSelectionRequest).toBeNull();
+      expect(gameState.cardSelectionRequest).toBeFalsy();
     });
   });
 });

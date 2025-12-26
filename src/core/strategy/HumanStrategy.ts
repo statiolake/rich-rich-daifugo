@@ -1,8 +1,8 @@
-import { Card } from '../domain/card/Card';
+import { Card, Rank } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
 import { Field } from '../domain/game/Field';
-import { GameState, CardSelectionRequest } from '../domain/game/GameState';
-import { PlayerStrategy, PlayDecision } from './PlayerStrategy';
+import { GameState } from '../domain/game/GameState';
+import { PlayerStrategy, PlayDecision, CardValidator, CardSelectionContext } from './PlayerStrategy';
 
 export class HumanStrategy implements PlayerStrategy {
   private pendingPlayDecision: {
@@ -15,6 +15,12 @@ export class HumanStrategy implements PlayerStrategy {
 
   private pendingCardSelection: {
     resolve: (cards: Card[]) => void;
+    validator: CardValidator;
+    context?: CardSelectionContext;
+  } | null = null;
+
+  private pendingRankSelection: {
+    resolve: (rank: Rank) => void;
   } | null = null;
 
   async decidePlay(
@@ -65,14 +71,23 @@ export class HumanStrategy implements PlayerStrategy {
     }
   }
 
-  async decideCardSelection(
+  async selectCards(
     player: Player,
-    request: CardSelectionRequest,
-    gameState: GameState
+    validator: CardValidator,
+    context?: CardSelectionContext
   ): Promise<Card[]> {
     // UIからの入力を待つ
     return new Promise<Card[]>((resolve) => {
-      this.pendingCardSelection = { resolve };
+      this.pendingCardSelection = { resolve, validator, context };
+    });
+  }
+
+  async selectRank(
+    player: Player
+  ): Promise<Rank> {
+    // UIからのランク選択を待つ
+    return new Promise<Rank>((resolve) => {
+      this.pendingRankSelection = { resolve };
     });
   }
 
@@ -81,8 +96,31 @@ export class HumanStrategy implements PlayerStrategy {
    */
   submitCardSelection(cards: Card[]): void {
     if (this.pendingCardSelection) {
-      this.pendingCardSelection.resolve(cards);
-      this.pendingCardSelection = null;
+      const validation = this.pendingCardSelection.validator(cards);
+      if (validation.valid) {
+        this.pendingCardSelection.resolve(cards);
+        // 確定後はvalidatorをbottom type（すべて禁止）に変更
+        const bottomValidator: CardValidator = () => ({ valid: false, reason: '' });
+        this.pendingCardSelection = {
+          ...this.pendingCardSelection,
+          validator: bottomValidator
+        };
+        // 実際にはresolve後なので、次のフレームでnullにリセット
+        setTimeout(() => {
+          this.pendingCardSelection = null;
+        }, 0);
+      }
+      // validationに失敗した場合は何もしない（UIでエラー表示）
+    }
+  }
+
+  /**
+   * UIから呼ばれる：ランク選択を提出
+   */
+  submitRankSelection(rank: Rank): void {
+    if (this.pendingRankSelection) {
+      this.pendingRankSelection.resolve(rank);
+      this.pendingRankSelection = null;
     }
   }
 
@@ -99,5 +137,23 @@ export class HumanStrategy implements PlayerStrategy {
 
   isPendingCardSelection(): boolean {
     return this.pendingCardSelection !== null;
+  }
+
+  isPendingRankSelection(): boolean {
+    return this.pendingRankSelection !== null;
+  }
+
+  /**
+   * 現在のvalidatorを取得（UIでのハイライトに使用）
+   */
+  getCurrentValidator(): CardValidator | null {
+    return this.pendingCardSelection?.validator || null;
+  }
+
+  /**
+   * 現在のカード選択コンテキストを取得（UIでの表示に使用）
+   */
+  getCurrentContext(): CardSelectionContext | null {
+    return this.pendingCardSelection?.context || null;
   }
 }

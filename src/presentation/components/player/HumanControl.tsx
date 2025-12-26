@@ -16,6 +16,8 @@ export const HumanControl: React.FC = () => {
   const pass = useGameStore(state => state.pass);
   const clearError = useGameStore(state => state.clearError);
   const submitCardSelection = useGameStore(state => state.submitCardSelection);
+  const submitRankSelection = useGameStore(state => state.submitRankSelection);
+  const getHumanStrategy = useGameStore(state => state.getHumanStrategy);
 
   // ウィンドウ高さを state で管理（リサイズ対応）
   const [screenHeight, setScreenHeight] = useState(window.innerHeight);
@@ -43,144 +45,151 @@ export const HumanControl: React.FC = () => {
 
   const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
 
-  // カード選択リクエストがあるか確認
-  const cardSelectionRequest = gameState.cardSelectionRequest;
-  const needsCardSelection = cardSelectionRequest && cardSelectionRequest.playerId === humanPlayer.id.value;
+  // HumanStrategyから状態を取得
+  const humanStrategy = getHumanStrategy();
+  const isPendingCardSelection = humanStrategy?.isPendingCardSelection() || false;
+  const isPendingRankSelection = humanStrategy?.isPendingRankSelection() || false;
+  const validator = humanStrategy?.getCurrentValidator();
+  const selectionContext = humanStrategy?.getCurrentContext();
 
   // RuleEngine で出せるかを判定
   const ruleEngine = getRuleEngine();
 
-  // カード選択リクエスト時は別のバリデーション
-  const canPlaySelected = needsCardSelection
-    ? selectedCards.length > 0 // カード選択時は選択されていればOK
+  // カード選択リクエスト時はvalidatorを使う
+  const canPlaySelected = isPendingCardSelection && validator
+    ? validator(selectedCards).valid
     : selectedCards.length > 0 && ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState).valid;
 
   const canPass = ruleEngine.canPass(gameState.field).valid;
   // パスを目立たせるのは、合法手が一つもないときだけ
   const shouldHighlightPass = validCombinations.length === 0 && canPass;
 
-  // カード選択の説明テキスト
-  const getSelectionDescription = () => {
-    if (!cardSelectionRequest) return '';
-    switch (cardSelectionRequest.reason) {
-      case 'sevenPass':
-        const targetPlayer = gameState.players.find(p => p.id.value === cardSelectionRequest.targetPlayerId);
-        return `7渡し：${targetPlayer?.name}に渡すカードを1枚選んでください`;
-      case 'tenDiscard':
-        return '10捨て：捨てるカードを1枚選んでください';
-      case 'queenBomberSelect':
-        return `クイーンボンバー：全員が捨てるカードを1枚選んでください`;
-      case 'queenBomber':
-        // 指定されたランクを表示
-        const specifiedRank = cardSelectionRequest.specifiedRank;
-        if (specifiedRank) {
-          return `クイーンボンバー：${specifiedRank}を捨ててください`;
-        }
-        return 'クイーンボンバー：指定されたランクを捨ててください';
-      default:
-        return 'カードを選んでください';
-    }
-  };
-
   // 選択中のカードから発動する効果を判定
-  const getEffects = (): string[] => {
-    if (!canPlaySelected || selectedCards.length === 0) return [];
+  const getEffects = (): { playableReasons: string[]; triggerEffects: string[] } => {
+    if (!canPlaySelected || selectedCards.length === 0) return { playableReasons: [], triggerEffects: [] };
 
     const play = PlayAnalyzer.analyze(selectedCards);
-    if (!play) return [];
+    if (!play) return { playableReasons: [], triggerEffects: [] };
 
-    const effects: string[] = [];
+    const playableReasons: string[] = []; // なぜ出せるのか
+    const triggerEffects: string[] = []; // 出したときに発動するイベント
     const ruleSettings = gameState.ruleSettings;
+    const fieldPlay = gameState.field.getCurrentPlay();
+
+    // === 出せる理由（playableReasons）のチェック ===
+
+    // ダウンナンバー判定
+    if (ruleSettings.downNumber && play.type === 'SINGLE' && selectedCards.length === 1 &&
+        fieldPlay && fieldPlay.type === 'SINGLE') {
+      const playCard = selectedCards[0];
+      const fieldCard = fieldPlay.cards[0];
+      if (playCard.suit === fieldCard.suit && playCard.strength === fieldCard.strength - 1) {
+        playableReasons.push('ダウンナンバー');
+      }
+    }
+
+    // スぺ3返し判定
+    if (ruleSettings.spadeThreeReturn && play.type === 'SINGLE' && selectedCards.length === 1 &&
+        selectedCards[0].rank === '3' && selectedCards[0].suit === 'SPADE' &&
+        fieldPlay && fieldPlay.cards.length === 1 && fieldPlay.cards[0].rank === 'JOKER') {
+      playableReasons.push('スぺ3返し');
+    }
+
+    // 砂嵐判定（3x3が何にでも勝つ）
+    if (ruleSettings.sandstorm && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '3')) {
+      if (fieldPlay && fieldPlay.type === play.type) {
+        playableReasons.push('砂嵐');
+      }
+    }
+
+    // === 発動するイベント（triggerEffects）のチェック ===
+
+    // 砂嵐判定（イベントとしても発動）
+    if (ruleSettings.sandstorm && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '3')) {
+      triggerEffects.push('砂嵐');
+    }
 
     // 革命判定
     if (play.triggersRevolution) {
-      effects.push(gameState.isRevolution ? '革命終了' : '革命');
+      triggerEffects.push(gameState.isRevolution ? '革命終了' : '革命');
     }
 
     // イレブンバック判定
     if (play.cards.some(card => card.rank === 'J')) {
-      effects.push(gameState.isElevenBack ? 'イレブンバック解除' : 'イレブンバック');
+      triggerEffects.push(gameState.isElevenBack ? 'イレブンバック解除' : 'イレブンバック');
     }
 
     // 4止め判定（8切りを止める）
     if (ruleSettings.fourStop && play.type === 'PAIR' && play.cards.every(card => card.rank === '4') && gameState.isEightCutPending) {
-      effects.push('4止め');
+      triggerEffects.push('4止め');
     }
 
     // 8切り判定
     if (ruleSettings.eightCut && play.cards.some(card => card.rank === '8')) {
-      effects.push('8切り');
+      triggerEffects.push('8切り');
     }
 
     // 救急車判定（9x2）
     if (ruleSettings.ambulance && play.type === 'PAIR' && play.cards.every(card => card.rank === '9')) {
-      effects.push('救急車');
+      triggerEffects.push('救急車');
     }
 
     // ろくろ首判定（6x2）
     if (ruleSettings.rokurokubi && play.type === 'PAIR' && play.cards.every(card => card.rank === '6')) {
-      effects.push('ろくろ首');
+      triggerEffects.push('ろくろ首');
     }
 
     // エンペラー判定（4種マーク連番）
     if (ruleSettings.emperor && play.type === 'STAIR' && play.cards.length === 4) {
       const suits = new Set(play.cards.map(card => card.suit));
       if (suits.size === 4) {
-        effects.push(gameState.isRevolution ? 'エンペラー終了' : 'エンペラー');
+        triggerEffects.push(gameState.isRevolution ? 'エンペラー終了' : 'エンペラー');
       }
     }
 
     // クーデター判定（9x3）
     if (ruleSettings.coup && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '9')) {
-      effects.push(gameState.isRevolution ? 'クーデター終了' : 'クーデター');
+      triggerEffects.push(gameState.isRevolution ? 'クーデター終了' : 'クーデター');
     }
 
     // オーメン判定（6x3）
     if (ruleSettings.omen && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '6') && !gameState.isOmenActive) {
-      effects.push('オーメン');
+      triggerEffects.push('オーメン');
     }
 
     // 大革命判定（2x4）
     if (ruleSettings.greatRevolution && play.type === 'QUAD' && play.cards.every(card => card.rank === '2')) {
-      effects.push('大革命＋即勝利');
-    }
-
-    // 砂嵐判定（3x3）
-    if (ruleSettings.sandstorm && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '3')) {
-      effects.push('砂嵐');
+      triggerEffects.push('大革命＋即勝利');
     }
 
     // 5スキップ判定
     if (ruleSettings.fiveSkip && play.cards.some(card => card.rank === '5')) {
-      effects.push('5スキップ');
+      triggerEffects.push('5スキップ');
     }
 
     // 7渡し判定
     if (ruleSettings.sevenPass && play.cards.some(card => card.rank === '7')) {
-      effects.push('7渡し');
+      triggerEffects.push('7渡し');
     }
 
     // 9リバース判定
     if (ruleSettings.nineReverse && play.cards.some(card => card.rank === '9')) {
-      effects.push('9リバース');
+      triggerEffects.push('9リバース');
     }
 
     // 10捨て判定
     if (ruleSettings.tenDiscard && play.cards.some(card => card.rank === '10')) {
-      effects.push('10捨て');
+      triggerEffects.push('10捨て');
     }
 
     // クイーンボンバー判定
     if (ruleSettings.queenBomber && play.cards.some(card => card.rank === 'Q')) {
-      effects.push('クイーンボンバー');
+      triggerEffects.push('クイーンボンバー');
     }
 
-    // スぺ3返し判定
-    const fieldPlay = gameState.field.getCurrentPlay();
-    if (ruleSettings.spadeThreeReturn && play.type === 'SINGLE' && selectedCards.length === 1 &&
-        selectedCards[0].rank === '3' && selectedCards[0].suit === 'SPADE' &&
-        fieldPlay && fieldPlay.cards.length === 1 && fieldPlay.cards[0].rank === 'JOKER') {
-      effects.push('スぺ3返し');
+    // ラッキーセブン判定
+    if (ruleSettings.luckySeven && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '7')) {
+      triggerEffects.push('ラッキーセブン');
     }
 
     // 禁止上がり判定
@@ -189,19 +198,21 @@ export const HumanControl: React.FC = () => {
       const forbiddenRanks = ['J', '2', '8', 'JOKER'];
       const hasForbiddenCard = selectedCards.some(card => forbiddenRanks.includes(card.rank));
       if (ruleSettings.forbiddenFinish && hasForbiddenCard) {
-        effects.push('⚠️禁止上がり');
+        triggerEffects.push('⚠️禁止上がり');
       }
     }
 
-    return effects;
+    return { playableReasons, triggerEffects };
   };
 
-  const effects = getEffects();
+  const { playableReasons, triggerEffects } = getEffects();
+
+  const needsSelection = isPendingCardSelection || isPendingRankSelection;
 
   return (
     <>
       {/* カード選択時のblurオーバーレイ */}
-      {needsCardSelection && (
+      {needsSelection && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 z-65 pointer-events-none" />
       )}
 
@@ -209,7 +220,7 @@ export const HumanControl: React.FC = () => {
         className="absolute left-0 right-0 p-6 bg-gradient-to-b from-black/70 via-black/50 to-transparent pointer-events-none"
         style={{
           top: `${screenHeight - 280}px`,
-          zIndex: needsCardSelection ? 70 : 60
+          zIndex: needsSelection ? 70 : 60
         }}
       >
         {/* エラーメッセージ */}
@@ -239,9 +250,9 @@ export const HumanControl: React.FC = () => {
 
         {/* 操作ボタン */}
         <AnimatePresence mode="wait">
-          {needsCardSelection ? (
+          {isPendingRankSelection ? (
             <motion.div
-              key="card-selection"
+              key="rank-selection"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
@@ -250,11 +261,11 @@ export const HumanControl: React.FC = () => {
             >
             {/* 説明テキスト */}
             <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
-              {getSelectionDescription()}
+              クイーンボンバー：全員が捨てるランクを選んでください
             </div>
 
-            {/* クイーンボンバー選択：全ランクのボタンを表示 */}
-            {cardSelectionRequest?.reason === 'queenBomberSelect' && (
+            {/* 全ランクのボタンを表示 */}
+            {(
               <div className="flex flex-nowrap justify-center gap-2 overflow-x-auto max-w-full px-4">
                 {(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as Rank[]).map((rank) => {
                   // 仮のカード（スートは?を表現するためSPADEを使用）
@@ -286,67 +297,62 @@ export const HumanControl: React.FC = () => {
               </div>
             )}
 
-            {/* 確定ボタン */}
-            {cardSelectionRequest?.reason === 'queenBomberSelect' ? (
-              // クイーンボンバー選択：ランクを選んだら決定
-              selectedCards.length === 1 && (
-                <button
-                  onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
-                  className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
-                >
-                  決定
-                </button>
-              )
-            ) : cardSelectionRequest?.reason === 'queenBomber' ? (
-              // クイーンボンバー：指定されたランクのカードを捨てる
-              (() => {
-                const specifiedRank = cardSelectionRequest.specifiedRank;
-                if (!specifiedRank) return null;
-
-                // 手札に指定されたランクがあるかチェック
-                const hasCard = humanPlayer.hand.getCards().some(
-                  c => c.rank === specifiedRank
-                );
-
-                if (!hasCard) {
-                  // 手札にない場合：スキップボタンのみ
-                  return (
-                    <button
-                      onClick={() => submitCardSelection(humanPlayer.id.value, [])}
-                      className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-gray-500 hover:bg-gray-600 text-white cursor-pointer"
-                    >
-                      手札にない
-                    </button>
-                  );
-                } else {
-                  // 手札にある場合：指定されたランクを選択済みなら決定ボタン
-                  const isSpecifiedRankSelected = selectedCards.some(
-                    c => c.rank === specifiedRank
-                  );
-                  if (isSpecifiedRankSelected) {
-                    return (
-                      <button
-                        onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
-                        className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
-                      >
-                        決定
-                      </button>
-                    );
-                  }
-                  return null;
-                }
-              })()
-            ) : (
-              // その他の場合：通常の確定ボタン（7渡し、10捨て）
-              selectedCards.length === cardSelectionRequest?.count && (
-                <button
-                  onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
-                  className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
-                >
-                  決定
-                </button>
-              )
+            {/* ランク選択の確定ボタン */}
+            {selectedCards.length === 1 && (
+              <button
+                onClick={() => {
+                  const rank = selectedCards[0].rank;
+                  submitRankSelection(humanPlayer.id.value, rank);
+                }}
+                className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+              >
+                決定
+              </button>
             )}
+          </motion.div>
+        ) : isPendingCardSelection ? (
+            <motion.div
+              key="card-selection"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="flex flex-col items-center gap-4 pointer-events-auto"
+            >
+            {/* 説明テキスト */}
+            <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
+              {selectionContext?.message || 'カードを選んでください'}
+            </div>
+
+            {/* カード選択の確定ボタンまたはスキップボタン */}
+            {(() => {
+              // 手札の中に選択可能なカードがあるかチェック
+              const hasSelectableCards = validator && humanPlayer.hand.getCards().some(card => validator([card]).valid);
+              const canSkip = validator && validator([]).valid;
+
+              if (hasSelectableCards) {
+                // 選択可能なカードがある場合：決定ボタンのみ
+                return canPlaySelected && (
+                  <button
+                    onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
+                    className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+                  >
+                    決定
+                  </button>
+                );
+              } else if (canSkip) {
+                // 選択可能なカードがない場合：スキップボタンのみ
+                return (
+                  <button
+                    onClick={() => submitCardSelection(humanPlayer.id.value, [])}
+                    className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-gray-500 hover:bg-gray-600 text-white cursor-pointer"
+                  >
+                    スキップ
+                  </button>
+                );
+              }
+              return null;
+            })()}
           </motion.div>
         ) : isHumanTurn ? (
           <motion.div
@@ -360,27 +366,44 @@ export const HumanControl: React.FC = () => {
             {/* 出すボタン：選択したカードが有効な場合のみ表示 */}
             {canPlaySelected && (
               <div className="relative inline-block">
-                {/* 効果プレビュー吹き出し */}
+                {/* 効果プレビュー */}
                 <AnimatePresence>
-                  {effects.length > 0 && (
+                  {(playableReasons.length > 0 || triggerEffects.length > 0) && (
                     <div className="absolute bottom-full left-1/2 mb-3" style={{ transform: 'translateX(-50%)' }}>
                       <motion.div
                         initial={{ opacity: 0, y: 10, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.9 }}
                         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                        className="relative"
+                        className="flex flex-col gap-2 items-center"
                       >
-                        {/* 吹き出し本体 */}
-                        <div className="bg-yellow-400 text-yellow-900 px-6 py-3 rounded-lg font-bold shadow-lg text-center whitespace-nowrap">
-                          {effects.map((effect, index) => (
-                            <div key={index}>{effect}</div>
-                          ))}
-                        </div>
-                        {/* 吹き出しの三角形 */}
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
-                          <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-yellow-400"></div>
-                        </div>
+                        {/* 出せる理由（青系バッジ） */}
+                        {playableReasons.length > 0 && (
+                          <div className="flex flex-wrap gap-2 justify-center">
+                            {playableReasons.map((reason, index) => (
+                              <div
+                                key={index}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-blue-300"
+                              >
+                                {reason}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 発動するイベント（黄色系バッジ） */}
+                        {triggerEffects.length > 0 && (
+                          <div className="flex flex-wrap gap-2 justify-center">
+                            {triggerEffects.map((effect, index) => (
+                              <div
+                                key={index}
+                                className="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-yellow-300"
+                              >
+                                {effect}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </motion.div>
                     </div>
                   )}
@@ -413,11 +436,6 @@ export const HumanControl: React.FC = () => {
             {/* カード選択を促すメッセージ */}
             {!canPlaySelected && !canPass && selectedCards.length === 0 && (
               <div className="text-white text-lg font-bold opacity-75">場に出すカードを選んでください</div>
-            )}
-
-            {/* 無効な手を選んだ場合のメッセージ */}
-            {selectedCards.length > 0 && !canPlaySelected && canPass && (
-              <div className="text-white text-lg font-bold opacity-75">その手は出せません</div>
             )}
           </motion.div>
         ) : (

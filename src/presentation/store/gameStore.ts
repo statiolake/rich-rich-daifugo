@@ -56,10 +56,12 @@ interface GameStore {
   processQueue: () => void;
   waitForCutIn: () => Promise<void>;
   submitCardSelection: (playerId: string, cards: Card[]) => void; // カード選択を送信
+  submitRankSelection: (playerId: string, rank: string) => void; // ランク選択を送信
 
   // Computed values
   getValidCombinations: () => Card[][];
   getRuleEngine: () => RuleEngine;
+  getHumanStrategy: () => HumanStrategy | null;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -274,6 +276,56 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
+      // 砂嵐イベントリスナー
+      eventBus.on('sandstorm:triggered', () => {
+        get().enqueueCutIn({
+          id: `sandstorm-${Date.now()}`,
+          text: '砂嵐！',
+          variant: 'gold',
+          duration: 500
+        });
+      });
+
+      // スペ3返しイベントリスナー
+      eventBus.on('spadeThreeReturn:triggered', () => {
+        get().enqueueCutIn({
+          id: `spadethreereturn-${Date.now()}`,
+          text: 'スペ3返し！',
+          variant: 'blue',
+          duration: 500
+        });
+      });
+
+      // ダウンナンバーイベントリスナー
+      eventBus.on('downNumber:triggered', () => {
+        get().enqueueCutIn({
+          id: `downnumber-${Date.now()}`,
+          text: 'ダウンナンバー！',
+          variant: 'blue',
+          duration: 500
+        });
+      });
+
+      // ラッキーセブンイベントリスナー
+      eventBus.on('luckySeven:triggered', (data: { playerName: string }) => {
+        get().enqueueCutIn({
+          id: `luckyseven-${Date.now()}`,
+          text: `${data.playerName} ラッキーセブン！`,
+          variant: 'gold',
+          duration: 500
+        });
+      });
+
+      // ラッキーセブン勝利イベントリスナー
+      eventBus.on('luckySeven:victory', (data: { playerName: string }) => {
+        get().enqueueCutIn({
+          id: `luckysevenvictory-${Date.now()}`,
+          text: `${data.playerName} ラッキーセブン勝利！`,
+          variant: 'gold',
+          duration: 1000
+        });
+      });
+
       // カットイン待機関数を注入
       engine.setWaitForCutIn(get().waitForCutIn);
 
@@ -448,6 +500,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
       console.error('Card selection error:', error);
       set({ error: error instanceof Error ? error.message : 'カード選択に失敗しました' });
     }
+  },
+
+  submitRankSelection: (playerId: string, rank: string) => {
+    const { engine } = get();
+    if (!engine) {
+      console.error('Game engine not initialized');
+      return;
+    }
+
+    try {
+      engine.handleRankSelection(playerId, rank);
+      set({ selectedCards: [] }); // 選択をクリア
+    } catch (error) {
+      console.error('Rank selection error:', error);
+      set({ error: error instanceof Error ? error.message : 'ランク選択に失敗しました' });
+    }
+  },
+
+  getHumanStrategy: () => {
+    const { engine } = get();
+    if (!engine) {
+      return null;
+    }
+    return engine.getHumanStrategy();
   },
 
   enqueueCutIn: (cutIn) => {

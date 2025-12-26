@@ -9,19 +9,6 @@ export enum GamePhaseType {
   RESULT = 'RESULT',
 }
 
-import { Card, Rank } from '../card/Card';
-
-export type CardSelectionReason = 'sevenPass' | 'tenDiscard' | 'queenBomber' | 'queenBomberSelect';
-
-export interface CardSelectionRequest {
-  playerId: string; // 選択するプレイヤーのID
-  reason: CardSelectionReason; // 選択理由
-  count: number; // 選択する枚数
-  targetPlayerId?: string; // 7渡しの場合の渡し先
-  startPlayerId?: string; // クイーンボンバーの開始プレイヤーID（一周検出用）
-  specifiedRank?: Rank; // クイーンボンバーで指定されたランク
-}
-
 export interface GameState {
   players: Player[];
   currentPlayerIndex: number;
@@ -33,11 +20,11 @@ export interface GameState {
   suitLock: string | null; // マークしばり（例: 'SPADE', 'HEART', 'DIAMOND', 'CLUB'）
   numberLock: boolean; // 数字しばり（階段の縛り）
   isReversed: boolean; // ターン順が逆転しているか（9リバース）
+  luckySeven: { playerId: string } | null; // ラッキーセブン（7x3を出したプレイヤー、無敗なら勝利）
   passCount: number;
   round: number;
   phase: GamePhaseType;
   ruleSettings: RuleSettings;
-  cardSelectionRequest: CardSelectionRequest | null; // カード選択リクエスト
 }
 
 export function createGameState(players: Player[], ruleSettings: RuleSettings = DEFAULT_RULE_SETTINGS): GameState {
@@ -52,10 +39,10 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     suitLock: null,
     numberLock: false,
     isReversed: false,
+    luckySeven: null,
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,
     ruleSettings,
-    cardSelectionRequest: null,
   };
 }

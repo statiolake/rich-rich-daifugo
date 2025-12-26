@@ -1,7 +1,7 @@
 import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
-import { Card } from '../domain/card/Card';
+import { Card, Suit } from '../domain/card/Card';
 import { PlayAnalyzer, Play, PlayType } from '../domain/card/Play';
 import { Player, PlayerType } from '../domain/player/Player';
 import { PlayerRank } from '../domain/player/PlayerRank';
@@ -40,27 +40,6 @@ export class PlayPhase implements GamePhase {
 
   async update(gameState: GameState): Promise<GamePhaseType | null> {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-
-    // カード選択リクエストがある場合
-    if (gameState.cardSelectionRequest) {
-      const request = gameState.cardSelectionRequest;
-      const requestedPlayer = gameState.players.find(p => p.id.value === request.playerId);
-
-      if (requestedPlayer) {
-        const strategy = this.strategyMap.get(requestedPlayer.id.value);
-        if (!strategy) {
-          throw new Error(`Strategy not found for player ${requestedPlayer.id.value}`);
-        }
-
-        // 戦略にカード選択を委譲
-        const selectedCards = await strategy.decideCardSelection(requestedPlayer, request, gameState);
-
-        // 選択を処理
-        this.handleCardSelection(gameState, requestedPlayer.id.value, selectedCards);
-      }
-
-      return null; // 選択完了、次のupdate()で続行
-    }
 
     // 既に上がっているプレイヤーはスキップ
     if (currentPlayer.isFinished) {
@@ -119,6 +98,12 @@ export class PlayPhase implements GamePhase {
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
+    // ラッキーセブンのリセット（新しいカードが出されたら、それがラッキーセブンでない限りリセット）
+    if (gameState.luckySeven && !this.triggersLuckySeven(play)) {
+      console.log('ラッキーセブンが破られました');
+      gameState.luckySeven = null;
+    }
+
     // マークしばりチェック（ルール有効時のみ）
     if (gameState.ruleSettings.suitLock) {
       const history = gameState.field.getHistory();
@@ -168,6 +153,49 @@ export class PlayPhase implements GamePhase {
 
     // ルール発動フラグ
     let triggeredRules = false;
+
+    // 砂嵐判定（3x3が何にでも勝つ）
+    if (gameState.ruleSettings.sandstorm && this.triggersSandstorm(play)) {
+      console.log('砂嵐が発動しました！');
+
+      // イベント発火
+      this.eventBus?.emit('sandstorm:triggered', {});
+
+      triggeredRules = true;
+    }
+
+    // スペ3返し判定（スペード3でジョーカーを返す）
+    if (gameState.ruleSettings.spadeThreeReturn && this.triggersSpadeThreeReturn(play, gameState)) {
+      console.log('スペ3返しが発動しました！');
+
+      // イベント発火
+      this.eventBus?.emit('spadeThreeReturn:triggered', {});
+
+      triggeredRules = true;
+    }
+
+    // ダウンナンバー判定（同じスートで1小さい数字で返せる）
+    if (gameState.ruleSettings.downNumber && this.triggersDownNumber(play, gameState)) {
+      console.log('ダウンナンバーが発動しました！');
+
+      // イベント発火
+      this.eventBus?.emit('downNumber:triggered', {});
+
+      triggeredRules = true;
+    }
+
+    // ラッキーセブン判定（7x3を出す）
+    if (gameState.ruleSettings.luckySeven && this.triggersLuckySeven(play)) {
+      console.log('ラッキーセブンが発動しました！');
+      gameState.luckySeven = { playerId: player.id.value };
+
+      // イベント発火
+      this.eventBus?.emit('luckySeven:triggered', {
+        playerName: player.name
+      });
+
+      triggeredRules = true;
+    }
 
     // 4止め判定（8切りを止める）
     if (gameState.ruleSettings.fourStop && this.triggersFourStop(play) && gameState.isEightCutPending) {
@@ -313,11 +341,41 @@ export class PlayPhase implements GamePhase {
       (gameState.ruleSettings.rokurokubi && this.triggersRokurokubi(play));
 
     if (shouldClearField) {
+      // ラッキーセブン勝利チェック（8切り等で流れた場合）
+      if (gameState.luckySeven) {
+        const luckyPlayer = gameState.players.find(p => p.id.value === gameState.luckySeven!.playerId);
+        if (luckyPlayer && !luckyPlayer.isFinished) {
+          console.log(`${luckyPlayer.name} がラッキーセブンで勝利しました！`);
+          // 全ての手札を削除して即座に上がり
+          const remainingCards = luckyPlayer.hand.getCards();
+          if (remainingCards.length > 0) {
+            luckyPlayer.hand.remove([...remainingCards]);
+          }
+          this.handlePlayerFinish(gameState, luckyPlayer);
+
+          // イベント発火
+          this.eventBus?.emit('luckySeven:victory', {
+            playerName: luckyPlayer.name
+          });
+        }
+        gameState.luckySeven = null;
+      }
+
       gameState.field.clear();
       gameState.passCount = 0;
       gameState.isEightCutPending = false; // 場をクリアしたら8切りフラグもリセット
       gameState.suitLock = null; // 場をクリアしたら縛りもリセット
       gameState.numberLock = false; // 場をクリアしたら数字しばりもリセット
+
+      // 11バックをリセット
+      if (gameState.isElevenBack) {
+        gameState.isElevenBack = false;
+        console.log('11バックがリセットされました');
+
+        // 全プレイヤーの手札を再ソート
+        gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
+      }
+
       console.log('場が流れました');
     }
 
@@ -361,83 +419,19 @@ export class PlayPhase implements GamePhase {
       }
     }
 
-    // カード選択系イベントのフラグ
-    let hasCardSelection = false;
-
     // 7渡し判定（手札から1枚を次のプレイヤーに渡す）
     if (gameState.ruleSettings.sevenPass && this.triggersSevenPass(play) && !player.hand.isEmpty()) {
-      // 次のプレイヤーを探す
-      const direction = gameState.isReversed ? -1 : 1;
-      const nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
-      let nextPlayer = gameState.players[nextIndex];
-
-      // 上がっていないプレイヤーを探す
-      let searchIndex = nextIndex;
-      let attempts = 0;
-      while (nextPlayer.isFinished && attempts < gameState.players.length) {
-        searchIndex = (searchIndex + direction + gameState.players.length) % gameState.players.length;
-        nextPlayer = gameState.players[searchIndex];
-        attempts++;
-      }
-
-      if (!nextPlayer.isFinished) {
-        // カード選択リクエストを設定
-        gameState.cardSelectionRequest = {
-          playerId: player.id.value,
-          reason: 'sevenPass',
-          count: 1,
-          targetPlayerId: nextPlayer.id.value,
-        };
-
-        // イベント発火
-        this.eventBus?.emit('sevenPass:triggered', {
-          fromPlayer: player.name,
-          toPlayer: nextPlayer.name
-        });
-
-        hasCardSelection = true;
-      }
+      await this.handleSevenPass(gameState, player);
     }
 
     // 10捨て判定（手札から1枚を捨てる）
     if (gameState.ruleSettings.tenDiscard && this.triggersTenDiscard(play) && !player.hand.isEmpty()) {
-      // カード選択リクエストを設定
-      gameState.cardSelectionRequest = {
-        playerId: player.id.value,
-        reason: 'tenDiscard',
-        count: 1,
-      };
-
-      // イベント発火
-      this.eventBus?.emit('tenDiscard:triggered', {
-        player: player.name
-      });
-
-      hasCardSelection = true;
+      await this.handleTenDiscard(gameState, player);
     }
 
     // クイーンボンバー判定（全員が指定されたカードを捨てる）
     if (gameState.ruleSettings.queenBomber && this.triggersQueenBomber(play)) {
-      console.log('クイーンボンバー発動！カードを選んでください');
-
-      // まず発動プレイヤーがカードを選択
-      gameState.cardSelectionRequest = {
-        playerId: player.id.value,
-        reason: 'queenBomberSelect',
-        count: 1,
-      };
-
-      // イベント発火
-      this.eventBus?.emit('queenBomber:triggered', {});
-
-      hasCardSelection = true;
-    }
-
-    // カード選択系イベントの後にカットイン待機
-    if (hasCardSelection && this.waitForCutInFn) {
-      console.log('[PlayPhase] Waiting for card selection cut-in animations...');
-      await this.waitForCutInFn();
-      console.log('[PlayPhase] Card selection cut-in animations completed');
+      await this.handleQueenBomber(gameState, player);
     }
 
     // 9リバース判定
@@ -458,12 +452,8 @@ export class PlayPhase implements GamePhase {
       this.eventBus?.emit('fiveSkip:triggered', {});
     }
 
-    // カード選択リクエストがある場合は手番を維持（選択完了後に進む）
-    const hasCardSelectionPending = gameState.cardSelectionRequest !== null;
-
     // 場をクリアした場合は手番を維持する（nextPlayerを呼ばない）
-    // カード選択リクエストがある場合も手番を維持する
-    if (!shouldKeepTurn && !hasCardSelectionPending) {
+    if (!shouldKeepTurn) {
       this.nextPlayer(gameState);
 
       // 5スキップの場合は、さらにもう1人スキップ
@@ -482,6 +472,27 @@ export class PlayPhase implements GamePhase {
     const activePlayers = gameState.players.filter(p => !p.isFinished).length;
     if (gameState.passCount >= activePlayers - 1) {
       console.log('場が流れました');
+
+      // ラッキーセブン勝利チェック
+      if (gameState.luckySeven) {
+        const luckyPlayer = gameState.players.find(p => p.id.value === gameState.luckySeven!.playerId);
+        if (luckyPlayer && !luckyPlayer.isFinished) {
+          console.log(`${luckyPlayer.name} がラッキーセブンで勝利しました！`);
+          // 全ての手札を削除して即座に上がり
+          const remainingCards = luckyPlayer.hand.getCards();
+          if (remainingCards.length > 0) {
+            luckyPlayer.hand.remove([...remainingCards]);
+          }
+          this.handlePlayerFinish(gameState, luckyPlayer);
+
+          // イベント発火
+          this.eventBus?.emit('luckySeven:victory', {
+            playerName: luckyPlayer.name
+          });
+        }
+        gameState.luckySeven = null;
+      }
+
       gameState.field.clear();
       gameState.passCount = 0;
       gameState.isEightCutPending = false; // 場が流れたら8切りフラグもリセット
@@ -551,6 +562,150 @@ export class PlayPhase implements GamePhase {
     }
 
     return null;
+  }
+
+  /**
+   * 7渡しを処理する
+   */
+  private async handleSevenPass(gameState: GameState, player: Player): Promise<void> {
+    // 次のプレイヤーを探す
+    const direction = gameState.isReversed ? -1 : 1;
+    const nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+    let nextPlayer = gameState.players[nextIndex];
+
+    // 上がっていないプレイヤーを探す
+    let searchIndex = nextIndex;
+    let attempts = 0;
+    while (nextPlayer.isFinished && attempts < gameState.players.length) {
+      searchIndex = (searchIndex + direction + gameState.players.length) % gameState.players.length;
+      nextPlayer = gameState.players[searchIndex];
+      attempts++;
+    }
+
+    if (!nextPlayer.isFinished) {
+      // イベント発火とカットイン待機
+      this.eventBus?.emit('sevenPass:triggered', {
+        fromPlayer: player.name,
+        toPlayer: nextPlayer.name
+      });
+
+      if (this.waitForCutInFn) {
+        await this.waitForCutInFn();
+      }
+
+      // Validator: 任意のカード1枚
+      const validator = (cards: Card[]) => {
+        if (cards.length === 1) {
+          return { valid: true };
+        }
+        return { valid: false, reason: '1枚選んでください' };
+      };
+
+      const strategy = this.strategyMap.get(player.id.value);
+      if (!strategy) return;
+
+      const selectedCards = await strategy.selectCards(player, validator, {
+        message: `7渡し：${nextPlayer.name}に渡すカードを1枚選んでください`
+      });
+
+      if (selectedCards.length === 1) {
+        player.hand.remove(selectedCards);
+        nextPlayer.hand.add(selectedCards);
+        console.log(`7渡し：${player.name}が${nextPlayer.name}に${selectedCards[0].rank}${selectedCards[0].suit}を渡しました`);
+      }
+    }
+  }
+
+  /**
+   * 10捨てを処理する
+   */
+  private async handleTenDiscard(gameState: GameState, player: Player): Promise<void> {
+    // イベント発火とカットイン待機
+    this.eventBus?.emit('tenDiscard:triggered', {
+      player: player.name
+    });
+
+    if (this.waitForCutInFn) {
+      await this.waitForCutInFn();
+    }
+
+    // Validator: 任意のカード1枚
+    const validator = (cards: Card[]) => {
+      if (cards.length === 1) {
+        return { valid: true };
+      }
+      return { valid: false, reason: '1枚選んでください' };
+    };
+
+    const strategy = this.strategyMap.get(player.id.value);
+    if (!strategy) return;
+
+    const selectedCards = await strategy.selectCards(player, validator, {
+      message: '10捨て：捨てるカードを1枚選んでください'
+    });
+
+    if (selectedCards.length === 1) {
+      player.hand.remove(selectedCards);
+      console.log(`10捨て：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
+    }
+  }
+
+  /**
+   * クイーンボンバーを処理する
+   */
+  private async handleQueenBomber(gameState: GameState, player: Player): Promise<void> {
+    console.log('クイーンボンバー発動！カードを選んでください');
+
+    // イベント発火とカットイン待機
+    this.eventBus?.emit('queenBomber:triggered', {});
+
+    if (this.waitForCutInFn) {
+      await this.waitForCutInFn();
+    }
+
+    // 発動プレイヤーがランクを選択
+    const strategy = this.strategyMap.get(player.id.value);
+    if (!strategy) return;
+
+    const selectedRank = await strategy.selectRank(player);
+    console.log(`クイーンボンバー：${selectedRank}が指定されました`);
+
+    // 全プレイヤーが順番にカードを捨てる
+    const startIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+    for (let i = 0; i < gameState.players.length; i++) {
+      const playerIndex = (startIndex + i) % gameState.players.length;
+      const currentPlayer = gameState.players[playerIndex];
+
+      if (currentPlayer.isFinished || currentPlayer.hand.isEmpty()) {
+        continue;
+      }
+
+      const playerStrategy = this.strategyMap.get(currentPlayer.id.value);
+      if (!playerStrategy) continue;
+
+      // Validator: 指定ランクのカード1枚、またはスキップ（空配列）
+      const validator = (cards: Card[]) => {
+        if (cards.length === 0) {
+          return { valid: true }; // スキップ
+        }
+        if (cards.length === 1 && cards[0].rank === selectedRank) {
+          return { valid: true };
+        }
+        return { valid: false, reason: `${selectedRank}を1枚選んでください` };
+      };
+
+      const selectedCards = await playerStrategy.selectCards(currentPlayer, validator, {
+        message: `クイーンボンバー：${selectedRank}を捨ててください`,
+        specifiedRank: selectedRank
+      });
+
+      if (selectedCards.length > 0) {
+        currentPlayer.hand.remove(selectedCards);
+        console.log(`クイーンボンバー：${currentPlayer.name}が${selectedCards[0].rank}を捨てました`);
+      } else {
+        console.log(`クイーンボンバー：${currentPlayer.name}は${selectedRank}を持っていないのでスキップ`);
+      }
+    }
   }
 
   private triggersElevenBack(play: Play): boolean {
@@ -635,192 +790,45 @@ export class PlayPhase implements GamePhase {
     return play.cards.some(card => card.rank === 'Q');
   }
 
-  /**
-   * カード選択を処理する
-   * @param gameState ゲーム状態
-   * @param playerId プレイヤーID
-   * @param selectedCards 選択されたカード
-   */
-  handleCardSelection(gameState: GameState, playerId: string, selectedCards: Card[]): void {
-    const request = gameState.cardSelectionRequest;
-    if (!request || request.playerId !== playerId) {
-      console.error('Invalid card selection request');
-      return;
-    }
+  private triggersSandstorm(play: Play): boolean {
+    // 3のスリーカード（3枚）かチェック
+    return play.type === PlayType.TRIPLE &&
+           play.cards.every(card => card.rank === '3');
+  }
 
-    const player = gameState.players.find(p => p.id.value === playerId);
-    if (!player) {
-      console.error('Player not found');
-      return;
-    }
+  private triggersSpadeThreeReturn(play: Play, gameState: GameState): boolean {
+    // スペード3の1枚出しかチェック
+    if (play.type !== PlayType.SINGLE) return false;
+    if (play.cards[0].suit !== Suit.SPADE || play.cards[0].rank !== '3') return false;
 
-    // カードが手札にあるか確認（queenBomberSelectは手札チェックをスキップ）
-    const playerCards = player.hand.getCards();
+    // 場にジョーカーがあるかチェック
+    if (gameState.field.isEmpty()) return false;
+    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (!fieldPlayHistory) return false;
 
-    if (request.reason === 'queenBomberSelect') {
-      // クイーンボンバー選択：任意のランクを選択可能（手札チェックなし）
-      if (selectedCards.length !== 1) {
-        console.error('Queen Bomber Select requires exactly 1 card');
-        return;
-      }
-    } else if (playerCards.length === 0 && selectedCards.length === 0 && request.reason === 'queenBomber') {
-      // 手札が空の場合は空配列でOK（クイーンボンバーでスキップする場合）
-    } else if (request.reason === 'queenBomber' && request.specifiedRank) {
-      // クイーンボンバーで指定されたランクのカードがない場合は空配列でOK
-      const hasSpecifiedRank = playerCards.some(
-        c => c.rank === request.specifiedRank
-      );
-      if (!hasSpecifiedRank && selectedCards.length === 0) {
-        // 指定されたランクのカードがないのでスキップ
-      } else if (hasSpecifiedRank && selectedCards.length === 1) {
-        // 指定されたランクのカードを選択しているかチェック
-        const selectedCard = selectedCards[0];
-        if (selectedCard.rank !== request.specifiedRank) {
-          console.error('Must select a card with the specified rank for Queen Bomber');
-          return;
-        }
-      } else {
-        console.error('Invalid card selection for Queen Bomber');
-        return;
-      }
-    } else {
-      const allCardsValid = selectedCards.every(card =>
-        playerCards.some(c => c.suit === card.suit && c.rank === card.rank)
-      );
+    return fieldPlayHistory.play.cards.some(card => card.rank === 'JOKER');
+  }
 
-      if (!allCardsValid || selectedCards.length !== request.count) {
-        console.error('Invalid card selection');
-        return;
-      }
-    }
+  private triggersDownNumber(play: Play, gameState: GameState): boolean {
+    // 1枚出しかチェック
+    if (play.type !== PlayType.SINGLE) return false;
+    if (gameState.field.isEmpty()) return false;
 
-    // 選択理由に応じて処理
-    switch (request.reason) {
-      case 'queenBomberSelect': {
-        // クイーンボンバー：発動プレイヤーがカードを選択
-        if (selectedCards.length !== 1) {
-          console.error('Queen Bomber requires exactly 1 card selection');
-          return;
-        }
+    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (!fieldPlayHistory || fieldPlayHistory.play.type !== PlayType.SINGLE) return false;
 
-        const selectedCard = selectedCards[0];
-        const specifiedRank = selectedCard.rank;
-        console.log(`クイーンボンバー：${specifiedRank}が指定されました`);
+    const playCard = play.cards[0];
+    const fieldCard = fieldPlayHistory.play.cards[0];
 
-        // 次の未完了プレイヤーから、指定されたランクのカードを捨てさせる
-        const currentIndex = gameState.players.findIndex(p => p.id.value === playerId);
-        let nextIndex = (currentIndex + 1) % gameState.players.length;
-        let attempts = 0;
+    // 同じスートで1小さい数字かチェック
+    return playCard.suit === fieldCard.suit &&
+           playCard.strength === fieldCard.strength - 1;
+  }
 
-        // 手札がある未完了プレイヤーがいるかチェック
-        const playersWithCards = gameState.players.filter(p => !p.isFinished && !p.hand.isEmpty());
-
-        if (playersWithCards.length > 0) {
-          // 次の未完了プレイヤーを探す
-          while (attempts < gameState.players.length) {
-            const nextPlayer = gameState.players[nextIndex];
-            if (!nextPlayer.isFinished) {
-              gameState.cardSelectionRequest = {
-                playerId: nextPlayer.id.value,
-                reason: 'queenBomber',
-                count: 1,
-                specifiedRank: specifiedRank,
-                startPlayerId: nextPlayer.id.value, // 一周検出用
-              };
-              return;
-            }
-            nextIndex = (nextIndex + 1) % gameState.players.length;
-            attempts++;
-          }
-        }
-
-        // 誰も手札がない場合はクリア
-        gameState.cardSelectionRequest = null;
-        // queenBomberSelectが完了したら次のプレイヤーに進む
-        this.nextPlayer(gameState);
-        break;
-      }
-
-      case 'sevenPass':
-        // 7渡し：次のプレイヤーに渡す
-        if (request.targetPlayerId) {
-          const targetPlayer = gameState.players.find(p => p.id.value === request.targetPlayerId);
-          if (targetPlayer) {
-            player.hand.remove(selectedCards);
-            targetPlayer.hand.add(selectedCards);
-            console.log(`7渡し：${player.name}が${targetPlayer.name}に${selectedCards[0].rank}${selectedCards[0].suit}を渡しました`);
-          }
-        }
-        gameState.cardSelectionRequest = null;
-        // 7渡しが完了したら次のプレイヤーに進む
-        this.nextPlayer(gameState);
-        break;
-
-      case 'tenDiscard':
-        // 10捨て：カードを捨てる
-        player.hand.remove(selectedCards);
-        console.log(`10捨て：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
-        gameState.cardSelectionRequest = null;
-        // 10捨てが完了したら次のプレイヤーに進む
-        this.nextPlayer(gameState);
-        break;
-
-      case 'queenBomber': {
-        // クイーンボンバー：指定されたランクのカードを捨てる
-        const specifiedRank = request.specifiedRank;
-        if (!specifiedRank) {
-          console.error('No rank specified for Queen Bomber');
-          return;
-        }
-
-        if (selectedCards.length > 0) {
-          // カードを捨てる
-          player.hand.remove(selectedCards);
-          console.log(`クイーンボンバー：${player.name}が${selectedCards[0].rank}を捨てました`);
-        } else {
-          // 手札にない、またはスキップ
-          console.log(`クイーンボンバー：${player.name}は${specifiedRank}を持っていないのでスキップ`);
-        }
-
-        // 次の未完了プレイヤーを探す
-        const currentIdx = gameState.players.findIndex(p => p.id.value === playerId);
-        let nextIdx = (currentIdx + 1) % gameState.players.length;
-        let attemptCount = 0;
-        const startPlayerId = request.startPlayerId;
-
-        while (attemptCount < gameState.players.length) {
-          const nextPlayer = gameState.players[nextIdx];
-
-          // 開始プレイヤーに戻ってきたら終了
-          if (startPlayerId && nextPlayer.id.value === startPlayerId) {
-            gameState.cardSelectionRequest = null;
-            // 全員が選択完了したら次のプレイヤーに進む
-            this.nextPlayer(gameState);
-            return;
-          }
-
-          if (!nextPlayer.isFinished) {
-            // 次のプレイヤーにリクエスト
-            gameState.cardSelectionRequest = {
-              playerId: nextPlayer.id.value,
-              reason: 'queenBomber',
-              count: 1,
-              specifiedRank: specifiedRank, // 指定ランクを引き継ぐ
-              startPlayerId: startPlayerId, // 開始プレイヤーを引き継ぐ
-            };
-            return; // まだ選択が必要なので、ここで終了
-          }
-          nextIdx = (nextIdx + 1) % gameState.players.length;
-          attemptCount++;
-        }
-
-        // 全員が選択完了
-        gameState.cardSelectionRequest = null;
-        // 全員が選択完了したら次のプレイヤーに進む
-        this.nextPlayer(gameState);
-        break;
-      }
-    }
+  private triggersLuckySeven(play: Play): boolean {
+    // 7のスリーカード（3枚）かチェック
+    return play.type === PlayType.TRIPLE &&
+           play.cards.every(card => card.rank === '7');
   }
 
   private nextPlayer(gameState: GameState): void {

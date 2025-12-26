@@ -1,8 +1,8 @@
-import { Card, CardFactory, Suit } from '../domain/card/Card';
+import { Card, CardFactory, Suit, Rank } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
 import { Field } from '../domain/game/Field';
-import { GameState, CardSelectionRequest } from '../domain/game/GameState';
-import { PlayerStrategy, PlayDecision } from './PlayerStrategy';
+import { GameState } from '../domain/game/GameState';
+import { PlayerStrategy, PlayDecision, CardValidator, CardSelectionContext } from './PlayerStrategy';
 import type { IValidationEngine } from '../domain/card/Hand';
 
 export class RandomCPUStrategy implements PlayerStrategy {
@@ -47,56 +47,39 @@ export class RandomCPUStrategy implements PlayerStrategy {
     return cards.slice(0, count) as Card[];
   }
 
-  async decideCardSelection(
+  async selectCards(
     player: Player,
-    request: CardSelectionRequest,
-    gameState: GameState
+    validator: CardValidator,
+    context?: CardSelectionContext
   ): Promise<Card[]> {
     // 少し待機してからCPUが選択したように見せる
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    let selectedCards: Card[] = [];
+    const handCards = player.hand.getCards();
 
-    switch (request.reason) {
-      case 'queenBomberSelect':
-        // クイーンボンバー選択：ランダムにランクを選ぶ
-        const ranks = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
-        const randomRank = ranks[Math.floor(Math.random() * ranks.length)];
-        selectedCards = [CardFactory.create(Suit.SPADE, randomRank as any)];
-        console.log(`${player.name}がクイーンボンバーで${randomRank}を指定しました`);
-        break;
-
-      case 'sevenPass':
-        // 7渡し：ランダムに1枚選ぶ
-        const cards = player.hand.getCards();
-        if (cards.length > 0) {
-          selectedCards = [cards[Math.floor(Math.random() * cards.length)]];
-        }
-        break;
-
-      case 'tenDiscard':
-        // 10捨て：ランダムに1枚選ぶ
-        const cardsToDiscard = player.hand.getCards();
-        if (cardsToDiscard.length > 0) {
-          selectedCards = [cardsToDiscard[Math.floor(Math.random() * cardsToDiscard.length)]];
-        }
-        break;
-
-      case 'queenBomber':
-        // クイーンボンバー：指定されたランクのカードを探す
-        const specifiedRank = request.specifiedRank;
-        if (specifiedRank) {
-          const matchingCard = player.hand.getCards().find(
-            c => c.rank === specifiedRank
-          );
-          if (matchingCard) {
-            selectedCards = [matchingCard];
-          }
-          // 指定されたランクのカードが手札にない場合は空配列のまま（スキップ）
-        }
-        break;
+    // validatorを満たすカードの組み合わせを探す
+    // 1枚選択から試す
+    for (let i = 0; i < handCards.length; i++) {
+      const cards = [handCards[i]];
+      if (validator(cards).valid) {
+        return cards;
+      }
     }
 
-    return selectedCards;
+    // 見つからない場合は空配列を返す（スキップ）
+    return [];
+  }
+
+  async selectRank(
+    player: Player
+  ): Promise<Rank> {
+    // 少し待機してからCPUが選択したように見せる
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // ランダムにランクを選ぶ
+    const ranks: Rank[] = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+    const randomRank = ranks[Math.floor(Math.random() * ranks.length)];
+    console.log(`${player.name}がクイーンボンバーで${randomRank}を指定しました`);
+    return randomRank;
   }
 }

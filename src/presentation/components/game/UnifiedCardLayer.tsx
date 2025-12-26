@@ -20,42 +20,65 @@ export const UnifiedCardLayer: React.FC = () => {
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
   const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length]);
 
-  // カード選択リクエストがあるか確認
-  const cardSelectionRequest = gameState?.cardSelectionRequest;
+  // HumanStrategyを取得してvalidatorを確認
+  const getHumanStrategy = useGameStore(state => state.getHumanStrategy);
+  const humanStrategy = getHumanStrategy();
   const humanPlayer = gameState ? LocalPlayerService.findLocalPlayer(gameState) : null;
-  const needsCardSelection = cardSelectionRequest && humanPlayer && cardSelectionRequest.playerId === humanPlayer.id.value;
+
+  // validatorがbottom type（すべて禁止）かどうかをチェック
+  const isValidatorBottomType = useMemo(() => {
+    const validator = humanStrategy?.getCurrentValidator();
+    if (!validator) return false;
+
+    // 空配列で試してみて、それも無効なら bottom type
+    const emptyResult = validator([]);
+    if (emptyResult.valid) return false;
+
+    // 手札の任意のカードで試してみる
+    if (humanPlayer) {
+      const handCards = humanPlayer.hand.getCards();
+      if (handCards.length > 0) {
+        const anyCardResult = validator([handCards[0]]);
+        return !anyCardResult.valid;
+      }
+    }
+
+    return true;
+  }, [humanStrategy, humanPlayer]);
 
   // 光らせるカードを決める
   const legalCards = useMemo(() => {
     const legal = new Set<string>();
 
-    // カード選択リクエストがある場合は、手札の全カードを選択可能にする
-    if (needsCardSelection && humanPlayer) {
+    if (!humanPlayer) return legal;
+
+    // カード選択リクエストがある場合（validatorが存在する場合）
+    const validator = humanStrategy?.getCurrentValidator();
+    if (validator && !isValidatorBottomType) {
       const handCards = humanPlayer.hand.getCards();
 
-      // クイーンボンバー選択の場合は手札をクリックできない（UIのボタンで選ぶ）
-      if (cardSelectionRequest.reason === 'queenBomberSelect') {
-        // 何もしない（手札をクリックできない）
-        return legal;
-      }
-
-      // クイーンボンバーの場合は、指定されたランクのカードのみ選択可能
-      if (cardSelectionRequest.reason === 'queenBomber' && cardSelectionRequest.specifiedRank) {
-        handCards.forEach((card) => {
-          if (card.rank === cardSelectionRequest.specifiedRank) {
-            legal.add(card.id);
-          }
-        });
-      } else {
-        // 7渡し、10捨ての場合は全カード選択可能
-        handCards.forEach((card) => {
+      // 各カードが単独で有効かチェック（1枚選択の場合）
+      handCards.forEach((card) => {
+        if (validator([card]).valid) {
           legal.add(card.id);
-        });
-      }
+        }
+      });
+
+      // 空配列が有効な場合もある（スキップ可能な場合）
+      // この場合は手札を光らせないが、UIで「スキップ」ボタンを表示
+
       return legal;
     }
 
-    // 通常のプレイ時は、選択したカードが部分集合になっている出せる手をすべて見つけ、
+    // 通常のプレイ時は、humanのターンの時だけハイライト
+    const currentPlayer = gameState?.players[gameState.currentPlayerIndex];
+    const isHumanTurn = currentPlayer?.id.value === humanPlayer.id.value;
+
+    if (!isHumanTurn) {
+      return legal; // 敵のターンは何も光らせない
+    }
+
+    // 選択したカードが部分集合になっている出せる手をすべて見つけ、
     // その手に含まれるカードの和集合を光らせる
     validCombinations.forEach((combo) => {
       // この役が選択状態を部分集合として含むか確認
@@ -72,7 +95,7 @@ export const UnifiedCardLayer: React.FC = () => {
     });
 
     return legal;
-  }, [validCombinations, selectedCards, needsCardSelection, cardSelectionRequest, humanPlayer]);
+  }, [validCombinations, selectedCards, humanStrategy, humanPlayer, gameState, isValidatorBottomType]);
 
   // 54枚のカードオブジェクトを取得（ジョーカーは固定IDなので毎回同じになる）
   const allCards = useMemo(() => CardFactory.createDeck(true), []);
@@ -123,6 +146,10 @@ export const UnifiedCardLayer: React.FC = () => {
         const isClickable =
           cardPos.location === 'hand' && cardPos.ownerId === localPlayerId && legalCards.has(card.id);
 
+        // bottom type（確定後）の時はdim
+        const isHandCard = cardPos.isFaceUp && cardPos.location === 'hand' && cardPos.ownerId === localPlayerId;
+        const shouldDim = isHandCard && isValidatorBottomType;
+
         return (
           <motion.div
             key={cardPos.cardId}
@@ -150,8 +177,10 @@ export const UnifiedCardLayer: React.FC = () => {
               isFaceUp={cardPos.isFaceUp}
               onClick={isClickable ? () => handleCardClick(card.id) : undefined}
               className={
-                cardPos.isFaceUp && cardPos.location === 'hand' && cardPos.ownerId === localPlayerId
-                  ? legalCards.has(card.id)
+                isHandCard
+                  ? shouldDim
+                    ? 'opacity-50'
+                    : legalCards.has(card.id)
                     ? isSelected
                       ? 'drop-shadow-[0_0_40px_rgba(250,204,21,1)] drop-shadow-[0_0_80px_rgba(234,179,8,0.9)]'
                       : 'ring-2 ring-blue-400 border-blue-300 border-2 drop-shadow-[0_0_30px_rgba(96,165,250,0.95)] drop-shadow-[0_0_60px_rgba(147,197,253,0.7)]'

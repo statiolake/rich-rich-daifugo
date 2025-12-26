@@ -161,6 +161,217 @@ describe('PlayPhase - 11バック機能', () => {
       // 11バックがリセットされたことを確認
       expect(gameState.isElevenBack).toBe(false);
     });
+
+    it('8切りで場が流れたときに11バックがリセットされる', async () => {
+      // プレイヤー作成
+      const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
+      const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
+
+      // 手札設定（3 → J → 2 → 8 の順で出す）
+      // 11バック中は強い方が弱いので、J < 2、2 < 8と出せる
+      const threeCard = CardFactory.create(Suit.SPADE, '3');
+      const jackCard = CardFactory.create(Suit.HEART, 'J');
+      const twoCard = CardFactory.create(Suit.DIAMOND, '2');
+      const eightCard = CardFactory.create(Suit.CLUB, '8');
+      player1.hand.add([threeCard, jackCard, twoCard, eightCard, CardFactory.create(Suit.SPADE, 'Q')]);
+      player2.hand.add([CardFactory.create(Suit.HEART, '4')]);
+
+      // ゲーム状態作成
+      const gameState = createGameState([player1, player2]);
+      gameState.phase = GamePhaseType.PLAY;
+      gameState.currentPlayerIndex = 0;
+      gameState.isElevenBack = false;
+
+      // Player1が3を出す
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [threeCard]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // Player1がJを出して11バック発動
+      gameState.currentPlayerIndex = 0;
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [jackCard]
+        })
+      });
+
+      await playPhase.update(gameState);
+      expect(gameState.isElevenBack).toBe(true);
+
+      // Player1が2を出す（11バック中は2の方が弱いとみなされる）
+      gameState.currentPlayerIndex = 0;
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [twoCard]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // Player1が8を出す（11バック中は8の方が弱いとみなされる＆8切り発動）
+      gameState.currentPlayerIndex = 0;
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [eightCard]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // 8切りで場が流れて11バックがリセットされたことを確認
+      expect(gameState.isElevenBack).toBe(false);
+      expect(gameState.field.isEmpty()).toBe(true);
+    });
+
+    it('救急車（9x2）で場が流れたときに11バックがリセットされる', async () => {
+      // プレイヤー作成
+      const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
+      const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
+
+      // 手札設定（3 → J → Q,Q → 9,9 の順で出す）
+      // 11バック中は強い方が弱いので出せる
+      const threeCard = CardFactory.create(Suit.SPADE, '3');
+      const jackCard = CardFactory.create(Suit.HEART, 'J');
+      const queen1 = CardFactory.create(Suit.DIAMOND, 'Q');
+      const queen2 = CardFactory.create(Suit.CLUB, 'Q');
+      const nine1 = CardFactory.create(Suit.SPADE, '9');
+      const nine2 = CardFactory.create(Suit.HEART, '9');
+      player1.hand.add([threeCard, jackCard, queen1, queen2, nine1, nine2]);
+      player2.hand.add([CardFactory.create(Suit.DIAMOND, '4')]);
+
+      // ゲーム状態作成
+      const gameState = createGameState([player1, player2]);
+      gameState.phase = GamePhaseType.PLAY;
+      gameState.currentPlayerIndex = 0;
+      gameState.isElevenBack = false;
+
+      // Player1が3を出す
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [threeCard]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // Player1がJを出して11バック発動
+      gameState.currentPlayerIndex = 0;
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [jackCard]
+        })
+      });
+
+      await playPhase.update(gameState);
+      expect(gameState.isElevenBack).toBe(true);
+
+      // Player1がQ,Qを出す（11バック中は弱いとみなされる）
+      gameState.currentPlayerIndex = 0;
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [queen1, queen2]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // Player1が9,9（救急車）を出す（11バック中は弱いとみなされる）
+      gameState.currentPlayerIndex = 0;
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [nine1, nine2]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // 救急車で場が流れて11バックがリセットされたことを確認
+      expect(gameState.isElevenBack).toBe(false);
+      expect(gameState.field.isEmpty()).toBe(true);
+    });
+
+    it('ろくろ首（6x2）で場が流れたときに11バックがリセットされる', async () => {
+      // プレイヤー作成
+      const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
+      const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
+
+      // 手札設定（3 → J → 9,9 → 6,6 の順で出す）
+      // 11バック中は強い方が弱いので出せる
+      const threeCard = CardFactory.create(Suit.SPADE, '3');
+      const jackCard = CardFactory.create(Suit.HEART, 'J');
+      const nine1 = CardFactory.create(Suit.DIAMOND, '9');
+      const nine2 = CardFactory.create(Suit.CLUB, '9');
+      const six1 = CardFactory.create(Suit.SPADE, '6');
+      const six2 = CardFactory.create(Suit.HEART, '6');
+      player1.hand.add([threeCard, jackCard, nine1, nine2, six1, six2]);
+      player2.hand.add([CardFactory.create(Suit.DIAMOND, '4')]);
+
+      // ゲーム状態作成
+      const gameState = createGameState([player1, player2]);
+      gameState.phase = GamePhaseType.PLAY;
+      gameState.currentPlayerIndex = 0;
+      gameState.isElevenBack = false;
+
+      // Player1が3を出す
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [threeCard]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // Player1がJを出して11バック発動
+      gameState.currentPlayerIndex = 0;
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [jackCard]
+        })
+      });
+
+      await playPhase.update(gameState);
+      expect(gameState.isElevenBack).toBe(true);
+
+      // Player1が9,9を出す（11バック中は弱いとみなされる）
+      gameState.currentPlayerIndex = 0;
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [nine1, nine2]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // Player1が6,6（ろくろ首）を出す（11バック中は弱いとみなされる）
+      gameState.currentPlayerIndex = 0;
+      strategyMap.set(player1.id.value, {
+        decidePlay: async () => ({
+          type: 'PLAY',
+          cards: [six1, six2]
+        })
+      });
+
+      await playPhase.update(gameState);
+
+      // ろくろ首で場が流れて11バックがリセットされたことを確認
+      expect(gameState.isElevenBack).toBe(false);
+      expect(gameState.field.isEmpty()).toBe(true);
+    });
   });
 
   describe('革命との組み合わせ', () => {

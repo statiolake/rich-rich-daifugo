@@ -144,6 +144,18 @@ export class GameEngine {
     return this.ruleEngine;
   }
 
+  /**
+   * HumanStrategy インスタンスを取得する
+   */
+  getHumanStrategy(): HumanStrategy | null {
+    for (const strategy of this.strategyMap.values()) {
+      if (strategy instanceof HumanStrategy) {
+        return strategy;
+      }
+    }
+    return null;
+  }
+
   isGameRunning(): boolean {
     return this.isRunning;
   }
@@ -166,7 +178,27 @@ export class GameEngine {
     // HumanStrategyの場合、submitCardSelectionを呼び出してPromiseを解決
     if (strategy instanceof HumanStrategy) {
       strategy.submitCardSelection(selectedCards);
-      // state:updatedは、PlayPhaseのupdate()内のhandleCardSelection呼び出し後に発火される
+    }
+  }
+
+  /**
+   * ランク選択を処理する（クイーンボンバー選択用）
+   * HumanPlayerの場合、HumanStrategyのsubmitRankSelectionを呼び出す
+   */
+  handleRankSelection(playerId: string, rank: string): void {
+    if (this.gameState.phase !== GamePhaseType.PLAY) {
+      return;
+    }
+
+    const strategy = this.strategyMap.get(playerId);
+    if (!strategy) {
+      console.error(`Strategy not found for player ${playerId}`);
+      return;
+    }
+
+    // HumanStrategyの場合、submitRankSelectionを呼び出してPromiseを解決
+    if (strategy instanceof HumanStrategy) {
+      strategy.submitRankSelection(rank as any);
     }
   }
 

@@ -99,7 +99,7 @@ export class PlayAnalyzer {
           cards,
           type: PlayType.STAIR,
           strength: Math.max(...cards.map(c => c.strength)),
-          triggersRevolution: false,
+          triggersRevolution: true, // 5枚以上の階段は革命
         };
       }
       return null;
