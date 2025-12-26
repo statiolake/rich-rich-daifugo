@@ -29,7 +29,6 @@ export const UnifiedCardLayer: React.FC = () => {
   // カード選択リクエスト・ランク選択リクエストの状態を取得
   const isPendingCardSelection = humanStrategy?.isPendingCardSelection() || false;
   const isPendingRankSelection = humanStrategy?.isPendingRankSelection() || false;
-  const isPendingPlay = humanStrategy?.isPendingPlay() || false;
 
   // validatorがbottom type（すべて禁止）かどうかをチェック
   const isValidatorBottomType = useMemo(() => {
@@ -93,11 +92,7 @@ export const UnifiedCardLayer: React.FC = () => {
       return legal;
     }
 
-    // 優先順位3: 通常のプレイ時（isPendingPlayの場合のみ）
-    if (!isPendingPlay) {
-      return legal; // プレイ待ち状態でない場合は選択不可
-    }
-
+    // 優先順位3: 通常のプレイ時
     // humanのターンの時だけハイライト
     const currentPlayer = gameState?.players[gameState.currentPlayerIndex];
     const isHumanTurn = currentPlayer?.id.value === humanPlayer.id.value;
@@ -105,6 +100,9 @@ export const UnifiedCardLayer: React.FC = () => {
     if (!isHumanTurn) {
       return legal; // 敵のターンは何も光らせない
     }
+
+    // isPendingPlayでなくても、自分のターンならカードを選択可能にする
+    // （場が流れた直後など、まだdecidePlay()が呼ばれていない状態でも選択できるようにする）
 
     // 選択したカードが部分集合になっている出せる手をすべて見つけ、
     // その手に含まれるカードの和集合を光らせる
@@ -123,7 +121,7 @@ export const UnifiedCardLayer: React.FC = () => {
     });
 
     return legal;
-  }, [validCombinations, selectedCards, humanStrategy, humanPlayer, gameState, isValidatorBottomType, isPendingCardSelection, isPendingRankSelection, isPendingPlay]);
+  }, [validCombinations, selectedCards, humanStrategy, humanPlayer, gameState, isValidatorBottomType, isPendingCardSelection, isPendingRankSelection]);
 
   // 54枚のカードオブジェクトを取得（ジョーカーは固定IDなので毎回同じになる）
   const allCards = useMemo(() => CardFactory.createDeck(true), []);
