@@ -2,6 +2,7 @@ import { Card } from '../../domain/card/Card';
 import { Player } from '../../domain/player/Player';
 import { PlayAnalyzer, PlayType } from '../../domain/card/Play';
 import { RuleContext } from '../context/RuleContext';
+import { TriggerEffect } from '../effects/TriggerEffectAnalyzer';
 
 /**
  * バリデーション結果
@@ -9,6 +10,7 @@ import { RuleContext } from '../context/RuleContext';
 export interface ValidationResult {
   valid: boolean;
   reason?: string; // 出せる場合も出せない場合も、その理由を返す（任意）
+  triggerEffects?: TriggerEffect[]; // このプレイで発動するエフェクト
 }
 
 /**

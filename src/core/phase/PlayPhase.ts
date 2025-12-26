@@ -7,16 +7,20 @@ import { Player, PlayerType } from '../domain/player/Player';
 import { PlayerRank } from '../domain/player/PlayerRank';
 import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
+import { TriggerEffectAnalyzer, TriggerEffect } from '../rules/effects/TriggerEffectAnalyzer';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
   private waitForCutInFn?: () => Promise<void>;
+  private effectAnalyzer: TriggerEffectAnalyzer;
 
   constructor(
     private strategyMap: Map<string, PlayerStrategy>,
     private ruleEngine: RuleEngine,
     private eventBus?: GameEventEmitter
-  ) {}
+  ) {
+    this.effectAnalyzer = new TriggerEffectAnalyzer();
+  }
 
   setWaitForCutIn(fn: () => Promise<void>): void {
     this.waitForCutInFn = fn;
@@ -98,8 +102,12 @@ export class PlayPhase implements GamePhase {
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
+    // === エフェクトの検出と適用（リファクタリング済み） ===
+    // エフェクトを分析（ドメイン層で一括検出）
+    const effects = this.effectAnalyzer.analyze(play, gameState);
+
     // ラッキーセブンのリセット（新しいカードが出されたら、それがラッキーセブンでない限りリセット）
-    if (gameState.luckySeven && !this.triggersLuckySeven(play)) {
+    if (gameState.luckySeven && !effects.includes('ラッキーセブン')) {
       console.log('ラッキーセブンが破られました');
       gameState.luckySeven = null;
     }
@@ -151,194 +159,30 @@ export class PlayPhase implements GamePhase {
       }
     }
 
-    // ルール発動フラグ
-    let triggeredRules = false;
-
-    // 砂嵐判定（3x3が何にでも勝つ）
-    if (gameState.ruleSettings.sandstorm && this.triggersSandstorm(play)) {
-      console.log('砂嵐が発動しました！');
-
-      // イベント発火
-      this.eventBus?.emit('sandstorm:triggered', {});
-
-      triggeredRules = true;
-    }
-
-    // スペ3返し判定（スペード3でジョーカーを返す）
-    if (gameState.ruleSettings.spadeThreeReturn && this.triggersSpadeThreeReturn(play, gameState)) {
-      console.log('スペ3返しが発動しました！');
-
-      // イベント発火
-      this.eventBus?.emit('spadeThreeReturn:triggered', {});
-
-      triggeredRules = true;
-    }
-
-    // ダウンナンバー判定（同じスートで1小さい数字で返せる）
-    if (gameState.ruleSettings.downNumber && this.triggersDownNumber(play, gameState)) {
-      console.log('ダウンナンバーが発動しました！');
-
-      // イベント発火
-      this.eventBus?.emit('downNumber:triggered', {});
-
-      triggeredRules = true;
-    }
-
-    // ラッキーセブン判定（7x3を出す）
-    if (gameState.ruleSettings.luckySeven && this.triggersLuckySeven(play)) {
-      console.log('ラッキーセブンが発動しました！');
-      gameState.luckySeven = { playerId: player.id.value };
-
-      // イベント発火
-      this.eventBus?.emit('luckySeven:triggered', {
-        playerName: player.name
-      });
-
-      triggeredRules = true;
-    }
-
-    // 4止め判定（8切りを止める）
-    if (gameState.ruleSettings.fourStop && this.triggersFourStop(play) && gameState.isEightCutPending) {
-      console.log('4止めが発動しました！8切りを止めます');
-      gameState.isEightCutPending = false;
-
-      // イベント発火
-      this.eventBus?.emit('fourStop:triggered', {});
-
-      triggeredRules = true;
-    }
-
-    // 8切り判定（場をクリアする）
-    if (gameState.ruleSettings.eightCut && this.triggersEightCut(play)) {
-      console.log('8切りが発動しました！');
-      gameState.isEightCutPending = true;
-
-      // イベント発火
-      this.eventBus?.emit('eightCut:triggered', {});
-
-      triggeredRules = true;
-    }
-
-    // 救急車判定（9x2で場をクリア）
-    if (gameState.ruleSettings.ambulance && this.triggersAmbulance(play)) {
-      console.log('救急車が発動しました！');
-
-      // イベント発火
-      this.eventBus?.emit('ambulance:triggered', {});
-
-      triggeredRules = true;
-    }
-
-    // ろくろ首判定（6x2で場をクリア）
-    if (gameState.ruleSettings.rokurokubi && this.triggersRokurokubi(play)) {
-      console.log('ろくろ首が発動しました！');
-
-      // イベント発火
-      this.eventBus?.emit('rokurokubi:triggered', {});
-
-      triggeredRules = true;
-    }
-
-    // 11バック判定（イベント発火のみ、awaitしない）
-    if (this.triggersElevenBack(play)) {
-      gameState.isElevenBack = !gameState.isElevenBack;
-      console.log(`11バックが発動しました！ isElevenBack: ${gameState.isElevenBack}`);
-
-      // イベント発火
-      this.eventBus?.emit('elevenBack:triggered', {
-        isElevenBack: gameState.isElevenBack
-      });
-
-      triggeredRules = true;
-    }
-
-    // エンペラー判定（4種マーク連番で革命）
-    if (gameState.ruleSettings.emperor && this.triggersEmperor(play)) {
-      gameState.isRevolution = !gameState.isRevolution;
-      console.log(`エンペラーが発動しました！ isRevolution: ${gameState.isRevolution}`);
-
-      // イベント発火
-      this.eventBus?.emit('emperor:triggered', {
-        isRevolution: gameState.isRevolution
-      });
-
-      triggeredRules = true;
-    }
-
-    // クーデター判定（9x3で革命）
-    if (gameState.ruleSettings.coup && this.triggersCoup(play)) {
-      gameState.isRevolution = !gameState.isRevolution;
-      console.log(`クーデターが発動しました！ isRevolution: ${gameState.isRevolution}`);
-
-      // イベント発火
-      this.eventBus?.emit('coup:triggered', {
-        isRevolution: gameState.isRevolution
-      });
-
-      triggeredRules = true;
-    }
-
-    // オーメン判定（6x3で革命 + 以後革命なし）
-    if (gameState.ruleSettings.omen && this.triggersOmen(play) && !gameState.isOmenActive) {
-      gameState.isRevolution = !gameState.isRevolution;
-      gameState.isOmenActive = true;
-      console.log(`オーメンが発動しました！ isRevolution: ${gameState.isRevolution}, 以後革命なし`);
-
-      // イベント発火
-      this.eventBus?.emit('omen:triggered', {
-        isRevolution: gameState.isRevolution
-      });
-
-      triggeredRules = true;
-    }
-
-    // 大革命判定（2x4で革命 + 即勝利）
-    if (gameState.ruleSettings.greatRevolution && this.triggersGreatRevolution(play) && !gameState.isOmenActive) {
-      gameState.isRevolution = !gameState.isRevolution;
-      console.log(`大革命が発動しました！ isRevolution: ${gameState.isRevolution}`);
-
-      // イベント発火
-      this.eventBus?.emit('greatRevolution:triggered', {
-        isRevolution: gameState.isRevolution
-      });
-
-      triggeredRules = true;
-
-      // 即勝利処理は後で handlePlayerFinish を呼ぶ前にチェック
-    }
-
-    // 革命判定（イベント発火のみ、awaitしない）
-    // オーメンが有効な場合は革命が発動しない
-    if (play.triggersRevolution && !gameState.isOmenActive) {
-      gameState.isRevolution = !gameState.isRevolution;
-      console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
-
-      // イベント発火
-      this.eventBus?.emit('revolution:triggered', {
-        isRevolution: gameState.isRevolution
-      });
-
-      triggeredRules = true;
+    // === エフェクト適用（for-each パターン） ===
+    // すべてのエフェクトに対してイベントを発火し、状態を更新
+    for (const effect of effects) {
+      this.applyEffect(effect, gameState, player);
     }
 
     // 全イベント発火後に1回だけ待機
-    if (triggeredRules && this.waitForCutInFn) {
+    if (effects.length > 0 && this.waitForCutInFn) {
       console.log('[PlayPhase] Waiting for cut-in animations...');
       await this.waitForCutInFn();
       console.log('[PlayPhase] Cut-in animations completed, resuming game...');
     }
 
     // カットイン完了後にソート（XORロジック反映）
-    if (triggeredRules) {
+    if (effects.length > 0) {
       gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
     }
 
     // 8切り・救急車・ろくろ首の場合、場をクリア
     // 8切りは、4止めで止められた場合は発動しない
     const shouldClearField =
-      (gameState.ruleSettings.eightCut && this.triggersEightCut(play) && gameState.isEightCutPending) ||
-      (gameState.ruleSettings.ambulance && this.triggersAmbulance(play)) ||
-      (gameState.ruleSettings.rokurokubi && this.triggersRokurokubi(play));
+      (effects.includes('8切り') && gameState.isEightCutPending) ||
+      effects.includes('救急車') ||
+      effects.includes('ろくろ首');
 
     if (shouldClearField) {
       // ラッキーセブン勝利チェック（8切り等で流れた場合）
@@ -383,7 +227,7 @@ export class PlayPhase implements GamePhase {
     const shouldKeepTurn = shouldClearField;
 
     // 大革命の即勝利処理
-    if (gameState.ruleSettings.greatRevolution && this.triggersGreatRevolution(play)) {
+    if (effects.includes('大革命＋即勝利')) {
       // 残りの手札をすべて削除して即座に上がり
       const remainingCards = player.hand.getCards();
       if (remainingCards.length > 0) {
@@ -403,37 +247,22 @@ export class PlayPhase implements GamePhase {
     }
 
     // 7渡し判定（手札から1枚を次のプレイヤーに渡す）
-    if (gameState.ruleSettings.sevenPass && this.triggersSevenPass(play) && !player.hand.isEmpty()) {
+    if (effects.includes('7渡し') && !player.hand.isEmpty()) {
       await this.handleSevenPass(gameState, player);
     }
 
     // 10捨て判定（手札から1枚を捨てる）
-    if (gameState.ruleSettings.tenDiscard && this.triggersTenDiscard(play) && !player.hand.isEmpty()) {
+    if (effects.includes('10捨て') && !player.hand.isEmpty()) {
       await this.handleTenDiscard(gameState, player);
     }
 
     // クイーンボンバー判定（全員が指定されたカードを捨てる）
-    if (gameState.ruleSettings.queenBomber && this.triggersQueenBomber(play)) {
+    if (effects.includes('クイーンボンバー')) {
       await this.handleQueenBomber(gameState, player);
     }
 
-    // 9リバース判定
-    if (gameState.ruleSettings.nineReverse && this.triggersNineReverse(play)) {
-      gameState.isReversed = !gameState.isReversed;
-      console.log(`9リバースが発動しました！ isReversed: ${gameState.isReversed}`);
-      // イベント発火
-      this.eventBus?.emit('nineReverse:triggered', {
-        isReversed: gameState.isReversed
-      });
-    }
-
     // 5スキップ判定
-    const shouldSkipNext = gameState.ruleSettings.fiveSkip && this.triggersFiveSkip(play);
-    if (shouldSkipNext) {
-      console.log('5スキップが発動しました！');
-      // イベント発火
-      this.eventBus?.emit('fiveSkip:triggered', {});
-    }
+    const shouldSkipNext = effects.includes('5スキップ');
 
     // 場をクリアした場合は手番を維持する（nextPlayerを呼ばない）
     if (!shouldKeepTurn) {
@@ -839,6 +668,137 @@ export class PlayPhase implements GamePhase {
       gameState.players[gameState.currentPlayerIndex].isFinished &&
       gameState.players.filter(p => !p.isFinished).length > 0
     );
+  }
+
+  /**
+   * エフェクトを適用する
+   * エフェクトの適用ロジックを一箇所に集約
+   */
+  private applyEffect(effect: TriggerEffect, gameState: GameState, player: Player): void {
+    switch (effect) {
+      case '砂嵐':
+        console.log('砂嵐が発動しました！');
+        this.eventBus?.emit('sandstorm:triggered', {});
+        break;
+
+      case '革命':
+      case '革命終了':
+        gameState.isRevolution = !gameState.isRevolution;
+        console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+        this.eventBus?.emit('revolution:triggered', {
+          isRevolution: gameState.isRevolution
+        });
+        break;
+
+      case 'イレブンバック':
+      case 'イレブンバック解除':
+        gameState.isElevenBack = !gameState.isElevenBack;
+        console.log(`11バックが発動しました！ isElevenBack: ${gameState.isElevenBack}`);
+        this.eventBus?.emit('elevenBack:triggered', {
+          isElevenBack: gameState.isElevenBack
+        });
+        break;
+
+      case '4止め':
+        console.log('4止めが発動しました！8切りを止めます');
+        gameState.isEightCutPending = false;
+        this.eventBus?.emit('fourStop:triggered', {});
+        break;
+
+      case '8切り':
+        console.log('8切りが発動しました！');
+        gameState.isEightCutPending = true;
+        this.eventBus?.emit('eightCut:triggered', {});
+        break;
+
+      case '救急車':
+        console.log('救急車が発動しました！');
+        this.eventBus?.emit('ambulance:triggered', {});
+        break;
+
+      case 'ろくろ首':
+        console.log('ろくろ首が発動しました！');
+        this.eventBus?.emit('rokurokubi:triggered', {});
+        break;
+
+      case 'エンペラー':
+      case 'エンペラー終了':
+        gameState.isRevolution = !gameState.isRevolution;
+        console.log(`エンペラーが発動しました！ isRevolution: ${gameState.isRevolution}`);
+        this.eventBus?.emit('emperor:triggered', {
+          isRevolution: gameState.isRevolution
+        });
+        break;
+
+      case 'クーデター':
+      case 'クーデター終了':
+        gameState.isRevolution = !gameState.isRevolution;
+        console.log(`クーデターが発動しました！ isRevolution: ${gameState.isRevolution}`);
+        this.eventBus?.emit('coup:triggered', {
+          isRevolution: gameState.isRevolution
+        });
+        break;
+
+      case 'オーメン':
+        gameState.isRevolution = !gameState.isRevolution;
+        gameState.isOmenActive = true;
+        console.log(`オーメンが発動しました！ isRevolution: ${gameState.isRevolution}, 以後革命なし`);
+        this.eventBus?.emit('omen:triggered', {
+          isRevolution: gameState.isRevolution
+        });
+        break;
+
+      case '大革命＋即勝利':
+        gameState.isRevolution = !gameState.isRevolution;
+        console.log(`大革命が発動しました！ isRevolution: ${gameState.isRevolution}`);
+        this.eventBus?.emit('greatRevolution:triggered', {
+          isRevolution: gameState.isRevolution
+        });
+        break;
+
+      case '5スキップ':
+        console.log('5スキップが発動しました！');
+        this.eventBus?.emit('fiveSkip:triggered', {});
+        break;
+
+      case '7渡し':
+        // 7渡しは後で別途処理するため、ここではイベント発火のみ
+        break;
+
+      case '10捨て':
+        // 10捨ては後で別途処理するため、ここではイベント発火のみ
+        break;
+
+      case 'クイーンボンバー':
+        // クイーンボンバーは後で別途処理するため、ここではイベント発火のみ
+        break;
+
+      case '9リバース':
+        gameState.isReversed = !gameState.isReversed;
+        console.log(`9リバースが発動しました！ isReversed: ${gameState.isReversed}`);
+        this.eventBus?.emit('nineReverse:triggered', {
+          isReversed: gameState.isReversed
+        });
+        break;
+
+      case 'スペ3返し':
+        console.log('スペ3返しが発動しました！');
+        this.eventBus?.emit('spadeThreeReturn:triggered', {});
+        break;
+
+      case 'ダウンナンバー':
+        console.log('ダウンナンバーが発動しました！');
+        this.eventBus?.emit('downNumber:triggered', {});
+        break;
+
+      case 'ラッキーセブン':
+        console.log('ラッキーセブンが発動しました！');
+        gameState.luckySeven = { playerId: player.id.value };
+        this.eventBus?.emit('luckySeven:triggered', {
+          playerName: player.name
+        });
+        break;
+    }
   }
 
   /**

@@ -5,7 +5,6 @@ import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerService';
 import { useMemo, useState } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
-import { PlayAnalyzer } from '../../../core/domain/card/Play';
 import { CardFactory, Suit, Rank } from '../../../core/domain/card/Card';
 
 export const HumanControl: React.FC = () => {
@@ -63,114 +62,12 @@ export const HumanControl: React.FC = () => {
     : { valid: false };
   const canPlaySelected = validationResult.valid;
 
+  // トリガーエフェクトはvalidationResultから取得（ドメイン層で計算）
+  const triggerEffects = validationResult.triggerEffects || [];
+
   const canPass = ruleEngine.canPass(gameState.field).valid;
   // パスを目立たせるのは、合法手が一つもないときだけ
   const shouldHighlightPass = validCombinations.length === 0 && canPass;
-
-  // 選択中のカードから発動する効果を判定
-  const getEffects = (): { triggerEffects: string[] } => {
-    if (selectedCards.length === 0) return { triggerEffects: [] };
-
-    const play = PlayAnalyzer.analyze(selectedCards);
-    if (!play) return { triggerEffects: [] };
-
-    const triggerEffects: string[] = []; // 出したときに発動するイベント
-    const ruleSettings = gameState.ruleSettings;
-
-    // === 発動するイベント（triggerEffects）のチェック ===
-
-    // 砂嵐判定（イベントとしても発動）
-    if (ruleSettings.sandstorm && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '3')) {
-      triggerEffects.push('砂嵐');
-    }
-
-    // 革命判定
-    if (play.triggersRevolution) {
-      triggerEffects.push(gameState.isRevolution ? '革命終了' : '革命');
-    }
-
-    // イレブンバック判定
-    if (play.cards.some(card => card.rank === 'J')) {
-      triggerEffects.push(gameState.isElevenBack ? 'イレブンバック解除' : 'イレブンバック');
-    }
-
-    // 4止め判定（8切りを止める）
-    if (ruleSettings.fourStop && play.type === 'PAIR' && play.cards.every(card => card.rank === '4') && gameState.isEightCutPending) {
-      triggerEffects.push('4止め');
-    }
-
-    // 8切り判定
-    if (ruleSettings.eightCut && play.cards.some(card => card.rank === '8')) {
-      triggerEffects.push('8切り');
-    }
-
-    // 救急車判定（9x2）
-    if (ruleSettings.ambulance && play.type === 'PAIR' && play.cards.every(card => card.rank === '9')) {
-      triggerEffects.push('救急車');
-    }
-
-    // ろくろ首判定（6x2）
-    if (ruleSettings.rokurokubi && play.type === 'PAIR' && play.cards.every(card => card.rank === '6')) {
-      triggerEffects.push('ろくろ首');
-    }
-
-    // エンペラー判定（4種マーク連番）
-    if (ruleSettings.emperor && play.type === 'STAIR' && play.cards.length === 4) {
-      const suits = new Set(play.cards.map(card => card.suit));
-      if (suits.size === 4) {
-        triggerEffects.push(gameState.isRevolution ? 'エンペラー終了' : 'エンペラー');
-      }
-    }
-
-    // クーデター判定（9x3）
-    if (ruleSettings.coup && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '9')) {
-      triggerEffects.push(gameState.isRevolution ? 'クーデター終了' : 'クーデター');
-    }
-
-    // オーメン判定（6x3）
-    if (ruleSettings.omen && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '6') && !gameState.isOmenActive) {
-      triggerEffects.push('オーメン');
-    }
-
-    // 大革命判定（2x4）
-    if (ruleSettings.greatRevolution && play.type === 'QUAD' && play.cards.every(card => card.rank === '2')) {
-      triggerEffects.push('大革命＋即勝利');
-    }
-
-    // 5スキップ判定
-    if (ruleSettings.fiveSkip && play.cards.some(card => card.rank === '5')) {
-      triggerEffects.push('5スキップ');
-    }
-
-    // 7渡し判定
-    if (ruleSettings.sevenPass && play.cards.some(card => card.rank === '7')) {
-      triggerEffects.push('7渡し');
-    }
-
-    // 9リバース判定
-    if (ruleSettings.nineReverse && play.cards.some(card => card.rank === '9')) {
-      triggerEffects.push('9リバース');
-    }
-
-    // 10捨て判定
-    if (ruleSettings.tenDiscard && play.cards.some(card => card.rank === '10')) {
-      triggerEffects.push('10捨て');
-    }
-
-    // クイーンボンバー判定
-    if (ruleSettings.queenBomber && play.cards.some(card => card.rank === 'Q')) {
-      triggerEffects.push('クイーンボンバー');
-    }
-
-    // ラッキーセブン判定
-    if (ruleSettings.luckySeven && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '7')) {
-      triggerEffects.push('ラッキーセブン');
-    }
-
-    return { triggerEffects };
-  };
-
-  const { triggerEffects } = getEffects();
 
   const needsSelection = isPendingCardSelection || isPendingRankSelection;
 

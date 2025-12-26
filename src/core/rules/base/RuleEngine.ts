@@ -6,6 +6,8 @@ import { ValidationPipeline } from '../pipeline/ValidationPipeline';
 import { RuleContext } from '../context/RuleContext';
 import { ValidationResult } from '../validators/BasicValidator';
 import { DEFAULT_RULE_SETTINGS } from '../../domain/game/RuleSettings';
+import { TriggerEffectAnalyzer } from '../effects/TriggerEffectAnalyzer';
+import { PlayAnalyzer } from '../../domain/card/Play';
 
 /**
  * ルールエンジン
@@ -13,9 +15,11 @@ import { DEFAULT_RULE_SETTINGS } from '../../domain/game/RuleSettings';
  */
 export class RuleEngine {
   private pipeline: ValidationPipeline;
+  private effectAnalyzer: TriggerEffectAnalyzer;
 
   constructor() {
     this.pipeline = new ValidationPipeline();
+    this.effectAnalyzer = new TriggerEffectAnalyzer();
   }
 
   /**
@@ -37,7 +41,22 @@ export class RuleEngine {
       ruleSettings: gameState.ruleSettings,
     };
 
-    return this.pipeline.validate(player, cards, context);
+    // バリデーション実行
+    const validationResult = this.pipeline.validate(player, cards, context);
+
+    // 有効なプレイの場合のみ、トリガーエフェクトを分析
+    if (validationResult.valid && cards.length > 0) {
+      const play = PlayAnalyzer.analyze(cards);
+      if (play) {
+        const triggerEffects = this.effectAnalyzer.analyze(play, gameState);
+        return {
+          ...validationResult,
+          triggerEffects: triggerEffects.length > 0 ? triggerEffects : undefined,
+        };
+      }
+    }
+
+    return validationResult;
   }
 
   /**
