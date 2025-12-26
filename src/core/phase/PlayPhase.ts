@@ -454,8 +454,8 @@ export class PlayPhase implements GamePhase {
     // 全員がパスした場合の処理
     const activePlayers = gameState.players.filter(p => !p.isFinished).length;
     if (gameState.passCount >= activePlayers - 1) {
-      // 全員がパスした後、誰も出せない場合はゲーム終了
-      if (!this.canAnyonePlay(gameState)) {
+      // 場が空の状態で全員がパスした場合のみ、誰も出せないかチェック
+      if (gameState.field.isEmpty() && !this.canAnyonePlay(gameState)) {
         console.log('全員が出せる手がないため、ゲームを終了します');
         this.endGameDueToNoPlays(gameState);
         return;
@@ -902,23 +902,21 @@ export class PlayPhase implements GamePhase {
 
     // 順位を設定
     let currentPosition = gameState.players.filter(p => p.isFinished).length + 1;
-    let previousHandSize = -1;
-    let sameRankCount = 0;
+    let playersAtCurrentPosition = 0;
 
-    for (const player of activePlayers) {
+    for (let i = 0; i < activePlayers.length; i++) {
+      const player = activePlayers[i];
       const handSize = player.hand.size();
 
-      // 同じ手札枚数の場合は同順位
-      if (handSize === previousHandSize) {
-        sameRankCount++;
-      } else {
-        currentPosition += sameRankCount;
-        sameRankCount = 0;
-        previousHandSize = handSize;
+      // 前のプレイヤーと手札枚数が異なる場合、新しい順位に進む
+      if (i > 0 && activePlayers[i - 1].hand.size() !== handSize) {
+        currentPosition += playersAtCurrentPosition;
+        playersAtCurrentPosition = 0;
       }
 
       player.isFinished = true;
       player.finishPosition = currentPosition;
+      playersAtCurrentPosition++;
       this.assignRank(gameState, player);
 
       console.log(`${player.name} finished in position ${player.finishPosition} (手札: ${handSize}枚)`);

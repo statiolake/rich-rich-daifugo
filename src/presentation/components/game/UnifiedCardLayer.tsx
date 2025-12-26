@@ -22,8 +22,14 @@ export const UnifiedCardLayer: React.FC = () => {
 
   // HumanStrategyを取得してvalidatorを確認
   const getHumanStrategy = useGameStore(state => state.getHumanStrategy);
+  const clearSelection = useGameStore(state => state.clearSelection);
   const humanStrategy = getHumanStrategy();
   const humanPlayer = gameState ? LocalPlayerService.findLocalPlayer(gameState) : null;
+
+  // カード選択リクエスト・ランク選択リクエストの状態を取得
+  const isPendingCardSelection = humanStrategy?.isPendingCardSelection() || false;
+  const isPendingRankSelection = humanStrategy?.isPendingRankSelection() || false;
+  const isPendingPlay = humanStrategy?.isPendingPlay() || false;
 
   // validatorがbottom type（すべて禁止）かどうかをチェック
   const isValidatorBottomType = useMemo(() => {
@@ -46,31 +52,53 @@ export const UnifiedCardLayer: React.FC = () => {
     return true;
   }, [humanStrategy, humanPlayer]);
 
+  // 新しいバリデーションが適用されたときに選択状態をリセット
+  useEffect(() => {
+    if (isPendingCardSelection || isPendingRankSelection) {
+      console.log('New validation applied, clearing selection');
+      clearSelection();
+    }
+  }, [isPendingCardSelection, isPendingRankSelection, clearSelection]);
+
   // 光らせるカードを決める
   const legalCards = useMemo(() => {
     const legal = new Set<string>();
 
     if (!humanPlayer) return legal;
 
-    // カード選択リクエストがある場合（validatorが存在する場合）
-    const validator = humanStrategy?.getCurrentValidator();
-    if (validator && !isValidatorBottomType) {
-      const handCards = humanPlayer.hand.getCards();
+    // 優先順位1: ランク選択リクエスト中は、カード選択を無効化
+    if (isPendingRankSelection) {
+      return legal; // 空のSet（選択不可）
+    }
 
-      // 各カードが単独で有効かチェック（1枚選択の場合）
-      handCards.forEach((card) => {
-        if (validator([card]).valid) {
-          legal.add(card.id);
-        }
-      });
+    // 優先順位2: カード選択リクエストがある場合（validatorが存在する場合）
+    if (isPendingCardSelection) {
+      const validator = humanStrategy?.getCurrentValidator();
+      if (validator && !isValidatorBottomType) {
+        const handCards = humanPlayer.hand.getCards();
 
-      // 空配列が有効な場合もある（スキップ可能な場合）
-      // この場合は手札を光らせないが、UIで「スキップ」ボタンを表示
+        // 各カードが単独で有効かチェック（1枚選択の場合）
+        handCards.forEach((card) => {
+          if (validator([card]).valid) {
+            legal.add(card.id);
+          }
+        });
 
+        // 空配列が有効な場合もある（スキップ可能な場合）
+        // この場合は手札を光らせないが、UIで「スキップ」ボタンを表示
+
+        return legal;
+      }
+      // validator が bottom type の場合は空のSet
       return legal;
     }
 
-    // 通常のプレイ時は、humanのターンの時だけハイライト
+    // 優先順位3: 通常のプレイ時（isPendingPlayの場合のみ）
+    if (!isPendingPlay) {
+      return legal; // プレイ待ち状態でない場合は選択不可
+    }
+
+    // humanのターンの時だけハイライト
     const currentPlayer = gameState?.players[gameState.currentPlayerIndex];
     const isHumanTurn = currentPlayer?.id.value === humanPlayer.id.value;
 
@@ -95,7 +123,7 @@ export const UnifiedCardLayer: React.FC = () => {
     });
 
     return legal;
-  }, [validCombinations, selectedCards, humanStrategy, humanPlayer, gameState, isValidatorBottomType]);
+  }, [validCombinations, selectedCards, humanStrategy, humanPlayer, gameState, isValidatorBottomType, isPendingCardSelection, isPendingRankSelection, isPendingPlay]);
 
   // 54枚のカードオブジェクトを取得（ジョーカーは固定IDなので毎回同じになる）
   const allCards = useMemo(() => CardFactory.createDeck(true), []);

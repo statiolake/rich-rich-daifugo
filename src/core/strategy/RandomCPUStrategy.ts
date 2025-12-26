@@ -52,9 +52,6 @@ export class RandomCPUStrategy implements PlayerStrategy {
     validator: CardValidator,
     context?: CardSelectionContext
   ): Promise<Card[]> {
-    // 少し待機してからCPUが選択したように見せる
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     const handCards = player.hand.getCards();
 
     // validatorを満たすカードの組み合わせを探す
@@ -73,9 +70,6 @@ export class RandomCPUStrategy implements PlayerStrategy {
   async selectRank(
     player: Player
   ): Promise<Rank> {
-    // 少し待機してからCPUが選択したように見せる
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     // ランダムにランクを選ぶ
     const ranks: Rank[] = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
     const randomRank = ranks[Math.floor(Math.random() * ranks.length)];
