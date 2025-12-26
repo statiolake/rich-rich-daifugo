@@ -188,10 +188,10 @@ export const UnifiedCardLayer: React.FC = () => {
         // このカードが選択されているか確認
         const isSelected = selectedCards.some((c) => c.id === card.id);
 
-        // 合法手のカードのみクリック可能
+        // 自分の手札であればすべてクリック可能（valid/invalidに関わらず）
         const localPlayerId = gameState ? LocalPlayerService.getLocalPlayerId(gameState) : undefined;
         const isClickable =
-          cardPos.location === 'hand' && cardPos.ownerId === localPlayerId && legalCards.has(card.id);
+          cardPos.location === 'hand' && cardPos.ownerId === localPlayerId;
 
         // bottom type（確定後）の時はdim
         const isHandCard = cardPos.isFaceUp && cardPos.location === 'hand' && cardPos.ownerId === localPlayerId;

@@ -56,51 +56,26 @@ export const HumanControl: React.FC = () => {
   const ruleEngine = getRuleEngine();
 
   // カード選択リクエスト時はvalidatorを使う
-  const canPlaySelected = isPendingCardSelection && validator
-    ? validator(selectedCards).valid
-    : selectedCards.length > 0 && ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState).valid;
+  const validationResult = isPendingCardSelection && validator
+    ? validator(selectedCards)
+    : selectedCards.length > 0
+    ? ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState)
+    : { valid: false };
+  const canPlaySelected = validationResult.valid;
 
   const canPass = ruleEngine.canPass(gameState.field).valid;
   // パスを目立たせるのは、合法手が一つもないときだけ
   const shouldHighlightPass = validCombinations.length === 0 && canPass;
 
   // 選択中のカードから発動する効果を判定
-  const getEffects = (): { playableReasons: string[]; triggerEffects: string[] } => {
-    if (!canPlaySelected || selectedCards.length === 0) return { playableReasons: [], triggerEffects: [] };
+  const getEffects = (): { triggerEffects: string[] } => {
+    if (selectedCards.length === 0) return { triggerEffects: [] };
 
     const play = PlayAnalyzer.analyze(selectedCards);
-    if (!play) return { playableReasons: [], triggerEffects: [] };
+    if (!play) return { triggerEffects: [] };
 
-    const playableReasons: string[] = []; // なぜ出せるのか
     const triggerEffects: string[] = []; // 出したときに発動するイベント
     const ruleSettings = gameState.ruleSettings;
-    const fieldPlay = gameState.field.getCurrentPlay();
-
-    // === 出せる理由（playableReasons）のチェック ===
-
-    // ダウンナンバー判定
-    if (ruleSettings.downNumber && play.type === 'SINGLE' && selectedCards.length === 1 &&
-        fieldPlay && fieldPlay.type === 'SINGLE') {
-      const playCard = selectedCards[0];
-      const fieldCard = fieldPlay.cards[0];
-      if (playCard.suit === fieldCard.suit && playCard.strength === fieldCard.strength - 1) {
-        playableReasons.push('ダウンナンバー');
-      }
-    }
-
-    // スぺ3返し判定
-    if (ruleSettings.spadeThreeReturn && play.type === 'SINGLE' && selectedCards.length === 1 &&
-        selectedCards[0].rank === '3' && selectedCards[0].suit === 'SPADE' &&
-        fieldPlay && fieldPlay.cards.length === 1 && fieldPlay.cards[0].rank === 'JOKER') {
-      playableReasons.push('スぺ3返し');
-    }
-
-    // 砂嵐判定（3x3が何にでも勝つ）
-    if (ruleSettings.sandstorm && play.type === 'TRIPLE' && play.cards.every(card => card.rank === '3')) {
-      if (fieldPlay && fieldPlay.type === play.type) {
-        playableReasons.push('砂嵐');
-      }
-    }
 
     // === 発動するイベント（triggerEffects）のチェック ===
 
@@ -192,10 +167,10 @@ export const HumanControl: React.FC = () => {
       triggerEffects.push('ラッキーセブン');
     }
 
-    return { playableReasons, triggerEffects };
+    return { triggerEffects };
   };
 
-  const { playableReasons, triggerEffects } = getEffects();
+  const { triggerEffects } = getEffects();
 
   const needsSelection = isPendingCardSelection || isPendingRankSelection;
 
@@ -358,7 +333,7 @@ export const HumanControl: React.FC = () => {
               <div className="relative inline-block">
                 {/* 効果プレビュー */}
                 <AnimatePresence>
-                  {(playableReasons.length > 0 || triggerEffects.length > 0) && (
+                  {(validationResult.reason || triggerEffects.length > 0) && selectedCards.length > 0 && (
                     <div className="absolute bottom-full left-1/2 mb-3 w-screen max-w-4xl" style={{ transform: 'translateX(-50%)' }}>
                       <motion.div
                         initial={{ opacity: 0, y: 10, scale: 0.9 }}
@@ -367,17 +342,16 @@ export const HumanControl: React.FC = () => {
                         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                         className="flex flex-col gap-2 items-center px-4"
                       >
-                        {/* 出せる理由（青系バッジ） */}
-                        {playableReasons.length > 0 && (
-                          <div className="flex flex-col gap-2 items-center max-w-full">
-                            {playableReasons.map((reason, index) => (
-                              <div
-                                key={index}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-blue-300 whitespace-nowrap"
-                              >
-                                {reason}
-                              </div>
-                            ))}
+                        {/* 理由（valid=trueなら緑、falseなら赤） */}
+                        {validationResult.reason && (
+                          <div
+                            className={`px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 whitespace-nowrap ${
+                              validationResult.valid
+                                ? 'bg-green-500 text-white border-green-300'
+                                : 'bg-red-500 text-white border-red-300'
+                            }`}
+                          >
+                            {validationResult.reason}
                           </div>
                         )}
 
