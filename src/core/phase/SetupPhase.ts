@@ -19,8 +19,9 @@ export class SetupPhase implements GamePhase {
       gameState.players[i].hand = new Hand(playerCards);
     }
 
-    // 各プレイヤーの手札をソート
-    gameState.players.forEach(p => p.hand.sort(gameState.isRevolution));
+    // 各プレイヤーの手札をソート（革命XOR11バック）
+    const shouldReverseStrength = gameState.isRevolution !== gameState.isElevenBack;
+    gameState.players.forEach(p => p.hand.sort(shouldReverseStrength));
 
     console.log('Setup phase: Cards dealt to players');
   }

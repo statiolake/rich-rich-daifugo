@@ -27,12 +27,7 @@ export class PlayPhase implements GamePhase {
   }
 
   async enter(gameState: GameState): Promise<void> {
-    gameState.field.clear();
-    gameState.passCount = 0;
-    gameState.isElevenBack = false; // 新しいラウンド開始時に11バックをリセット
-    gameState.isEightCutPending = false; // 8切りフラグをリセット
-    gameState.suitLock = null; // 縛りをリセット
-    gameState.numberLock = false; // 数字しばりをリセット
+    this.clearFieldAndResetState(gameState, true);
     gameState.isReversed = false; // リバースをリセット
 
     // 初回ラウンドはランダムなプレイヤーから開始
@@ -185,42 +180,8 @@ export class PlayPhase implements GamePhase {
       effects.includes('ろくろ首');
 
     if (shouldClearField) {
-      // ラッキーセブン勝利チェック（8切り等で流れた場合）
-      if (gameState.luckySeven) {
-        const luckyPlayer = gameState.players.find(p => p.id.value === gameState.luckySeven!.playerId);
-        if (luckyPlayer && !luckyPlayer.isFinished) {
-          console.log(`${luckyPlayer.name} がラッキーセブンで勝利しました！`);
-          // 全ての手札を削除して即座に上がり
-          const remainingCards = luckyPlayer.hand.getCards();
-          if (remainingCards.length > 0) {
-            luckyPlayer.hand.remove([...remainingCards]);
-          }
-          this.handlePlayerFinish(gameState, luckyPlayer);
-
-          // イベント発火
-          this.eventBus?.emit('luckySeven:victory', {
-            playerName: luckyPlayer.name
-          });
-        }
-        gameState.luckySeven = null;
-      }
-
-      gameState.field.clear();
-      gameState.passCount = 0;
-      gameState.isEightCutPending = false; // 場をクリアしたら8切りフラグもリセット
-      gameState.suitLock = null; // 場をクリアしたら縛りもリセット
-      gameState.numberLock = false; // 場をクリアしたら数字しばりもリセット
-
-      // 11バックをリセット
-      if (gameState.isElevenBack) {
-        gameState.isElevenBack = false;
-        console.log('11バックがリセットされました');
-
-        // 全プレイヤーの手札を再ソート
-        gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
-      }
-
-      console.log('場が流れました');
+      this.handleLuckySevenVictory(gameState);
+      this.clearFieldAndResetState(gameState);
     }
 
     // 場をクリアした場合は、手番を維持する（nextPlayerを呼ばない）
@@ -290,42 +251,8 @@ export class PlayPhase implements GamePhase {
         return;
       }
 
-      console.log('場が流れました');
-
-      // ラッキーセブン勝利チェック
-      if (gameState.luckySeven) {
-        const luckyPlayer = gameState.players.find(p => p.id.value === gameState.luckySeven!.playerId);
-        if (luckyPlayer && !luckyPlayer.isFinished) {
-          console.log(`${luckyPlayer.name} がラッキーセブンで勝利しました！`);
-          // 全ての手札を削除して即座に上がり
-          const remainingCards = luckyPlayer.hand.getCards();
-          if (remainingCards.length > 0) {
-            luckyPlayer.hand.remove([...remainingCards]);
-          }
-          this.handlePlayerFinish(gameState, luckyPlayer);
-
-          // イベント発火
-          this.eventBus?.emit('luckySeven:victory', {
-            playerName: luckyPlayer.name
-          });
-        }
-        gameState.luckySeven = null;
-      }
-
-      gameState.field.clear();
-      gameState.passCount = 0;
-      gameState.isEightCutPending = false; // 場が流れたら8切りフラグもリセット
-      gameState.suitLock = null; // 場が流れたら縛りもリセット
-      gameState.numberLock = false; // 場が流れたら数字しばりもリセット
-
-      // 11バックをリセット
-      if (gameState.isElevenBack) {
-        gameState.isElevenBack = false;
-        console.log('11バックがリセットされました');
-
-        // 全プレイヤーの手札を再ソート
-        gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
-      }
+      this.handleLuckySevenVictory(gameState);
+      this.clearFieldAndResetState(gameState);
     }
 
     this.nextPlayer(gameState);
@@ -540,6 +467,57 @@ export class PlayPhase implements GamePhase {
         console.log(`クイーンボンバー：${currentPlayer.name}は${selectedRank}を持っていないのでスキップ`);
       }
     }
+  }
+
+  /**
+   * ラッキーセブン勝利処理
+   */
+  private handleLuckySevenVictory(gameState: GameState): void {
+    if (!gameState.luckySeven) return;
+
+    const luckyPlayer = gameState.players.find(p => p.id.value === gameState.luckySeven!.playerId);
+    if (!luckyPlayer || luckyPlayer.isFinished) {
+      gameState.luckySeven = null;
+      return;
+    }
+
+    console.log(`${luckyPlayer.name} がラッキーセブンで勝利しました！`);
+    const remainingCards = luckyPlayer.hand.getCards();
+    if (remainingCards.length > 0) {
+      luckyPlayer.hand.remove([...remainingCards]);
+    }
+
+    this.handlePlayerFinish(gameState, luckyPlayer);
+    this.eventBus?.emit('luckySeven:victory', { playerName: luckyPlayer.name });
+    gameState.luckySeven = null;
+  }
+
+  /**
+   * フィールドと状態をリセット
+   */
+  private clearFieldAndResetState(gameState: GameState, resetElevenBack: boolean = true): void {
+    gameState.field.clear();
+    gameState.passCount = 0;
+    gameState.isEightCutPending = false;
+    gameState.suitLock = null;
+    gameState.numberLock = false;
+
+    if (resetElevenBack && gameState.isElevenBack) {
+      gameState.isElevenBack = false;
+      console.log('11バックがリセットされました');
+
+      const shouldReverseStrength = this.getShouldReverseStrength(gameState);
+      gameState.players.forEach(p => p.hand.sort(shouldReverseStrength));
+    }
+
+    console.log('場が流れました');
+  }
+
+  /**
+   * 強さを反転すべきかを判定（革命XOR11バック）
+   */
+  private getShouldReverseStrength(gameState: GameState): boolean {
+    return gameState.isRevolution !== gameState.isElevenBack;
   }
 
   private nextPlayer(gameState: GameState): void {
