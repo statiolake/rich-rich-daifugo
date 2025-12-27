@@ -197,10 +197,7 @@ describe('TriggerEffectAnalyzer', () => {
     });
   });
 
-  describe.skip('エンペラー', () => {
-    // NOTE: エンペラーのテストはスキップ
-    // PlayAnalyzer.isStair()は同じスートを要求するが、エンペラーは4種類の異なるスートを要求する
-    // これは既存のコードベースの設計上の問題であり、別途修正が必要
+  describe('エンペラー', () => {
     it('4種マーク連番でエンペラーが発動', () => {
       const cards = [
         CardFactory.create(Suit.SPADE, '5'),
@@ -218,12 +215,12 @@ describe('TriggerEffectAnalyzer', () => {
       expect(effects).toContain('エンペラー');
     });
 
-    it('4種マークでない階段ではエンペラーが発動しない', () => {
+    it('通常の階段（同じスートの連番4枚）ではエンペラーが発動しない', () => {
       const cards = [
         CardFactory.create(Suit.SPADE, '5'),
-        CardFactory.create(Suit.HEART, '6'),
-        CardFactory.create(Suit.DIAMOND, '7'),
-        CardFactory.create(Suit.DIAMOND, '8'),  // DupleteのDIAMOND
+        CardFactory.create(Suit.SPADE, '6'),
+        CardFactory.create(Suit.SPADE, '7'),
+        CardFactory.create(Suit.SPADE, '8'),
       ];
       const play = PlayAnalyzer.analyze(cards)!;
       const gameState = createMockGameState({
@@ -232,7 +229,9 @@ describe('TriggerEffectAnalyzer', () => {
 
       const effects = analyzer.analyze(play, gameState);
 
+      // 通常の階段なのでエンペラーは発動しない
       expect(effects).not.toContain('エンペラー');
+      expect(effects).not.toContain('エンペラー終了');
     });
   });
 

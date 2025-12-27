@@ -169,11 +169,7 @@ export class TriggerEffectAnalyzer {
   }
 
   private triggersEmperor(play: Play): boolean {
-    if (play.type !== PlayType.STAIR || play.cards.length !== 4) {
-      return false;
-    }
-    const suits = new Set(play.cards.map(card => card.suit));
-    return suits.size === 4;
+    return play.type === PlayType.EMPEROR;
   }
 
   private triggersCoup(play: Play): boolean {

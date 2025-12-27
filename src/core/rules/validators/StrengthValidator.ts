@@ -87,6 +87,16 @@ export class StrengthValidator {
       };
     }
 
+    // 階段で出せる場合は理由を明示（ローカルルールとして扱う）
+    if (currentPlay.type === PlayType.STAIR) {
+      return { valid: true, reason: '階段' };
+    }
+
+    // エンペラーで出せる場合は理由を明示（ローカルルールとして扱う）
+    if (currentPlay.type === PlayType.EMPEROR) {
+      return { valid: true, reason: 'エンペラー' };
+    }
+
     return { valid: true, reason: '' };
   }
 

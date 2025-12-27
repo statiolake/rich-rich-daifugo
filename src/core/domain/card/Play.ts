@@ -5,7 +5,8 @@ export enum PlayType {
   PAIR = 'PAIR',
   TRIPLE = 'TRIPLE',
   QUAD = 'QUAD',
-  STAIR = 'STAIR',
+  STAIR = 'STAIR',      // 階段（同じスートの連番）
+  EMPEROR = 'EMPEROR',  // エンペラー（4種類のスートの連番4枚）
 }
 
 export interface Play {
@@ -78,6 +79,15 @@ export class PlayAnalyzer {
           type: PlayType.QUAD,
           strength: cards[0].strength,
           triggersRevolution: true, // 4枚出しは革命
+        };
+      }
+      // エンペラーチェック（4種類のスートの連番4枚）
+      if (this.isEmperor(cards)) {
+        return {
+          cards,
+          type: PlayType.EMPEROR,
+          strength: Math.max(...cards.map(c => c.strength)),
+          triggersRevolution: false, // エンペラー自体は革命を起こさない
         };
       }
       // 階段チェック
@@ -188,6 +198,34 @@ export class PlayAnalyzer {
     if (suits.size !== 1) {
       return false;
     }
+
+    // 強さでソート
+    const sorted = [...cards].sort((a, b) => a.strength - b.strength);
+
+    // 連続しているかチェック
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].strength !== sorted[i - 1].strength + 1) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * エンペラー（4種類のスートの連番4枚）かどうかをチェック
+   */
+  static isEmperor(cards: Card[]): boolean {
+    if (cards.length !== 4) return false;
+
+    // ジョーカーは使えない
+    if (cards.some(c => c.rank === 'JOKER')) {
+      return false;
+    }
+
+    // 4種類の異なるスートか
+    const suits = new Set(cards.map(c => c.suit));
+    if (suits.size !== 4) return false;
 
     // 強さでソート
     const sorted = [...cards].sort((a, b) => a.strength - b.strength);

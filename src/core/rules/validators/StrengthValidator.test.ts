@@ -185,4 +185,62 @@ describe('StrengthValidator - XOR Logic', () => {
       expect(shouldReverse).toBe(false);
     });
   });
+
+  describe('階段の理由明示（ローカルルールとして扱う）', () => {
+    it('階段で出せる場合は「階段」という理由を返す', () => {
+      const field = new Field();
+
+      // 場に♠3,4,5の階段を出す
+      const fieldCards = [
+        CardFactory.create(Suit.SPADE, '3'),
+        CardFactory.create(Suit.SPADE, '4'),
+        CardFactory.create(Suit.SPADE, '5'),
+      ];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, player.id);
+
+      // ♥6,7,8の階段を出す
+      const cards = [
+        CardFactory.create(Suit.HEART, '6'),
+        CardFactory.create(Suit.HEART, '7'),
+        CardFactory.create(Suit.HEART, '8'),
+      ];
+      const context = {
+        isRevolution: false,
+        isElevenBack: false,
+        field,
+        suitLock: null,
+        numberLock: false,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, stairs: true }
+      };
+
+      const result = validator.validate(player, cards, context);
+      expect(result.valid).toBe(true);
+      expect(result.reason).toBe('階段');
+    });
+
+    it('場が空のときに階段を出す場合も「階段」という理由を返す', () => {
+      const field = new Field();
+
+      // ♠3,4,5の階段を出す
+      const cards = [
+        CardFactory.create(Suit.SPADE, '3'),
+        CardFactory.create(Suit.SPADE, '4'),
+        CardFactory.create(Suit.SPADE, '5'),
+      ];
+      const context = {
+        isRevolution: false,
+        isElevenBack: false,
+        field,
+        suitLock: null,
+        numberLock: false,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, stairs: true }
+      };
+
+      const result = validator.validate(player, cards, context);
+      expect(result.valid).toBe(true);
+      // 場が空の時はreason: ''が返される（StrengthValidatorの22行目）
+      expect(result.reason).toBe('');
+    });
+  });
 });
