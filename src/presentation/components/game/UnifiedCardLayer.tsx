@@ -22,6 +22,7 @@ export const UnifiedCardLayer: React.FC = () => {
 
   // HumanStrategyを取得してvalidatorを確認
   const getHumanStrategy = useGameStore(state => state.getHumanStrategy);
+  const getRuleEngine = useGameStore(state => state.getRuleEngine);
   const clearSelection = useGameStore(state => state.clearSelection);
   const humanStrategy = getHumanStrategy();
   const humanPlayer = gameState ? LocalPlayerService.findLocalPlayer(gameState) : null;
