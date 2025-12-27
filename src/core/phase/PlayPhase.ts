@@ -172,10 +172,22 @@ export class PlayPhase implements GamePhase {
       gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
     }
 
+    // 8切りが発動中の場合、次のプレイで場をクリア（4止めで止められていない場合）
+    let shouldClearFieldFromPreviousEightCut = false;
+    if (gameState.isEightCutPending && !effects.includes('4止め')) {
+      shouldClearFieldFromPreviousEightCut = true;
+      console.log('8切りが発動します（前のプレイで8が出された）');
+    }
+
+    // 4止めが発動した場合、8切りフラグをクリア（場はクリアしない）
+    if (effects.includes('4止め')) {
+      console.log('4止めが発動しました！8切りを止めます');
+      gameState.isEightCutPending = false;
+    }
+
     // 8切り・救急車・ろくろ首の場合、場をクリア
-    // 8切りは、4止めで止められた場合は発動しない
     const shouldClearField =
-      (effects.includes('8切り') && gameState.isEightCutPending) ||
+      shouldClearFieldFromPreviousEightCut ||
       effects.includes('救急車') ||
       effects.includes('ろくろ首');
 
@@ -570,8 +582,7 @@ export class PlayPhase implements GamePhase {
         break;
 
       case '4止め':
-        console.log('4止めが発動しました！8切りを止めます');
-        gameState.isEightCutPending = false;
+        // 4止めの状態変更はhandlePlayで行う（エフェクト適用前）
         this.eventBus?.emit('fourStop:triggered', {});
         break;
 
