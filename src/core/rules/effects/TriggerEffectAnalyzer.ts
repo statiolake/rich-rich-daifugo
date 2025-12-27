@@ -52,10 +52,18 @@ export class TriggerEffectAnalyzer {
       effects.push('砂嵐');
     }
 
-    // 革命判定（4枚以上の同じ数字、またはルール設定による5枚以上の階段）
-    // オーメンが有効な場合は革命が発動しない
-    if (play.triggersRevolution && !gameState.isOmenActive) {
-      effects.push(gameState.isRevolution ? '革命終了' : '革命');
+    // 革命判定 - 大革命が優先、通常革命はその次
+    if (!gameState.isOmenActive) {
+      const isGreatRevolution = ruleSettings.greatRevolution && this.triggersGreatRevolution(play);
+
+      if (isGreatRevolution) {
+        effects.push('大革命＋即勝利');
+      } else {
+        const isBasicRevolution = this.triggersBasicRevolution(play);
+        if (isBasicRevolution) {
+          effects.push(gameState.isRevolution ? '革命終了' : '革命');
+        }
+      }
     }
 
     // イレブンバック判定（Jが含まれている）
@@ -98,10 +106,7 @@ export class TriggerEffectAnalyzer {
       effects.push('オーメン');
     }
 
-    // 大革命判定（2x4で革命 + 即勝利）
-    if (ruleSettings.greatRevolution && this.triggersGreatRevolution(play) && !gameState.isOmenActive) {
-      effects.push('大革命＋即勝利');
-    }
+    // 大革命判定は上記の革命判定ロジックに統合されています
 
     // 5スキップ判定
     if (ruleSettings.fiveSkip && this.triggersFiveSkip(play)) {
@@ -182,6 +187,20 @@ export class TriggerEffectAnalyzer {
 
   private triggersGreatRevolution(play: Play): boolean {
     return play.type === PlayType.QUAD && play.cards.every(card => card.rank === '2');
+  }
+
+  private triggersBasicRevolution(play: Play): boolean {
+    // 4枚の同じ数字（QUAD）
+    if (play.type === PlayType.QUAD) {
+      return true;
+    }
+
+    // 5枚以上の階段（STAIR）
+    if (play.type === PlayType.STAIR && play.cards.length >= 5) {
+      return true;
+    }
+
+    return false;
   }
 
   private triggersFourStop(play: Play): boolean {

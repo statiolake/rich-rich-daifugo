@@ -167,9 +167,20 @@ describe('Rule Settings - ON/OFF Functionality', () => {
       const effects: string[] = [];
       const ruleSettings = gameState.ruleSettings;
 
-      // 革命判定
-      if (play.triggersRevolution) {
-        effects.push(gameState.isRevolution ? '革命終了' : '革命');
+      // 革命判定 - 大革命が優先、通常革命はその次
+      const isGreatRevolution = ruleSettings.greatRevolution &&
+        play.type === PlayType.QUAD && play.cards.every((card: any) => card.rank === '2');
+
+      if (isGreatRevolution) {
+        effects.push('大革命＋即勝利');
+      } else {
+        // 通常革命判定（4枚QUAD または 5枚以上STAIR）
+        const isBasicRevolution =
+          play.type === PlayType.QUAD ||
+          (play.type === PlayType.STAIR && play.cards.length >= 5);
+        if (isBasicRevolution) {
+          effects.push(gameState.isRevolution ? '革命終了' : '革命');
+        }
       }
 
       // イレブンバック判定
@@ -205,10 +216,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
         effects.push(gameState.isRevolution ? 'クーデター終了' : 'クーデター');
       }
 
-      // 大革命判定（2x4）
-      if (ruleSettings.greatRevolution && play.type === PlayType.QUAD && play.cards.every((card: any) => card.rank === '2')) {
-        effects.push('大革命＋即勝利');
-      }
+      // 大革命判定は上記の革命判定ロジックに統合されています
 
       // 砂嵐判定（3x3）
       if (ruleSettings.sandstorm && play.type === PlayType.TRIPLE && play.cards.every((card: any) => card.rank === '3')) {

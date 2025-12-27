@@ -13,7 +13,6 @@ export interface Play {
   readonly cards: Card[];
   readonly type: PlayType;
   readonly strength: number;
-  readonly triggersRevolution: boolean;
 }
 
 export class PlayAnalyzer {
@@ -32,7 +31,6 @@ export class PlayAnalyzer {
         cards,
         type: PlayType.SINGLE,
         strength: cards[0].strength,
-        triggersRevolution: false,
       };
     }
 
@@ -43,7 +41,6 @@ export class PlayAnalyzer {
           cards,
           type: PlayType.PAIR,
           strength: cards[0].strength,
-          triggersRevolution: false,
         };
       }
       return null;
@@ -56,7 +53,6 @@ export class PlayAnalyzer {
           cards,
           type: PlayType.TRIPLE,
           strength: cards[0].strength,
-          triggersRevolution: false,
         };
       }
       // 階段チェック（3枚以上の連続した数字）
@@ -65,7 +61,6 @@ export class PlayAnalyzer {
           cards,
           type: PlayType.STAIR,
           strength: Math.max(...cards.map(c => c.strength)),
-          triggersRevolution: false,
         };
       }
       return null;
@@ -78,7 +73,6 @@ export class PlayAnalyzer {
           cards,
           type: PlayType.QUAD,
           strength: cards[0].strength,
-          triggersRevolution: true, // 4枚出しは革命
         };
       }
       // エンペラーチェック（4種類のスートの連番4枚）
@@ -87,7 +81,6 @@ export class PlayAnalyzer {
           cards,
           type: PlayType.EMPEROR,
           strength: Math.max(...cards.map(c => c.strength)),
-          triggersRevolution: false, // エンペラー自体は革命を起こさない
         };
       }
       // 階段チェック
@@ -96,7 +89,6 @@ export class PlayAnalyzer {
           cards,
           type: PlayType.STAIR,
           strength: Math.max(...cards.map(c => c.strength)),
-          triggersRevolution: false,
         };
       }
       return null;
@@ -109,7 +101,6 @@ export class PlayAnalyzer {
           cards,
           type: PlayType.STAIR,
           strength: Math.max(...cards.map(c => c.strength)),
-          triggersRevolution: true, // 5枚以上の階段は革命
         };
       }
       return null;

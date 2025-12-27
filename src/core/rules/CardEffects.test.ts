@@ -553,9 +553,8 @@ describe('Card Effects Tests', () => {
       humanPlayer.hand.add([card2_1, card2_2, card2_3, card2_4]);
       playPhase['handlePlay'](state, humanPlayer, [card2_1, card2_2, card2_3, card2_4]);
 
-      // ISSUE: 大革命の後に通常の革命も発動してしまい、結果的に革命がキャンセルされる
-      // 実装修正後は expect(state.isRevolution).toBe(true) になるべき
-      expect(state.isRevolution).toBe(false);
+      // FIXED: 大革命は通常の革命を発動させないため、革命フラグはtrueのまま
+      expect(state.isRevolution).toBe(true);
 
       // 即座に上がっているはず
       expect(humanPlayer.isFinished).toBe(true);
