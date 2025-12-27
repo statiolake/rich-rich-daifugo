@@ -1,20 +1,27 @@
 import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
-import { Card, Suit } from '../domain/card/Card';
-import { PlayAnalyzer, Play, PlayType } from '../domain/card/Play';
-import { Player, PlayerType } from '../domain/player/Player';
-import { PlayerRank } from '../domain/player/PlayerRank';
+import { Card } from '../domain/card/Card';
+import { PlayAnalyzer } from '../domain/card/Play';
+import { Player } from '../domain/player/Player';
 import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { TriggerEffectAnalyzer, TriggerEffect } from '../rules/effects/TriggerEffectAnalyzer';
 import { EffectHandler } from '../rules/effects/EffectHandler';
+import { SpecialRuleExecutor } from './handlers/SpecialRuleExecutor';
+import { ConstraintChecker } from './handlers/ConstraintChecker';
+import { GameEndChecker } from './handlers/GameEndChecker';
+import { RankAssignmentService } from './handlers/RankAssignmentService';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
   private waitForCutInFn?: () => Promise<void>;
   private effectAnalyzer: TriggerEffectAnalyzer;
   private effectHandler: EffectHandler;
+  private specialRuleExecutor: SpecialRuleExecutor;
+  private constraintChecker: ConstraintChecker;
+  private gameEndChecker: GameEndChecker;
+  private rankAssignmentService: RankAssignmentService;
 
   constructor(
     private strategyMap: Map<string, PlayerStrategy>,
@@ -23,10 +30,15 @@ export class PlayPhase implements GamePhase {
   ) {
     this.effectAnalyzer = new TriggerEffectAnalyzer();
     this.effectHandler = new EffectHandler(eventBus);
+    this.specialRuleExecutor = new SpecialRuleExecutor(strategyMap, eventBus);
+    this.constraintChecker = new ConstraintChecker(eventBus);
+    this.gameEndChecker = new GameEndChecker(ruleEngine);
+    this.rankAssignmentService = new RankAssignmentService();
   }
 
   setWaitForCutIn(fn: () => Promise<void>): void {
     this.waitForCutInFn = fn;
+    this.specialRuleExecutor.setWaitForCutIn(fn);
   }
 
   async enter(gameState: GameState): Promise<void> {
@@ -65,7 +77,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // ゲーム終了チェック
-    const nextPhase = this.checkGameEnd(gameState);
+    const nextPhase = this.gameEndChecker.checkGameEnd(gameState, this.handlePlayerFinish.bind(this));
     if (nextPhase) {
       return nextPhase;
     }
@@ -111,51 +123,10 @@ export class PlayPhase implements GamePhase {
     }
 
     // マークしばりチェック（ルール有効時のみ）
-    if (gameState.ruleSettings.suitLock) {
-      const history = gameState.field.getHistory();
-      if (history.length >= 2) {
-        const prevPlayHistory = history[history.length - 2];
-        const currentPlayHistory = history[history.length - 1];
-
-        // 両方のプレイがすべて同じマークか確認
-        const prevSuit = prevPlayHistory.play.cards.length > 0 ? prevPlayHistory.play.cards[0].suit : null;
-        const currentSuit = currentPlayHistory.play.cards.length > 0 ? currentPlayHistory.play.cards[0].suit : null;
-
-        const prevAllSameSuit = prevPlayHistory.play.cards.every(c => c.suit === prevSuit);
-        const currentAllSameSuit = currentPlayHistory.play.cards.every(c => c.suit === currentSuit);
-
-        // 連続で同じマークが出されたら縛り発動
-        if (prevAllSameSuit && currentAllSameSuit && prevSuit === currentSuit && prevSuit && !gameState.suitLock) {
-          gameState.suitLock = prevSuit;
-          console.log(`マークしばりが発動しました！（${prevSuit}）`);
-
-          // イベント発火
-          this.eventBus?.emit('suitLock:triggered', { suit: prevSuit });
-        }
-      }
-    }
+    this.constraintChecker.updateSuitLock(gameState, play);
 
     // 数字しばりチェック（ルール有効時のみ）
-    if (gameState.ruleSettings.numberLock) {
-      const history = gameState.field.getHistory();
-      if (history.length >= 2) {
-        const prevPlayHistory = history[history.length - 2];
-        const currentPlayHistory = history[history.length - 1];
-
-        // 両方のプレイが階段か確認
-        const prevIsStair = prevPlayHistory.play.type === PlayType.STAIR;
-        const currentIsStair = currentPlayHistory.play.type === PlayType.STAIR;
-
-        // 連続で階段が出されたら数字しばり発動
-        if (prevIsStair && currentIsStair && !gameState.numberLock) {
-          gameState.numberLock = true;
-          console.log('数字しばりが発動しました！');
-
-          // イベント発火
-          this.eventBus?.emit('numberLock:triggered', {});
-        }
-      }
-    }
+    this.constraintChecker.updateNumberLock(gameState, play);
 
     // === エフェクト適用（for-each パターン） ===
     // すべてのエフェクトに対してイベントを発火し、状態を更新
@@ -224,17 +195,17 @@ export class PlayPhase implements GamePhase {
 
     // 7渡し判定（手札から1枚を次のプレイヤーに渡す）
     if (effects.includes('7渡し') && !player.hand.isEmpty()) {
-      await this.handleSevenPass(gameState, player);
+      await this.specialRuleExecutor.executeSevenPass(gameState, player, this.handlePlayerFinish.bind(this));
     }
 
     // 10捨て判定（手札から1枚を捨てる）
     if (effects.includes('10捨て') && !player.hand.isEmpty()) {
-      await this.handleTenDiscard(gameState, player);
+      await this.specialRuleExecutor.executeTenDiscard(gameState, player, this.handlePlayerFinish.bind(this));
     }
 
     // クイーンボンバー判定（全員が指定されたカードを捨てる）
     if (effects.includes('クイーンボンバー')) {
-      await this.handleQueenBomber(gameState, player);
+      await this.specialRuleExecutor.executeQueenBomber(gameState, player, this.handlePlayerFinish.bind(this));
     }
 
     // 5スキップ判定
@@ -260,9 +231,9 @@ export class PlayPhase implements GamePhase {
     const activePlayers = gameState.players.filter(p => !p.isFinished).length;
     if (gameState.passCount >= activePlayers - 1) {
       // 場が空の状態で全員がパスした場合のみ、誰も出せないかチェック
-      if (gameState.field.isEmpty() && !this.canAnyonePlay(gameState)) {
+      if (gameState.field.isEmpty() && !this.gameEndChecker.canAnyonePlay(gameState)) {
         console.log('全員が出せる手がないため、ゲームを終了します');
-        this.endGameDueToNoPlays(gameState);
+        this.gameEndChecker.endGameDueToNoPlays(gameState, this.rankAssignmentService.assignRank.bind(this.rankAssignmentService));
         return;
       }
 
@@ -281,207 +252,7 @@ export class PlayPhase implements GamePhase {
     console.log(`${player.name} finished in position ${player.finishPosition}`);
 
     // ランクを割り当て
-    this.assignRank(gameState, player);
-  }
-
-  private assignRank(gameState: GameState, player: Player): void {
-    const totalPlayers = gameState.players.length;
-    const position = player.finishPosition!;
-
-    if (totalPlayers === 4) {
-      if (position === 1) player.rank = PlayerRank.DAIFUGO;
-      else if (position === 2) player.rank = PlayerRank.FUGO;
-      else if (position === 3) player.rank = PlayerRank.HINMIN;
-      else player.rank = PlayerRank.DAIHINMIN;
-    } else if (totalPlayers === 5) {
-      if (position === 1) player.rank = PlayerRank.DAIFUGO;
-      else if (position === 2) player.rank = PlayerRank.FUGO;
-      else if (position === 3) player.rank = PlayerRank.HEIMIN;
-      else if (position === 4) player.rank = PlayerRank.HINMIN;
-      else player.rank = PlayerRank.DAIHINMIN;
-    } else if (totalPlayers === 3) {
-      if (position === 1) player.rank = PlayerRank.DAIFUGO;
-      else if (position === 2) player.rank = PlayerRank.HEIMIN;
-      else player.rank = PlayerRank.DAIHINMIN;
-    } else {
-      // その他の人数の場合は平民
-      player.rank = PlayerRank.HEIMIN;
-    }
-  }
-
-  private checkGameEnd(gameState: GameState): GamePhaseType | null {
-    const remainingPlayers = gameState.players.filter(p => !p.isFinished).length;
-
-    if (remainingPlayers <= 1) {
-      // 最後のプレイヤーに最下位を割り当て
-      const lastPlayer = gameState.players.find(p => !p.isFinished);
-      if (lastPlayer) {
-        this.handlePlayerFinish(gameState, lastPlayer);
-      }
-
-      return GamePhaseType.RESULT;
-    }
-
-    return null;
-  }
-
-  /**
-   * 7渡しを処理する
-   */
-  private async handleSevenPass(gameState: GameState, player: Player): Promise<void> {
-    // 次のプレイヤーを探す
-    const direction = gameState.isReversed ? -1 : 1;
-    const nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
-    let nextPlayer = gameState.players[nextIndex];
-
-    // 上がっていないプレイヤーを探す
-    let searchIndex = nextIndex;
-    let attempts = 0;
-    while (nextPlayer.isFinished && attempts < gameState.players.length) {
-      searchIndex = (searchIndex + direction + gameState.players.length) % gameState.players.length;
-      nextPlayer = gameState.players[searchIndex];
-      attempts++;
-    }
-
-    if (!nextPlayer.isFinished) {
-      // イベント発火とカットイン待機
-      this.eventBus?.emit('sevenPass:triggered', {
-        fromPlayer: player.name,
-        toPlayer: nextPlayer.name
-      });
-
-      if (this.waitForCutInFn) {
-        await this.waitForCutInFn();
-      }
-
-      // Validator: 任意のカード1枚
-      const validator = (cards: Card[]) => {
-        if (cards.length === 1) {
-          return { valid: true };
-        }
-        return { valid: false, reason: '1枚選んでください' };
-      };
-
-      const strategy = this.strategyMap.get(player.id.value);
-      if (!strategy) return;
-
-      const selectedCards = await strategy.selectCards(player, validator, {
-        message: `7渡し：${nextPlayer.name}に渡すカードを1枚選んでください`
-      });
-
-      if (selectedCards.length === 1) {
-        player.hand.remove(selectedCards);
-        nextPlayer.hand.add(selectedCards);
-        console.log(`7渡し：${player.name}が${nextPlayer.name}に${selectedCards[0].rank}${selectedCards[0].suit}を渡しました`);
-
-        // カードを渡した結果、手札がゼロになったら勝利判定
-        if (player.hand.isEmpty() && !player.isFinished) {
-          this.handlePlayerFinish(gameState, player);
-        }
-      }
-    }
-  }
-
-  /**
-   * 10捨てを処理する
-   */
-  private async handleTenDiscard(gameState: GameState, player: Player): Promise<void> {
-    // イベント発火とカットイン待機
-    this.eventBus?.emit('tenDiscard:triggered', {
-      player: player.name
-    });
-
-    if (this.waitForCutInFn) {
-      await this.waitForCutInFn();
-    }
-
-    // Validator: 任意のカード1枚
-    const validator = (cards: Card[]) => {
-      if (cards.length === 1) {
-        return { valid: true };
-      }
-      return { valid: false, reason: '1枚選んでください' };
-    };
-
-    const strategy = this.strategyMap.get(player.id.value);
-    if (!strategy) return;
-
-    const selectedCards = await strategy.selectCards(player, validator, {
-      message: '10捨て：捨てるカードを1枚選んでください'
-    });
-
-    if (selectedCards.length === 1) {
-      player.hand.remove(selectedCards);
-      console.log(`10捨て：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
-
-      // カードを捨てた結果、手札がゼロになったら勝利判定
-      if (player.hand.isEmpty() && !player.isFinished) {
-        this.handlePlayerFinish(gameState, player);
-      }
-    }
-  }
-
-  /**
-   * クイーンボンバーを処理する
-   */
-  private async handleQueenBomber(gameState: GameState, player: Player): Promise<void> {
-    console.log('クイーンボンバー発動！カードを選んでください');
-
-    // イベント発火とカットイン待機
-    this.eventBus?.emit('queenBomber:triggered', {});
-
-    if (this.waitForCutInFn) {
-      await this.waitForCutInFn();
-    }
-
-    // 発動プレイヤーがランクを選択
-    const strategy = this.strategyMap.get(player.id.value);
-    if (!strategy) return;
-
-    const selectedRank = await strategy.selectRank(player);
-    console.log(`クイーンボンバー：${selectedRank}が指定されました`);
-
-    // 全プレイヤーが順番にカードを捨てる
-    const startIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-    for (let i = 0; i < gameState.players.length; i++) {
-      const playerIndex = (startIndex + i) % gameState.players.length;
-      const currentPlayer = gameState.players[playerIndex];
-
-      if (currentPlayer.isFinished || currentPlayer.hand.isEmpty()) {
-        continue;
-      }
-
-      const playerStrategy = this.strategyMap.get(currentPlayer.id.value);
-      if (!playerStrategy) continue;
-
-      // Validator: 指定ランクのカード1枚、またはスキップ（空配列）
-      const validator = (cards: Card[]) => {
-        if (cards.length === 0) {
-          return { valid: true }; // スキップ
-        }
-        if (cards.length === 1 && cards[0].rank === selectedRank) {
-          return { valid: true };
-        }
-        return { valid: false, reason: `${selectedRank}を1枚選んでください` };
-      };
-
-      const selectedCards = await playerStrategy.selectCards(currentPlayer, validator, {
-        message: `クイーンボンバー：${selectedRank}を捨ててください`,
-        specifiedRank: selectedRank
-      });
-
-      if (selectedCards.length > 0) {
-        currentPlayer.hand.remove(selectedCards);
-        console.log(`クイーンボンバー：${currentPlayer.name}が${selectedCards[0].rank}を捨てました`);
-
-        // カードを捨てた結果、手札がゼロになったら勝利判定
-        if (currentPlayer.hand.isEmpty() && !currentPlayer.isFinished) {
-          this.handlePlayerFinish(gameState, currentPlayer);
-        }
-      } else {
-        console.log(`クイーンボンバー：${currentPlayer.name}は${selectedRank}を持っていないのでスキップ`);
-      }
-    }
+    this.rankAssignmentService.assignRank(gameState, player);
   }
 
   /**
@@ -561,87 +332,5 @@ export class PlayPhase implements GamePhase {
    */
   private applyEffect(effect: TriggerEffect, gameState: GameState, player: Player): void {
     this.effectHandler.apply(effect, gameState, { player });
-  }
-
-  /**
-   * 誰かがプレイ可能かチェック
-   */
-  private canAnyonePlay(gameState: GameState): boolean {
-    const activePlayers = gameState.players.filter(p => !p.isFinished);
-
-    for (const player of activePlayers) {
-      // プレイヤーの全ての手札の組み合わせをチェック
-      const cards = player.hand.getCards();
-
-      // 各カードの組み合わせをチェック
-      for (let i = 0; i < cards.length; i++) {
-        // 1枚
-        const validation = this.ruleEngine.validate(player, [cards[i]], gameState.field, gameState);
-        if (validation.valid) {
-          return true;
-        }
-
-        // 2枚
-        for (let j = i + 1; j < cards.length; j++) {
-          const validation = this.ruleEngine.validate(player, [cards[i], cards[j]], gameState.field, gameState);
-          if (validation.valid) {
-            return true;
-          }
-
-          // 3枚
-          for (let k = j + 1; k < cards.length; k++) {
-            const validation = this.ruleEngine.validate(player, [cards[i], cards[j], cards[k]], gameState.field, gameState);
-            if (validation.valid) {
-              return true;
-            }
-
-            // 4枚
-            for (let l = k + 1; l < cards.length; l++) {
-              const validation = this.ruleEngine.validate(player, [cards[i], cards[j], cards[k], cards[l]], gameState.field, gameState);
-              if (validation.valid) {
-                return true;
-              }
-
-              // 5枚以上は階段のみなので、より効率的にチェック可能だが、簡略化のため省略
-            }
-          }
-        }
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * 誰も出せないためゲームを終了
-   * 手札が少ない順に順位を設定
-   */
-  private endGameDueToNoPlays(gameState: GameState): void {
-    const activePlayers = gameState.players.filter(p => !p.isFinished);
-
-    // 手札が少ない順にソート
-    activePlayers.sort((a, b) => a.hand.size() - b.hand.size());
-
-    // 順位を設定
-    let currentPosition = gameState.players.filter(p => p.isFinished).length + 1;
-    let playersAtCurrentPosition = 0;
-
-    for (let i = 0; i < activePlayers.length; i++) {
-      const player = activePlayers[i];
-      const handSize = player.hand.size();
-
-      // 前のプレイヤーと手札枚数が異なる場合、新しい順位に進む
-      if (i > 0 && activePlayers[i - 1].hand.size() !== handSize) {
-        currentPosition += playersAtCurrentPosition;
-        playersAtCurrentPosition = 0;
-      }
-
-      player.isFinished = true;
-      player.finishPosition = currentPosition;
-      playersAtCurrentPosition++;
-      this.assignRank(gameState, player);
-
-      console.log(`${player.name} finished in position ${player.finishPosition} (手札: ${handSize}枚)`);
-    }
   }
 }
