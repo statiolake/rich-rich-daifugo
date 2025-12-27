@@ -8,11 +8,13 @@ import { PlayerRank } from '../domain/player/PlayerRank';
 import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { TriggerEffectAnalyzer, TriggerEffect } from '../rules/effects/TriggerEffectAnalyzer';
+import { EffectHandler } from '../rules/effects/EffectHandler';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
   private waitForCutInFn?: () => Promise<void>;
   private effectAnalyzer: TriggerEffectAnalyzer;
+  private effectHandler: EffectHandler;
 
   constructor(
     private strategyMap: Map<string, PlayerStrategy>,
@@ -20,6 +22,7 @@ export class PlayPhase implements GamePhase {
     private eventBus?: GameEventEmitter
   ) {
     this.effectAnalyzer = new TriggerEffectAnalyzer();
+    this.effectHandler = new EffectHandler(eventBus);
   }
 
   setWaitForCutIn(fn: () => Promise<void>): void {
@@ -557,129 +560,7 @@ export class PlayPhase implements GamePhase {
    * エフェクトの適用ロジックを一箇所に集約
    */
   private applyEffect(effect: TriggerEffect, gameState: GameState, player: Player): void {
-    switch (effect) {
-      case '砂嵐':
-        console.log('砂嵐が発動しました！');
-        this.eventBus?.emit('sandstorm:triggered', {});
-        break;
-
-      case '革命':
-      case '革命終了':
-        gameState.isRevolution = !gameState.isRevolution;
-        console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
-        this.eventBus?.emit('revolution:triggered', {
-          isRevolution: gameState.isRevolution
-        });
-        break;
-
-      case 'イレブンバック':
-      case 'イレブンバック解除':
-        gameState.isElevenBack = !gameState.isElevenBack;
-        console.log(`11バックが発動しました！ isElevenBack: ${gameState.isElevenBack}`);
-        this.eventBus?.emit('elevenBack:triggered', {
-          isElevenBack: gameState.isElevenBack
-        });
-        break;
-
-      case '4止め':
-        // 4止めの状態変更はhandlePlayで行う（エフェクト適用前）
-        this.eventBus?.emit('fourStop:triggered', {});
-        break;
-
-      case '8切り':
-        console.log('8切りが発動しました！');
-        gameState.isEightCutPending = true;
-        this.eventBus?.emit('eightCut:triggered', {});
-        break;
-
-      case '救急車':
-        console.log('救急車が発動しました！');
-        this.eventBus?.emit('ambulance:triggered', {});
-        break;
-
-      case 'ろくろ首':
-        console.log('ろくろ首が発動しました！');
-        this.eventBus?.emit('rokurokubi:triggered', {});
-        break;
-
-      case 'エンペラー':
-      case 'エンペラー終了':
-        gameState.isRevolution = !gameState.isRevolution;
-        console.log(`エンペラーが発動しました！ isRevolution: ${gameState.isRevolution}`);
-        this.eventBus?.emit('emperor:triggered', {
-          isRevolution: gameState.isRevolution
-        });
-        break;
-
-      case 'クーデター':
-      case 'クーデター終了':
-        gameState.isRevolution = !gameState.isRevolution;
-        console.log(`クーデターが発動しました！ isRevolution: ${gameState.isRevolution}`);
-        this.eventBus?.emit('coup:triggered', {
-          isRevolution: gameState.isRevolution
-        });
-        break;
-
-      case 'オーメン':
-        gameState.isRevolution = !gameState.isRevolution;
-        gameState.isOmenActive = true;
-        console.log(`オーメンが発動しました！ isRevolution: ${gameState.isRevolution}, 以後革命なし`);
-        this.eventBus?.emit('omen:triggered', {
-          isRevolution: gameState.isRevolution
-        });
-        break;
-
-      case '大革命＋即勝利':
-        gameState.isRevolution = !gameState.isRevolution;
-        console.log(`大革命が発動しました！ isRevolution: ${gameState.isRevolution}`);
-        this.eventBus?.emit('greatRevolution:triggered', {
-          isRevolution: gameState.isRevolution
-        });
-        break;
-
-      case '5スキップ':
-        console.log('5スキップが発動しました！');
-        this.eventBus?.emit('fiveSkip:triggered', {});
-        break;
-
-      case '7渡し':
-        // 7渡しは後で別途処理するため、ここではイベント発火のみ
-        break;
-
-      case '10捨て':
-        // 10捨ては後で別途処理するため、ここではイベント発火のみ
-        break;
-
-      case 'クイーンボンバー':
-        // クイーンボンバーは後で別途処理するため、ここではイベント発火のみ
-        break;
-
-      case '9リバース':
-        gameState.isReversed = !gameState.isReversed;
-        console.log(`9リバースが発動しました！ isReversed: ${gameState.isReversed}`);
-        this.eventBus?.emit('nineReverse:triggered', {
-          isReversed: gameState.isReversed
-        });
-        break;
-
-      case 'スペ3返し':
-        console.log('スペ3返しが発動しました！');
-        this.eventBus?.emit('spadeThreeReturn:triggered', {});
-        break;
-
-      case 'ダウンナンバー':
-        console.log('ダウンナンバーが発動しました！');
-        this.eventBus?.emit('downNumber:triggered', {});
-        break;
-
-      case 'ラッキーセブン':
-        console.log('ラッキーセブンが発動しました！');
-        gameState.luckySeven = { playerId: player.id.value };
-        this.eventBus?.emit('luckySeven:triggered', {
-          playerName: player.name
-        });
-        break;
-    }
+    this.effectHandler.apply(effect, gameState, { player });
   }
 
   /**

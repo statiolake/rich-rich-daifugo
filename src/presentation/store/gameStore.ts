@@ -106,47 +106,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
         console.log('Game ended!');
       });
 
-      // 11バックイベントリスナー
-      eventBus.on('elevenBack:triggered', (data) => {
+      // 統一エフェクトイベントリスナー
+      // すべてのトリガーエフェクトを統一的に処理
+      eventBus.on('effect:triggered', (data: {
+        effect: string;
+        cutIn: { text: string; variant: 'red' | 'blue' | 'green' | 'yellow' | 'gold'; duration: number };
+      }) => {
         get().enqueueCutIn({
-          id: `elevenback-${Date.now()}`,
-          text: data.isElevenBack ? '11バック発動！' : '11バック解除',
-          variant: 'gold',
-          duration: 500
+          id: `${data.effect.toLowerCase().replace(/\s+/g, '')}-${Date.now()}`,
+          text: data.cutIn.text,
+          variant: data.cutIn.variant,
+          duration: data.cutIn.duration
         });
       });
 
-      // 革命イベントリスナー
-      eventBus.on('revolution:triggered', (data) => {
-        get().enqueueCutIn({
-          id: `revolution-${Date.now()}`,
-          text: data.isRevolution ? '革命発生！' : '革命終了',
-          variant: 'red',
-          duration: 500
-        });
-      });
-
-      // 8切りイベントリスナー
-      eventBus.on('eightCut:triggered', () => {
-        get().enqueueCutIn({
-          id: `eightcut-${Date.now()}`,
-          text: '8切り！',
-          variant: 'blue',
-          duration: 500
-        });
-      });
-
-      // 4止めイベントリスナー
-      eventBus.on('fourStop:triggered', () => {
-        get().enqueueCutIn({
-          id: `fourstop-${Date.now()}`,
-          text: '4止め！',
-          variant: 'green',
-          duration: 500
-        });
-      });
-
-      // マークしばりイベントリスナー
+      // マークしばりイベントリスナー（特殊：effect以外のイベント）
       eventBus.on('suitLock:triggered', (data: { suit: string }) => {
         get().enqueueCutIn({
           id: `suitlock-${Date.now()}`,
@@ -156,17 +130,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
-      // 5スキップイベントリスナー
-      eventBus.on('fiveSkip:triggered', () => {
-        get().enqueueCutIn({
-          id: `fiveskip-${Date.now()}`,
-          text: '5スキップ！',
-          variant: 'green',
-          duration: 500
-        });
-      });
-
-      // 数字しばりイベントリスナー
+      // 数字しばりイベントリスナー（特殊：effect以外のイベント）
       eventBus.on('numberLock:triggered', () => {
         get().enqueueCutIn({
           id: `numberlock-${Date.now()}`,
@@ -176,17 +140,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
-      // 9リバースイベントリスナー
-      eventBus.on('nineReverse:triggered', (data: { isReversed: boolean }) => {
-        get().enqueueCutIn({
-          id: `ninereverse-${Date.now()}`,
-          text: data.isReversed ? '9リバース発動！' : '9リバース解除',
-          variant: 'green',
-          duration: 500
-        });
-      });
-
-      // 7渡しイベントリスナー
+      // 7渡しイベントリスナー（特殊：effectとは別のタイミングで発火）
       eventBus.on('sevenPass:triggered', (data: { fromPlayer: string; toPlayer: string }) => {
         get().enqueueCutIn({
           id: `sevenpass-${Date.now()}`,
@@ -196,7 +150,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
-      // 10捨てイベントリスナー
+      // 10捨てイベントリスナー（特殊：effectとは別のタイミングで発火）
       eventBus.on('tenDiscard:triggered', (data: { player: string }) => {
         get().enqueueCutIn({
           id: `tendiscard-${Date.now()}`,
@@ -206,112 +160,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
-      // クイーンボンバーイベントリスナー
+      // クイーンボンバーイベントリスナー（特殊：effectとは別のタイミングで発火）
       eventBus.on('queenBomber:triggered', () => {
         get().enqueueCutIn({
           id: `queenbomber-${Date.now()}`,
           text: 'クイーンボンバー！',
           variant: 'red',
-          duration: 500
-        });
-      });
-
-      // 救急車イベントリスナー
-      eventBus.on('ambulance:triggered', () => {
-        get().enqueueCutIn({
-          id: `ambulance-${Date.now()}`,
-          text: '救急車！',
-          variant: 'green',
-          duration: 500
-        });
-      });
-
-      // ろくろ首イベントリスナー
-      eventBus.on('rokurokubi:triggered', () => {
-        get().enqueueCutIn({
-          id: `rokurokubi-${Date.now()}`,
-          text: 'ろくろ首！',
-          variant: 'blue',
-          duration: 500
-        });
-      });
-
-      // エンペラーイベントリスナー
-      eventBus.on('emperor:triggered', (data) => {
-        get().enqueueCutIn({
-          id: `emperor-${Date.now()}`,
-          text: data.isRevolution ? 'エンペラー発動！' : 'エンペラー終了',
-          variant: 'gold',
-          duration: 500
-        });
-      });
-
-      // クーデターイベントリスナー
-      eventBus.on('coup:triggered', (data) => {
-        get().enqueueCutIn({
-          id: `coup-${Date.now()}`,
-          text: data.isRevolution ? 'クーデター発生！' : 'クーデター終了',
-          variant: 'red',
-          duration: 500
-        });
-      });
-
-      // オーメンイベントリスナー
-      eventBus.on('omen:triggered', (data) => {
-        get().enqueueCutIn({
-          id: `omen-${Date.now()}`,
-          text: 'オーメン発動！以後革命なし',
-          variant: 'red',
-          duration: 800
-        });
-      });
-
-      // 大革命イベントリスナー
-      eventBus.on('greatRevolution:triggered', (data) => {
-        get().enqueueCutIn({
-          id: `greatrevolution-${Date.now()}`,
-          text: '大革命発生！即勝利！',
-          variant: 'gold',
-          duration: 500
-        });
-      });
-
-      // 砂嵐イベントリスナー
-      eventBus.on('sandstorm:triggered', () => {
-        get().enqueueCutIn({
-          id: `sandstorm-${Date.now()}`,
-          text: '砂嵐！',
-          variant: 'gold',
-          duration: 500
-        });
-      });
-
-      // スペ3返しイベントリスナー
-      eventBus.on('spadeThreeReturn:triggered', () => {
-        get().enqueueCutIn({
-          id: `spadethreereturn-${Date.now()}`,
-          text: 'スペ3返し！',
-          variant: 'blue',
-          duration: 500
-        });
-      });
-
-      // ダウンナンバーイベントリスナー
-      eventBus.on('downNumber:triggered', () => {
-        get().enqueueCutIn({
-          id: `downnumber-${Date.now()}`,
-          text: 'ダウンナンバー！',
-          variant: 'blue',
-          duration: 500
-        });
-      });
-
-      // ラッキーセブンイベントリスナー
-      eventBus.on('luckySeven:triggered', (data: { playerName: string }) => {
-        get().enqueueCutIn({
-          id: `luckyseven-${Date.now()}`,
-          text: `${data.playerName} ラッキーセブン！`,
-          variant: 'gold',
           duration: 500
         });
       });
