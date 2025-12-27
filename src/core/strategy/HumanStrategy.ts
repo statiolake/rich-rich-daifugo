@@ -99,16 +99,8 @@ export class HumanStrategy implements PlayerStrategy {
       const validation = this.pendingCardSelection.validator(cards);
       if (validation.valid) {
         this.pendingCardSelection.resolve(cards);
-        // 確定後はvalidatorをbottom type（すべて禁止）に変更
-        const bottomValidator: CardValidator = () => ({ valid: false, reason: '' });
-        this.pendingCardSelection = {
-          ...this.pendingCardSelection,
-          validator: bottomValidator
-        };
-        // 実際にはresolve後なので、次のフレームでnullにリセット
-        setTimeout(() => {
-          this.pendingCardSelection = null;
-        }, 0);
+        // 即座にnullにリセット（選択画面から抜ける）
+        this.pendingCardSelection = null;
       }
       // validationに失敗した場合は何もしない（UIでエラー表示）
     }
