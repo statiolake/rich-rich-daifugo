@@ -431,6 +431,11 @@ export class PlayPhase implements GamePhase {
         player.hand.remove(selectedCards);
         nextPlayer.hand.add(selectedCards);
         console.log(`7渡し：${player.name}が${nextPlayer.name}に${selectedCards[0].rank}${selectedCards[0].suit}を渡しました`);
+
+        // カードを渡した結果、手札がゼロになったら勝利判定
+        if (player.hand.isEmpty() && !player.isFinished) {
+          this.handlePlayerFinish(gameState, player);
+        }
       }
     }
   }
@@ -466,6 +471,11 @@ export class PlayPhase implements GamePhase {
     if (selectedCards.length === 1) {
       player.hand.remove(selectedCards);
       console.log(`10捨て：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
+
+      // カードを捨てた結果、手札がゼロになったら勝利判定
+      if (player.hand.isEmpty() && !player.isFinished) {
+        this.handlePlayerFinish(gameState, player);
+      }
     }
   }
 
@@ -521,6 +531,11 @@ export class PlayPhase implements GamePhase {
       if (selectedCards.length > 0) {
         currentPlayer.hand.remove(selectedCards);
         console.log(`クイーンボンバー：${currentPlayer.name}が${selectedCards[0].rank}を捨てました`);
+
+        // カードを捨てた結果、手札がゼロになったら勝利判定
+        if (currentPlayer.hand.isEmpty() && !currentPlayer.isFinished) {
+          this.handlePlayerFinish(gameState, currentPlayer);
+        }
       } else {
         console.log(`クイーンボンバー：${currentPlayer.name}は${selectedRank}を持っていないのでスキップ`);
       }
