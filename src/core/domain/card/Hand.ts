@@ -197,4 +197,36 @@ export class Hand {
 
     return validPlays;
   }
+
+  /**
+   * 禁止上がりルールによってプレイできないカードのIDを取得
+   *
+   * このメソッドは、禁止上がりルール（J, 2, 8, Jokerで上がれない）に違反する
+   * カードのIDセットを返す。プレゼンテーション層で禁止カードを視覚的に示すために使用する。
+   *
+   * @param player プレイヤー
+   * @param field 場の状態
+   * @param gameState ゲーム状態
+   * @param ruleEngine ルールエンジン
+   * @returns 禁止上がりに該当するカードのIDセット
+   */
+  getForbiddenFinishCardIds(
+    player: Player,
+    field: Field,
+    gameState: GameState,
+    ruleEngine: IValidationEngine
+  ): Set<string> {
+    const forbidden = new Set<string>();
+    const cards = this.getCards();
+
+    // 各カードについて、それを出すと禁止上がりに該当するかチェック
+    for (const card of cards) {
+      const validation = ruleEngine.validate(player, [card], field, gameState);
+      if (!validation.valid && validation.reason?.includes('上がることができません')) {
+        forbidden.add(card.id);
+      }
+    }
+
+    return forbidden;
+  }
 }

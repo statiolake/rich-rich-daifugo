@@ -60,25 +60,17 @@ export const UnifiedCardLayer: React.FC = () => {
     }
   }, [isPendingCardSelection, isPendingRankSelection, clearSelection]);
 
-  // 禁止上がりのカードを決める（バリデーターを使用）
+  // 禁止上がりのカードを決める（Hand.getForbiddenFinishCardIds()を使用）
   const forbiddenFinishCards = useMemo(() => {
-    const forbidden = new Set<string>();
-
-    if (!humanPlayer || !gameState) return forbidden;
+    if (!humanPlayer || !gameState) return new Set<string>();
 
     const ruleEngine = getRuleEngine();
-    const handCards = humanPlayer.hand.getCards();
-
-    // 各カードについてバリデーションを実行
-    handCards.forEach((card) => {
-      const validation = ruleEngine.validate(humanPlayer, [card], gameState.field, gameState);
-      // バリデーション失敗で、理由に「上がることができません」が含まれている場合
-      if (!validation.valid && validation.reason?.includes('上がることができません')) {
-        forbidden.add(card.id);
-      }
-    });
-
-    return forbidden;
+    return humanPlayer.hand.getForbiddenFinishCardIds(
+      humanPlayer,
+      gameState.field,
+      gameState,
+      ruleEngine
+    );
   }, [humanPlayer, gameState, getRuleEngine]);
 
   // 光らせるカードを決める
