@@ -2,23 +2,22 @@ import { Card } from '../../domain/card/Card';
 import { Player } from '../../domain/player/Player';
 import { Field } from '../../domain/game/Field';
 import { GameState } from '../../domain/game/GameState';
-import { ValidationPipeline } from '../pipeline/ValidationPipeline';
 import { RuleContext } from '../context/RuleContext';
-import { ValidationResult } from '../validators/BasicValidator';
+import { PlayValidator, ValidationResult } from '../validators/PlayValidator';
 import { DEFAULT_RULE_SETTINGS } from '../../domain/game/RuleSettings';
 import { TriggerEffectAnalyzer } from '../effects/TriggerEffectAnalyzer';
 import { PlayAnalyzer } from '../../domain/card/Play';
 
 /**
  * ルールエンジン
- * ValidationPipeline を使用してバリデーションを行う
+ * PlayValidator を使用してバリデーションを行う
  */
 export class RuleEngine {
-  private pipeline: ValidationPipeline;
+  private validator: PlayValidator;
   private effectAnalyzer: TriggerEffectAnalyzer;
 
   constructor() {
-    this.pipeline = new ValidationPipeline();
+    this.validator = new PlayValidator();
     this.effectAnalyzer = new TriggerEffectAnalyzer();
   }
 
@@ -42,7 +41,7 @@ export class RuleEngine {
     };
 
     // バリデーション実行
-    const validationResult = this.pipeline.validate(player, cards, context);
+    const validationResult = this.validator.validate(player, cards, context);
 
     // 有効なプレイの場合のみ、トリガーエフェクトを分析
     if (validationResult.valid && cards.length > 0) {
@@ -63,16 +62,11 @@ export class RuleEngine {
    * パスが有効かどうかを検証
    */
   canPass(field: Field): ValidationResult {
-    // RuleContext を生成（isRevolution, isElevenBack は不要）
-    const context: RuleContext = {
-      isRevolution: false, // パスには関係ない
-      isElevenBack: false, // パスには関係ない
-      field: field,
-      suitLock: null, // パスには関係ない
-      numberLock: false, // パスには関係ない
-      ruleSettings: DEFAULT_RULE_SETTINGS, // パスには関係ないがデフォルトを設定
-    };
+    // 場が空の場合はパスできない
+    if (field.isEmpty()) {
+      return { valid: false, reason: '場が空の時はパスできません' };
+    }
 
-    return this.pipeline.canPass(context);
+    return { valid: true, reason: '' };
   }
 }
