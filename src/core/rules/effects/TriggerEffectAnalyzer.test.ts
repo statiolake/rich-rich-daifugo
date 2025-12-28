@@ -415,6 +415,159 @@ describe('TriggerEffectAnalyzer', () => {
     });
   });
 
+  describe('マークしばり', () => {
+    // 注意: analyze() は field.addPlay() の前に呼ばれる想定。
+    // 今回のプレイは play 引数で渡され、前回のプレイが field に入っている状態。
+
+    it('場が空の時に1枚出してもマークしばりは発動しない', () => {
+      const cards = [CardFactory.create(Suit.SPADE, 'K')];
+      const play = PlayAnalyzer.analyze(cards)!;
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, suitLock: true },
+      });
+      // 場は空
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('マークしばり');
+    });
+
+    it('場にカードがある時に同じマークを出すとマークしばりが発動', () => {
+      const cards = [CardFactory.create(Suit.SPADE, 'K')];
+      const play = PlayAnalyzer.analyze(cards)!;
+
+      // 場に前回のプレイ（スペード）がある状態を作成
+      const field = new Field();
+      const prevPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, 'Q')])!;
+      field.addPlay(prevPlay, { value: 'player1' } as any);
+
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, suitLock: true },
+        field,
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).toContain('マークしばり');
+    });
+
+    it('場にカードがある時に異なるマークを出してもマークしばりは発動しない', () => {
+      const cards = [CardFactory.create(Suit.HEART, 'K')];
+      const play = PlayAnalyzer.analyze(cards)!;
+
+      // 場に前回のプレイ（スペード）がある状態を作成
+      const field = new Field();
+      const prevPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, 'Q')])!;
+      field.addPlay(prevPlay, { value: 'player1' } as any);
+
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, suitLock: true },
+        field,
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('マークしばり');
+    });
+
+    it('既にマークしばりが発動している場合は再度発動しない', () => {
+      const cards = [CardFactory.create(Suit.SPADE, 'K')];
+      const play = PlayAnalyzer.analyze(cards)!;
+
+      // 場に前回のプレイ（スペード）がある状態を作成
+      const field = new Field();
+      const prevPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, 'Q')])!;
+      field.addPlay(prevPlay, { value: 'player1' } as any);
+
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, suitLock: true },
+        field,
+        suitLock: Suit.SPADE, // 既に縛りが発動中
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('マークしばり');
+    });
+  });
+
+  describe('数字しばり', () => {
+    // 注意: analyze() は field.addPlay() の前に呼ばれる想定。
+    // 今回のプレイは play 引数で渡され、前回のプレイが field に入っている状態。
+
+    it('場が空の時に階段を出しても数字しばりは発動しない', () => {
+      const cards = [
+        CardFactory.create(Suit.SPADE, '5'),
+        CardFactory.create(Suit.SPADE, '6'),
+        CardFactory.create(Suit.SPADE, '7'),
+      ];
+      const play = PlayAnalyzer.analyze(cards)!;
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, numberLock: true, stairs: true },
+      });
+      // 場は空
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('数字しばり');
+    });
+
+    it('場に階段がある時に階段を出すと数字しばりが発動', () => {
+      const cards = [
+        CardFactory.create(Suit.SPADE, '8'),
+        CardFactory.create(Suit.SPADE, '9'),
+        CardFactory.create(Suit.SPADE, '10'),
+      ];
+      const play = PlayAnalyzer.analyze(cards)!;
+
+      // 場に前回のプレイ（階段）がある状態を作成
+      const field = new Field();
+      const prevPlay = PlayAnalyzer.analyze([
+        CardFactory.create(Suit.HEART, '5'),
+        CardFactory.create(Suit.HEART, '6'),
+        CardFactory.create(Suit.HEART, '7'),
+      ])!;
+      field.addPlay(prevPlay, { value: 'player1' } as any);
+
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, numberLock: true, stairs: true },
+        field,
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).toContain('数字しばり');
+    });
+
+    it('既に数字しばりが発動している場合は再度発動しない', () => {
+      const cards = [
+        CardFactory.create(Suit.SPADE, '8'),
+        CardFactory.create(Suit.SPADE, '9'),
+        CardFactory.create(Suit.SPADE, '10'),
+      ];
+      const play = PlayAnalyzer.analyze(cards)!;
+
+      // 場に前回のプレイ（階段）がある状態を作成
+      const field = new Field();
+      const prevPlay = PlayAnalyzer.analyze([
+        CardFactory.create(Suit.HEART, '5'),
+        CardFactory.create(Suit.HEART, '6'),
+        CardFactory.create(Suit.HEART, '7'),
+      ])!;
+      field.addPlay(prevPlay, { value: 'player1' } as any);
+
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, numberLock: true, stairs: true },
+        field,
+        numberLock: true, // 既に縛りが発動中
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('数字しばり');
+    });
+  });
+
   describe('複数エフェクトの同時発動', () => {
     it('9x2で救急車と9リバースが同時に発動', () => {
       const cards = [

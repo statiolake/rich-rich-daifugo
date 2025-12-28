@@ -270,21 +270,25 @@ export class TriggerEffectAnalyzer {
   /**
    * マークしばりが発動するかチェック
    * このプレイを出すと、前回と同じマークが2回連続になるか
+   *
+   * 注意: この関数は field.addPlay() の前に呼ばれる。
+   * 今回のプレイは play 引数で渡され、前回のプレイは history[length - 1] で取得する。
    */
   private triggersSuitLock(play: Play, gameState: GameState): boolean {
     // 既に縛りが発動している場合は発動しない
     if (gameState.suitLock) return false;
 
-    // 場に1枚以上カードがある必要がある
+    // 場に1枚以上の履歴が必要（前回のプレイ）
     const history = gameState.field.getHistory();
     if (history.length === 0) return false;
 
-    const lastPlayHistory = history[history.length - 1];
+    // 前回のプレイ
+    const prevPlayHistory = history[history.length - 1];
 
     // 前回のプレイがすべて同じマークか確認
-    const prevSuit = lastPlayHistory.play.cards.length > 0 ? lastPlayHistory.play.cards[0].suit : null;
+    const prevSuit = prevPlayHistory.play.cards.length > 0 ? prevPlayHistory.play.cards[0].suit : null;
     if (!prevSuit) return false;
-    const prevAllSameSuit = lastPlayHistory.play.cards.every(c => c.suit === prevSuit);
+    const prevAllSameSuit = prevPlayHistory.play.cards.every(c => c.suit === prevSuit);
     if (!prevAllSameSuit) return false;
 
     // 今回のプレイがすべて同じマークか確認
@@ -300,19 +304,23 @@ export class TriggerEffectAnalyzer {
   /**
    * 数字しばりが発動するかチェック
    * このプレイを出すと、前回と今回で階段が2回連続になるか
+   *
+   * 注意: この関数は field.addPlay() の前に呼ばれる。
+   * 今回のプレイは play 引数で渡され、前回のプレイは history[length - 1] で取得する。
    */
   private triggersNumberLock(play: Play, gameState: GameState): boolean {
     // 既に縛りが発動している場合は発動しない
     if (gameState.numberLock) return false;
 
-    // 場に1枚以上カードがある必要がある
+    // 場に1枚以上の履歴が必要（前回のプレイ）
     const history = gameState.field.getHistory();
     if (history.length === 0) return false;
 
-    const lastPlayHistory = history[history.length - 1];
+    // 前回のプレイ
+    const prevPlayHistory = history[history.length - 1];
 
     // 前回のプレイが階段か確認
-    const prevIsStair = lastPlayHistory.play.type === PlayType.STAIR;
+    const prevIsStair = prevPlayHistory.play.type === PlayType.STAIR;
     if (!prevIsStair) return false;
 
     // 今回のプレイが階段か確認

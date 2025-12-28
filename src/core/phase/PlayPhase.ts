@@ -94,15 +94,15 @@ export class PlayPhase implements GamePhase {
 
     const play = PlayAnalyzer.analyze(cards)!;
 
+    // エフェクトを分析（field.addPlay() の前に行う - プレビューと同じタイミング）
+    const effects = this.effectAnalyzer.analyze(play, gameState);
+
     // プレイを実行
     player.hand.remove(cards);
     gameState.field.addPlay(play, player.id);
     gameState.passCount = 0;
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
-
-    // エフェクトを分析
-    const effects = this.effectAnalyzer.analyze(play, gameState);
 
     // ラッキーセブンのリセット
     if (gameState.luckySeven && !effects.includes('ラッキーセブン')) {
