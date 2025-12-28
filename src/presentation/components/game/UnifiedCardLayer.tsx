@@ -89,34 +89,9 @@ export const UnifiedCardLayer: React.FC = () => {
       return legal;
     }
 
-    // 優先順位3: 通常のプレイ時
-    // humanのターンの時だけハイライト
-    const currentPlayer = gameState?.players[gameState.currentPlayerIndex];
-    const isHumanTurn = currentPlayer?.id.value === humanPlayer.id.value;
-
-    if (!isHumanTurn) {
-      return legal; // 敵のターンは何も光らせない
-    }
-
-    // isPendingPlayでなくても、自分のターンならカードを選択可能にする
-    // （場が流れた直後など、まだdecidePlay()が呼ばれていない状態でも選択できるようにする）
-
-    // 選択したカードが部分集合になっている出せる手をすべて見つけ、
-    // その手に含まれるカードの和集合を光らせる
-    validCombinations.forEach((combo) => {
-      // この役が選択状態を部分集合として含むか確認
-      const isSubset = selectedCards.every((selectedCard) =>
-        combo.some((c) => c.id === selectedCard.id)
-      );
-
-      if (isSubset) {
-        // この役のすべてのカードを光らせる
-        combo.forEach((card) => {
-          legal.add(card.id);
-        });
-      }
-    });
-
+    // 優先順位3: カード選択が有効化されていない場合は何も光らせない
+    // HumanPlayerController.chooseCardsInHand() が呼ばれて初めてハイライトする
+    // ゲーム開始直後など、まだ選択が有効化されていない状態ではハイライトしない
     return legal;
   }, [validCombinations, selectedCards, humanPlayer, gameState, isValidatorBottomType, isPendingCardSelection, isPendingRankSelection]);
 
