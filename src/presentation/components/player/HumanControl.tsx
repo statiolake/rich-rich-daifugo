@@ -57,12 +57,18 @@ export const HumanControl: React.FC = () => {
   const ruleEngine = getRuleEngine();
 
   // カード選択リクエスト時はvalidatorを使用
+  // 通常のカード選択時はRuleEngineでvalidate（効果プレビュー用にtriggeredEffectsも取得）
   const validationResult = isPendingCardSelection
-    ? (cardSelectionValidator ? cardSelectionValidator.validate(selectedCards) : { valid: false })
+    ? (selectedCards.length > 0
+      ? ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState)
+      : (cardSelectionValidator ? cardSelectionValidator.validate(selectedCards) : { valid: false }))
     : selectedCards.length > 0
     ? ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState)
     : { valid: false };
   const canPlaySelected = validationResult.valid;
+
+  // 発動するエフェクトを取得
+  const triggerEffects = validationResult.triggeredEffects || [];
 
   const needsSelection = isPendingCardSelection || isPendingRankSelection;
 
@@ -205,21 +211,57 @@ export const HumanControl: React.FC = () => {
 
                   {/* 決定/パスボタン */}
                   <div className="relative inline-block">
-                    {/* invalid時の理由表示 */}
+                    {/* 効果プレビューまたはinvalid時の理由表示 */}
                     <AnimatePresence>
-                      {invalidReason && (
-                        <div className="absolute bottom-full left-1/2 mb-3" style={{ transform: 'translateX(-50%)' }}>
-                          <motion.div
-                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                            className="bg-red-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-red-300 whitespace-nowrap"
-                          >
-                            {invalidReason}
-                          </motion.div>
-                        </div>
-                      )}
+                      {selectedCards.length > 0 && (isCurrentSelectionValid ? (
+                        // 有効な選択の場合：効果プレビューと出せる理由を表示
+                        (triggerEffects.length > 0 || validationResult.reason) && (
+                          <div className="absolute bottom-full left-1/2 mb-3 w-screen max-w-4xl" style={{ transform: 'translateX(-50%)' }}>
+                            <motion.div
+                              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                              className="flex flex-col gap-2 items-center px-4"
+                            >
+                              {/* 出せる理由（緑） */}
+                              {validationResult.reason && (
+                                <div className="bg-green-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-green-300 whitespace-nowrap">
+                                  {validationResult.reason}
+                                </div>
+                              )}
+                              {/* 発動するエフェクト（黄色系バッジ） */}
+                              {triggerEffects.length > 0 && (
+                                <div className="flex flex-col gap-2 items-center max-w-full">
+                                  {triggerEffects.map((effect: string, index: number) => (
+                                    <div
+                                      key={index}
+                                      className="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-yellow-300 whitespace-nowrap"
+                                    >
+                                      {effect}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </motion.div>
+                          </div>
+                        )
+                      ) : (
+                        // 無効な選択の場合：エラー理由を表示
+                        invalidReason && (
+                          <div className="absolute bottom-full left-1/2 mb-3" style={{ transform: 'translateX(-50%)' }}>
+                            <motion.div
+                              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                              className="bg-red-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-red-300 whitespace-nowrap"
+                            >
+                              {invalidReason}
+                            </motion.div>
+                          </div>
+                        )
+                      ))}
                     </AnimatePresence>
 
                     <button
