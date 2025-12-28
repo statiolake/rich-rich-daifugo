@@ -16,7 +16,6 @@ export const HumanControl: React.FC = () => {
   const clearError = useGameStore(state => state.clearError);
   const submitCardSelection = useGameStore(state => state.submitCardSelection);
   const submitRankSelection = useGameStore(state => state.submitRankSelection);
-  const getHumanStrategy = useGameStore(state => state.getHumanStrategy);
 
   // ウィンドウ高さを state で管理（リサイズ対応）
   const [screenHeight, setScreenHeight] = useState(window.innerHeight);
@@ -44,12 +43,12 @@ export const HumanControl: React.FC = () => {
 
   const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
 
-  // HumanStrategyから状態を取得
-  const humanStrategy = getHumanStrategy();
-  const isPendingCardSelection = humanStrategy?.isPendingCardSelection() || false;
-  const isPendingRankSelection = humanStrategy?.isPendingRankSelection() || false;
-  const validator = humanStrategy?.getCurrentValidator();
-  const selectionContext = humanStrategy?.getCurrentContext();
+  // 特殊ルール選択が必要かを gameState.pendingSpecialRule から取得
+  const pendingSpecialRule = gameState.pendingSpecialRule;
+  const isPendingCardSelection = pendingSpecialRule?.type === 'sevenPass' || pendingSpecialRule?.type === 'tenDiscard';
+  const isPendingRankSelection = pendingSpecialRule?.type === 'queenBomber' && !pendingSpecialRule?.context?.selectedRank;
+  const validator = null; // TODO: 特殊ルール用のバリデーターを実装
+  const selectionContext = pendingSpecialRule?.context;
 
   // RuleEngine で出せるかを判定
   const ruleEngine = getRuleEngine();

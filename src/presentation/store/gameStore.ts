@@ -359,13 +359,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  getHumanStrategy: () => {
-    const { engine } = get();
-    if (!engine) {
-      return null;
-    }
-    return engine.getHumanStrategy();
-  },
 
   enqueueCutIn: (cutIn) => {
     return new Promise<void>((resolve) => {
