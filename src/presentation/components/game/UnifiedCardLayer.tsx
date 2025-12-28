@@ -20,37 +20,19 @@ export const UnifiedCardLayer: React.FC = () => {
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
   const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length]);
 
-  // HumanStrategyを取得してvalidatorを確認
-  const getHumanStrategy = useGameStore(state => state.getHumanStrategy);
+  // ゲーム状態から特殊ルールの状態を取得
   const getRuleEngine = useGameStore(state => state.getRuleEngine);
   const clearSelection = useGameStore(state => state.clearSelection);
-  const humanStrategy = getHumanStrategy();
   const humanPlayer = gameState ? LocalPlayerService.findLocalPlayer(gameState) : null;
 
   // カード選択リクエスト・ランク選択リクエストの状態を取得
-  const isPendingCardSelection = humanStrategy?.isPendingCardSelection() || false;
-  const isPendingRankSelection = humanStrategy?.isPendingRankSelection() || false;
+  const pendingSpecialRule = gameState?.pendingSpecialRule;
+  const isPendingCardSelection = pendingSpecialRule?.type === 'sevenPass' || pendingSpecialRule?.type === 'tenDiscard';
+  const isPendingRankSelection = pendingSpecialRule?.type === 'queenBomber' && !pendingSpecialRule?.context?.selectedRank;
 
   // validatorがbottom type（すべて禁止）かどうかをチェック
-  const isValidatorBottomType = useMemo(() => {
-    const validator = humanStrategy?.getCurrentValidator();
-    if (!validator) return false;
-
-    // 空配列で試してみて、それも無効なら bottom type
-    const emptyResult = validator([]);
-    if (emptyResult.valid) return false;
-
-    // 手札の任意のカードで試してみる
-    if (humanPlayer) {
-      const handCards = humanPlayer.hand.getCards();
-      if (handCards.length > 0) {
-        const anyCardResult = validator([handCards[0]]);
-        return !anyCardResult.valid;
-      }
-    }
-
-    return true;
-  }, [humanStrategy, humanPlayer]);
+  // TODO: 特殊ルール用のバリデーター実装が必要
+  const isValidatorBottomType = false;
 
   // 新しいバリデーションが適用されたときに選択状態をリセット
   useEffect(() => {
@@ -84,25 +66,16 @@ export const UnifiedCardLayer: React.FC = () => {
       return legal; // 空のSet（選択不可）
     }
 
-    // 優先順位2: カード選択リクエストがある場合（validatorが存在する場合）
+    // 優先順位2: カード選択リクエストがある場合
     if (isPendingCardSelection) {
-      const validator = humanStrategy?.getCurrentValidator();
-      if (validator && !isValidatorBottomType) {
+      // TODO: 特殊ルール用のバリデーター実装が必要
+      // 現在はすべてのカードを選択可能にする
+      if (humanPlayer) {
         const handCards = humanPlayer.hand.getCards();
-
-        // 各カードが単独で有効かチェック（1枚選択の場合）
         handCards.forEach((card) => {
-          if (validator([card]).valid) {
-            legal.add(card.id);
-          }
+          legal.add(card.id);
         });
-
-        // 空配列が有効な場合もある（スキップ可能な場合）
-        // この場合は手札を光らせないが、UIで「スキップ」ボタンを表示
-
-        return legal;
       }
-      // validator が bottom type の場合は空のSet
       return legal;
     }
 
@@ -135,7 +108,7 @@ export const UnifiedCardLayer: React.FC = () => {
     });
 
     return legal;
-  }, [validCombinations, selectedCards, humanStrategy, humanPlayer, gameState, isValidatorBottomType, isPendingCardSelection, isPendingRankSelection]);
+  }, [validCombinations, selectedCards, humanPlayer, gameState, isValidatorBottomType, isPendingCardSelection, isPendingRankSelection]);
 
   // 54枚のカードオブジェクトを取得（ジョーカーは固定IDなので毎回同じになる）
   const allCards = useMemo(() => CardFactory.createDeck(true), []);

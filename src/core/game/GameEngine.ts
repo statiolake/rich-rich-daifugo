@@ -131,6 +131,88 @@ export class GameEngine {
   }
 
   /**
+   * 7渡し実行（同期的）
+   * @param playerId プレイヤーID
+   * @param card 渡すカード
+   */
+  executeSevenPass(playerId: string, card: Card): void {
+    const player = this.gameState.players.find(p => p.id.value === playerId);
+    if (!player) {
+      throw new Error('Player not found');
+    }
+
+    // pendingSpecialRule チェック
+    if (!this.gameState.pendingSpecialRule || this.gameState.pendingSpecialRule.type !== 'sevenPass') {
+      throw new Error('No pending seven pass');
+    }
+
+    const playPhase = this.currentPhase as PlayPhase;
+    playPhase.executeSevenPassSync(this.gameState, player, card);
+
+    // pendingSpecialRule をクリア
+    this.gameState.pendingSpecialRule = undefined;
+
+    this.checkPhaseTransition();
+    this.eventEmitter.emit('state:updated', { gameState: this.getState() });
+  }
+
+  /**
+   * 10捨て実行（同期的）
+   * @param playerId プレイヤーID
+   * @param card 捨てるカード
+   */
+  executeTenDiscard(playerId: string, card: Card): void {
+    const player = this.gameState.players.find(p => p.id.value === playerId);
+    if (!player) {
+      throw new Error('Player not found');
+    }
+
+    // pendingSpecialRule チェック
+    if (!this.gameState.pendingSpecialRule || this.gameState.pendingSpecialRule.type !== 'tenDiscard') {
+      throw new Error('No pending ten discard');
+    }
+
+    const playPhase = this.currentPhase as PlayPhase;
+    playPhase.executeTenDiscardSync(this.gameState, player, card);
+
+    // pendingSpecialRule をクリア
+    this.gameState.pendingSpecialRule = undefined;
+
+    this.checkPhaseTransition();
+    this.eventEmitter.emit('state:updated', { gameState: this.getState() });
+  }
+
+  /**
+   * クイーンボンバー実行（同期的）
+   * @param playerId プレイヤーID
+   * @param rank 指定ランク（最初の呼び出し）
+   * @param cards 捨てるカード（2回目の呼び出し、省略可能）
+   */
+  executeQueenBomber(playerId: string, rank?: string, cards?: Card[]): void {
+    const player = this.gameState.players.find(p => p.id.value === playerId);
+    if (!player) {
+      throw new Error('Player not found');
+    }
+
+    // pendingSpecialRule チェック
+    if (!this.gameState.pendingSpecialRule || this.gameState.pendingSpecialRule.type !== 'queenBomber') {
+      throw new Error('No pending queen bomber');
+    }
+
+    const playPhase = this.currentPhase as PlayPhase;
+    playPhase.executeQueenBomberSync(this.gameState, player, rank, cards);
+
+    // ランク選択が完了したかチェック
+    if (this.gameState.pendingSpecialRule?.context?.selectedRank && cards) {
+      // 全プレイヤーのカード選択が完了したら pendingSpecialRule をクリア
+      this.gameState.pendingSpecialRule = undefined;
+    }
+
+    this.checkPhaseTransition();
+    this.eventEmitter.emit('state:updated', { gameState: this.getState() });
+  }
+
+  /**
    * フェーズ遷移チェック
    */
   private checkPhaseTransition(): void {

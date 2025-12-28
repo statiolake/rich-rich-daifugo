@@ -39,6 +39,12 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
         glow: 'drop-shadow-[0_0_30px_rgba(251,191,36,0.9)]',
         band: 'bg-gradient-to-r from-yellow-600/80 via-yellow-500/90 to-yellow-600/80'
       },
+      yellow: {
+        text: 'text-yellow-400',
+        border: 'border-yellow-600',
+        glow: 'drop-shadow-[0_0_30px_rgba(251,191,36,0.9)]',
+        band: 'bg-gradient-to-r from-yellow-600/80 via-yellow-500/90 to-yellow-600/80'
+      },
       red: {
         text: 'text-red-400',
         border: 'border-red-600',

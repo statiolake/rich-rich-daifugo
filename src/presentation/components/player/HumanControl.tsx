@@ -14,8 +14,9 @@ export const HumanControl: React.FC = () => {
   const playCards = useGameStore(state => state.playCards);
   const pass = useGameStore(state => state.pass);
   const clearError = useGameStore(state => state.clearError);
-  const submitCardSelection = useGameStore(state => state.submitCardSelection);
-  const submitRankSelection = useGameStore(state => state.submitRankSelection);
+  const executeSevenPass = useGameStore(state => state.executeSevenPass);
+  const executeTenDiscard = useGameStore(state => state.executeTenDiscard);
+  const executeQueenBomber = useGameStore(state => state.executeQueenBomber);
 
   // ウィンドウ高さを state で管理（リサイズ対応）
   const [screenHeight, setScreenHeight] = useState(window.innerHeight);
@@ -47,22 +48,22 @@ export const HumanControl: React.FC = () => {
   const pendingSpecialRule = gameState.pendingSpecialRule;
   const isPendingCardSelection = pendingSpecialRule?.type === 'sevenPass' || pendingSpecialRule?.type === 'tenDiscard';
   const isPendingRankSelection = pendingSpecialRule?.type === 'queenBomber' && !pendingSpecialRule?.context?.selectedRank;
-  const validator = null; // TODO: 特殊ルール用のバリデーターを実装
   const selectionContext = pendingSpecialRule?.context;
 
   // RuleEngine で出せるかを判定
   const ruleEngine = getRuleEngine();
 
-  // カード選択リクエスト時はvalidatorを使う
-  const validationResult = isPendingCardSelection && validator
-    ? validator(selectedCards)
+  // カード選択リクエスト時は単純に1枚選択されているかチェック
+  // TODO: 特殊ルール用のバリデーターを実装（10捨てなら10より弱いカードのみ、など）
+  const validationResult = isPendingCardSelection
+    ? { valid: selectedCards.length === 1 }
     : selectedCards.length > 0
     ? ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState)
     : { valid: false };
   const canPlaySelected = validationResult.valid;
 
-  // トリガーエフェクトはvalidationResultから取得（ドメイン層で計算）
-  const triggerEffects = validationResult.triggerEffects || [];
+  // トリガーエフェクトは実際のプレイ時に発火するため、ここでは空配列
+  const triggerEffects: string[] = [];
 
   const canPass = ruleEngine.canPass(gameState.field).valid;
   // パスを目立たせるのは、合法手が一つもないときだけ
@@ -163,7 +164,7 @@ export const HumanControl: React.FC = () => {
               <button
                 onClick={() => {
                   const rank = selectedCards[0].rank;
-                  submitRankSelection(humanPlayer.id.value, rank);
+                  executeQueenBomber(humanPlayer.id.value, rank);
                 }}
                 className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
               >
@@ -185,35 +186,23 @@ export const HumanControl: React.FC = () => {
               {selectionContext?.message || 'カードを選んでください'}
             </div>
 
-            {/* カード選択の確定ボタンまたはスキップボタン */}
-            {(() => {
-              // 手札の中に選択可能なカードがあるかチェック
-              const hasSelectableCards = validator && humanPlayer.hand.getCards().some(card => validator([card]).valid);
-              const canSkip = validator && validator([]).valid;
-
-              if (hasSelectableCards) {
-                // 選択可能なカードがある場合：決定ボタンのみ
-                return canPlaySelected && (
-                  <button
-                    onClick={() => submitCardSelection(humanPlayer.id.value, selectedCards)}
-                    className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
-                  >
-                    決定
-                  </button>
-                );
-              } else if (canSkip) {
-                // 選択可能なカードがない場合：スキップボタンのみ
-                return (
-                  <button
-                    onClick={() => submitCardSelection(humanPlayer.id.value, [])}
-                    className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-gray-500 hover:bg-gray-600 text-white cursor-pointer"
-                  >
-                    スキップ
-                  </button>
-                );
-              }
-              return null;
-            })()}
+            {/* カード選択の確定ボタン */}
+            {canPlaySelected && (
+              <button
+                onClick={() => {
+                  if (pendingSpecialRule?.type === 'sevenPass' && selectedCards.length === 1) {
+                    executeSevenPass(humanPlayer.id.value, selectedCards[0]);
+                  } else if (pendingSpecialRule?.type === 'tenDiscard' && selectedCards.length === 1) {
+                    executeTenDiscard(humanPlayer.id.value, selectedCards[0]);
+                  } else if (pendingSpecialRule?.type === 'queenBomber' && pendingSpecialRule.context?.selectedRank) {
+                    executeQueenBomber(humanPlayer.id.value, undefined, selectedCards);
+                  }
+                }}
+                className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
+              >
+                決定
+              </button>
+            )}
           </motion.div>
         ) : isHumanTurn ? (
           <motion.div
@@ -254,7 +243,7 @@ export const HumanControl: React.FC = () => {
                         {/* 発動するイベント（黄色系バッジ） */}
                         {triggerEffects.length > 0 && (
                           <div className="flex flex-col gap-2 items-center max-w-full">
-                            {triggerEffects.map((effect, index) => (
+                            {triggerEffects.map((effect: string, index: number) => (
                               <div
                                 key={index}
                                 className="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-yellow-300 whitespace-nowrap"

@@ -24,7 +24,7 @@ interface MovingCard {
 export interface RuleCutInData {
   id: string;
   text: string;
-  variant?: 'gold' | 'red' | 'blue' | 'green';
+  variant?: 'gold' | 'red' | 'blue' | 'green' | 'yellow';
   duration?: number;
   delay?: number; // アニメーション開始の遅延（ms）
   verticalPosition?: string; // 縦位置（%）
@@ -44,6 +44,7 @@ interface GameStore {
   startGame: (playerName?: string) => void;
   playCards: (cards: Card[]) => void;
   pass: () => void;
+  executeCPUTurn: () => void;
   toggleCardSelection: (card: Card) => void;
   clearSelection: () => void;
   clearError: () => void;
@@ -55,13 +56,15 @@ interface GameStore {
   removeCutIn: (id: string) => void;
   processQueue: () => void;
   waitForCutIn: () => Promise<void>;
-  submitCardSelection: (playerId: string, cards: Card[]) => void; // カード選択を送信
-  submitRankSelection: (playerId: string, rank: string) => void; // ランク選択を送信
+
+  // 特殊ルール実行
+  executeSevenPass: (playerId: string, card: Card) => void;
+  executeTenDiscard: (playerId: string, card: Card) => void;
+  executeQueenBomber: (playerId: string, rank?: string, cards?: Card[]) => void;
 
   // Computed values
   getValidCombinations: () => Card[][];
   getRuleEngine: () => RuleEngine;
-  getHumanStrategy: () => HumanStrategy | null;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -327,7 +330,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return engine.getRuleEngine();
   },
 
-  submitCardSelection: (playerId: string, cards: Card[]) => {
+  executeSevenPass: (playerId: string, card: Card) => {
     const { engine } = get();
     if (!engine) {
       console.error('Game engine not initialized');
@@ -335,15 +338,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     try {
-      engine.handleCardSelection(playerId, cards);
+      engine.executeSevenPass(playerId, card);
       set({ selectedCards: [] }); // 選択をクリア
     } catch (error) {
-      console.error('Card selection error:', error);
-      set({ error: error instanceof Error ? error.message : 'カード選択に失敗しました' });
+      console.error('Seven pass error:', error);
+      set({ error: error instanceof Error ? error.message : '7渡しに失敗しました' });
     }
   },
 
-  submitRankSelection: (playerId: string, rank: string) => {
+  executeTenDiscard: (playerId: string, card: Card) => {
     const { engine } = get();
     if (!engine) {
       console.error('Game engine not initialized');
@@ -351,11 +354,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     try {
-      engine.handleRankSelection(playerId, rank);
+      engine.executeTenDiscard(playerId, card);
       set({ selectedCards: [] }); // 選択をクリア
     } catch (error) {
-      console.error('Rank selection error:', error);
-      set({ error: error instanceof Error ? error.message : 'ランク選択に失敗しました' });
+      console.error('Ten discard error:', error);
+      set({ error: error instanceof Error ? error.message : '10捨てに失敗しました' });
+    }
+  },
+
+  executeQueenBomber: (playerId: string, rank?: string, cards?: Card[]) => {
+    const { engine, gameState } = get();
+    if (!engine) {
+      console.error('Game engine not initialized');
+      return;
+    }
+
+    try {
+      engine.executeQueenBomber(playerId, rank, cards);
+
+      // ランク選択のみの場合は選択をクリアしない（次にカード選択があるため）
+      if (rank && !cards) {
+        console.log(`クイーンボンバー: ランク ${rank} を選択しました`);
+      } else if (cards) {
+        set({ selectedCards: [] }); // カード選択完了時はクリア
+      }
+    } catch (error) {
+      console.error('Queen bomber error:', error);
+      set({ error: error instanceof Error ? error.message : 'クイーンボンバーに失敗しました' });
     }
   },
 
@@ -451,7 +476,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
    * CPUのターンを実行する
    * CPUStrategy を使って判断し、executePlay または executePass を呼び出す
    */
-  executeCPUTurn: () => {
+  executeCPUTurn: async () => {
     const { engine } = get();
     if (!engine) return;
 
@@ -474,8 +499,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // 戦略に基づいて行動決定（同期的）
-    const decision = strategy.decidePlay(currentPlayer, gameState.field, gameState);
+    // 戦略に基づいて行動決定（非同期）
+    const decision = await strategy.decidePlay(currentPlayer, gameState.field, gameState);
 
     try {
       if (decision.type === 'PLAY' && decision.cards) {

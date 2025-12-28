@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 
 interface ParticleEffectProps {
   count?: number;
-  color?: 'gold' | 'red' | 'blue' | 'green';
+  color?: 'gold' | 'red' | 'blue' | 'green' | 'yellow';
 }
 
 export const ParticleEffect: React.FC<ParticleEffectProps> = ({
@@ -22,6 +22,7 @@ export const ParticleEffect: React.FC<ParticleEffectProps> = ({
 
   const colorMap = {
     gold: 'bg-yellow-400',
+    yellow: 'bg-yellow-400',
     red: 'bg-red-400',
     blue: 'bg-blue-400',
     green: 'bg-green-400'

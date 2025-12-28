@@ -312,4 +312,147 @@ export class PlayPhase implements GamePhase {
   private applyEffect(effect: TriggerEffect, gameState: GameState, player: Player): void {
     this.effectHandler.apply(effect, gameState, { player });
   }
+
+  /**
+   * 7渡し実行（同期的）
+   */
+  executeSevenPassSync(gameState: GameState, player: Player, card: Card): void {
+    // カードの所有権チェック
+    if (!player.hand.getCards().some(c => c.id === card.id)) {
+      throw new Error('Card not in hand');
+    }
+
+    // 次のプレイヤーを探す
+    const direction = gameState.isReversed ? -1 : 1;
+    const nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+    let nextPlayer = gameState.players[nextIndex];
+
+    // 上がっていないプレイヤーを探す
+    let searchIndex = nextIndex;
+    let attempts = 0;
+    while (nextPlayer.isFinished && attempts < gameState.players.length) {
+      searchIndex = (searchIndex + direction + gameState.players.length) % gameState.players.length;
+      nextPlayer = gameState.players[searchIndex];
+      attempts++;
+    }
+
+    if (!nextPlayer.isFinished) {
+      // カードを渡す
+      player.hand.remove([card]);
+      nextPlayer.hand.add([card]);
+
+      console.log(`${player.name} が ${nextPlayer.name} に ${card.rank}${card.suit} を渡しました`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      nextPlayer.hand.sort(shouldReverse);
+    }
+
+    // 手札が空になったら上がり
+    if (player.hand.isEmpty()) {
+      this.handlePlayerFinish(gameState, player);
+    }
+
+    // 次のプレイヤーに進む
+    this.nextPlayer(gameState);
+  }
+
+  /**
+   * 10捨て実行（同期的）
+   */
+  executeTenDiscardSync(gameState: GameState, player: Player, card: Card): void {
+    // カードの所有権チェック
+    if (!player.hand.getCards().some(c => c.id === card.id)) {
+      throw new Error('Card not in hand');
+    }
+
+    // 10より弱いカードかチェック（革命・11バックを考慮）
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    const tenStrength = shouldReverse ? 5 : 10; // 10のランク強さ（通常は10、革命時は5）
+    const cardStrength = this.getCardStrength(card.rank, shouldReverse);
+
+    // 10より弱いか確認（shouldReverse時は強さが逆転）
+    const isWeakerThanTen = shouldReverse
+      ? cardStrength > tenStrength
+      : cardStrength < tenStrength;
+
+    if (!isWeakerThanTen) {
+      throw new Error('Card is not weaker than 10');
+    }
+
+    // カードを捨てる
+    player.hand.remove([card]);
+
+    console.log(`${player.name} が ${card.rank}${card.suit} を捨てました`);
+
+    // 手札が空になったら上がり
+    if (player.hand.isEmpty()) {
+      this.handlePlayerFinish(gameState, player);
+    }
+
+    // 次のプレイヤーに進む
+    this.nextPlayer(gameState);
+  }
+
+  /**
+   * クイーンボンバー実行（同期的）
+   */
+  executeQueenBomberSync(gameState: GameState, player: Player, rank?: string, cards?: Card[]): void {
+    // ランク選択フェーズ
+    if (rank && !cards) {
+      // contextにランクを保存
+      if (!gameState.pendingSpecialRule) {
+        throw new Error('No pending special rule');
+      }
+      gameState.pendingSpecialRule.context = { selectedRank: rank };
+      console.log(`クイーンボンバー：ランク ${rank} が指定されました`);
+      return;
+    }
+
+    // カード捨てフェーズ
+    if (cards && gameState.pendingSpecialRule?.context?.selectedRank) {
+      const selectedRank = gameState.pendingSpecialRule.context.selectedRank;
+
+      // 全カードが指定ランクか確認
+      const allMatchRank = cards.every(c => c.rank === selectedRank);
+      if (!allMatchRank) {
+        throw new Error(`All cards must be rank ${selectedRank}`);
+      }
+
+      // カードの所有権チェック
+      const playerCards = player.hand.getCards();
+      const allOwned = cards.every(c => playerCards.some(pc => pc.id === c.id));
+      if (!allOwned) {
+        throw new Error('Not all cards are in hand');
+      }
+
+      // カードを捨てる
+      player.hand.remove(cards);
+      console.log(`${player.name} が ${cards.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
+
+      // 手札が空になったら上がり
+      if (player.hand.isEmpty()) {
+        this.handlePlayerFinish(gameState, player);
+      }
+    }
+  }
+
+  /**
+   * カードの強さを取得（ヘルパーメソッド）
+   */
+  private getCardStrength(rank: string, shouldReverse: boolean): number {
+    const normalStrength: { [key: string]: number } = {
+      '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
+      'J': 11, 'Q': 12, 'K': 13, 'A': 14, '2': 15
+    };
+
+    const strength = normalStrength[rank] || 0;
+
+    if (shouldReverse) {
+      // 革命時は強さを反転（3が最強、2が最弱）
+      return 18 - strength;
+    }
+
+    return strength;
+  }
 }
