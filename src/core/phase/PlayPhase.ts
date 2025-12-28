@@ -422,6 +422,19 @@ export class PlayPhase implements GamePhase {
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
     const tenStrength = shouldReverse ? 5 : 10;
 
+    // 10より弱いカードがあるかチェック
+    const handCards = player.hand.getCards();
+    const discardableCards = handCards.filter(c => {
+      const cardStrength = this.getCardStrength(c.rank, shouldReverse);
+      return shouldReverse ? cardStrength > tenStrength : cardStrength < tenStrength;
+    });
+
+    // 捨てられるカードがない場合はスキップ
+    if (discardableCards.length === 0) {
+      console.log(`${player.name} は10より弱いカードを持っていないためスキップ`);
+      return;
+    }
+
     const validator: Validator = {
       validate: (cards: Card[]) => {
         if (cards.length !== 1) {
