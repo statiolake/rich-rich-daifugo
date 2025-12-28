@@ -1,16 +1,18 @@
 import { create } from 'zustand';
 import { GameEngine } from '../../core/game/GameEngine';
-import { GameConfig } from '../../core/game/GameConfig';
 import { GameConfigFactory } from '../../core/game/GameConfigFactory';
 import { GameState } from '../../core/domain/game/GameState';
 import { Card, CardFactory } from '../../core/domain/card/Card';
 import { PlayerType } from '../../core/domain/player/Player';
-import { LocalPlayerService } from '../../core/domain/player/LocalPlayerService';
 import { EventBus } from '../../application/services/EventBus';
-import { HumanStrategy } from '../../core/strategy/HumanStrategy';
 import { RuleEngine } from '../../core/rules/base/RuleEngine';
 import { useCardPositionStore } from './cardPositionStore';
 import { useRuleSettingsStore } from './ruleSettingsStore';
+import { GamePresentationRequester } from '../presentation/GamePresentationRequester';
+import { HumanPlayerController } from '../players/HumanPlayerController';
+import { CPUPlayerController } from '../players/CPUPlayerController';
+import { PlayerController, Validator } from '../../core/domain/player/PlayerController';
+import { CPUStrategy } from '../../core/strategy/PlayerStrategy';
 
 interface MovingCard {
   card: Card;
@@ -26,8 +28,8 @@ export interface RuleCutInData {
   text: string;
   variant?: 'gold' | 'red' | 'blue' | 'green' | 'yellow';
   duration?: number;
-  delay?: number; // アニメーション開始の遅延（ms）
-  verticalPosition?: string; // 縦位置（%）
+  delay?: number;
+  verticalPosition?: string;
 }
 
 interface GameStore {
@@ -37,14 +39,18 @@ interface GameStore {
   error: string | null;
   movingCards: MovingCard[];
   cutInQueue: RuleCutInData[];
-  activeCutIns: RuleCutInData[]; // 複数のカットインを同時表示
+  activeCutIns: RuleCutInData[];
   cutInResolve: (() => void) | null;
+
+  // Promise-based callbacks for HumanPlayerController
+  cardSelectionCallback: ((cards: Card[]) => void) | null;
+  queenBomberRankCallback: ((rank: string) => void) | null;
+  cardSelectionValidator: Validator | null;
+  isCardSelectionEnabled: boolean;
+  isQueenBomberRankSelectionEnabled: boolean;
 
   // Actions
   startGame: (playerName?: string) => void;
-  playCards: (cards: Card[]) => void;
-  pass: () => void;
-  executeCPUTurn: () => void;
   toggleCardSelection: (card: Card) => void;
   clearSelection: () => void;
   clearError: () => void;
@@ -57,10 +63,17 @@ interface GameStore {
   processQueue: () => void;
   waitForCutIn: () => Promise<void>;
 
-  // 特殊ルール実行
-  executeSevenPass: (playerId: string, card: Card) => void;
-  executeTenDiscard: (playerId: string, card: Card) => void;
-  executeQueenBomber: (playerId: string, rank?: string, cards?: Card[]) => void;
+  // Callback methods for HumanPlayerController
+  setCardSelectionCallback: (callback: (cards: Card[]) => void) => void;
+  clearCardSelectionCallback: () => void;
+  enableCardSelection: (validator: Validator) => void;
+  disableCardSelection: () => void;
+  submitCardSelection: () => void;
+  setQueenBomberRankCallback: (callback: (rank: string) => void) => void;
+  clearQueenBomberRankCallback: () => void;
+  showQueenBomberRankSelectionUI: () => void;
+  hideQueenBomberRankSelectionUI: () => void;
+  submitQueenBomberRank: (rank: string) => void;
 
   // Computed values
   getValidCombinations: () => Card[][];
@@ -76,6 +89,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cutInQueue: [],
   activeCutIns: [],
   cutInResolve: null,
+  cardSelectionCallback: null,
+  queenBomberRankCallback: null,
+  cardSelectionValidator: null,
+  isCardSelectionEnabled: false,
+  isQueenBomberRankSelectionEnabled: false,
 
   startGame: (playerName = 'あなた') => {
     try {
@@ -87,436 +105,107 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // GameConfigFactory を使用してゲーム設定を生成
       const config = GameConfigFactory.createStandardGame(4, 1, playerName, ruleSettings);
 
-      const engine = new GameEngine(config, eventBus);
+      // PresentationRequester を作成
+      const presentationRequester = new GamePresentationRequester(get());
+
+      // PlayerController マップを作成
+      const playerControllers = new Map<string, PlayerController>();
+
+      config.players.forEach((pConfig) => {
+        if (pConfig.type === PlayerType.HUMAN) {
+          playerControllers.set(pConfig.id, new HumanPlayerController(get(), pConfig.id));
+        } else {
+          // CPU用のコントローラーは一時的にnull（gameStateが必要）
+          playerControllers.set(pConfig.id, null as any);
+        }
+      });
+
+      // GameEngine を作成
+      const engine = new GameEngine(config, eventBus, presentationRequester, playerControllers);
+
+      // CPU用のコントローラーを作成（gameStateが利用可能になったので）
+      config.players.forEach((pConfig) => {
+        if (pConfig.type !== PlayerType.HUMAN) {
+          const player = engine.getState().players.find(p => p.id.value === pConfig.id);
+          if (player) {
+            playerControllers.set(
+              pConfig.id,
+              new CPUPlayerController(
+                pConfig.strategy as CPUStrategy,
+                player,
+                engine.getState() as any
+              )
+            );
+          }
+        }
+      });
 
       // イベントリスナーを設定
       eventBus.on('state:updated', (data) => {
         set({ gameState: { ...data.gameState } });
-
-        // CardPositionStoreを同期
         useCardPositionStore.getState().syncWithGameState(data.gameState);
-
-        // CPUのターンなら自動実行（少し遅延を入れてUIを見やすくする）
-        const currentPlayer = data.gameState.players[data.gameState.currentPlayerIndex];
-        if (currentPlayer && !currentPlayer.isFinished && currentPlayer.type !== PlayerType.HUMAN) {
-          setTimeout(() => {
-            get().executeCPUTurn();
-          }, 800); // 0.8秒の遅延でCPUの思考を演出
-        }
       });
 
       eventBus.on('game:started', (data) => {
         console.log('Game started!');
-
-        // CardPositionStoreを初期化
         const allCards = CardFactory.createDeck(true);
         useCardPositionStore.getState().initialize(allCards);
+        set({ gameState: { ...data.gameState } });
       });
 
       eventBus.on('game:ended', (data) => {
         console.log('Game ended!');
       });
 
-      // 統一エフェクトイベントリスナー
-      // すべてのトリガーエフェクトを統一的に処理
-      eventBus.on('effect:triggered', (data: {
-        effect: string;
-        cutIn: { text: string; variant: 'red' | 'blue' | 'green' | 'yellow' | 'gold'; duration: number };
-      }) => {
-        get().enqueueCutIn({
-          id: `${data.effect.toLowerCase().replace(/\s+/g, '')}-${Date.now()}`,
-          text: data.cutIn.text,
-          variant: data.cutIn.variant,
-          duration: data.cutIn.duration
-        });
-      });
-
-      // マークしばりイベントリスナー（特殊：effect以外のイベント）
-      eventBus.on('suitLock:triggered', (data: { suit: string }) => {
-        get().enqueueCutIn({
-          id: `suitlock-${Date.now()}`,
-          text: `マークしばり！（${data.suit}）`,
-          variant: 'blue',
-          duration: 500
-        });
-      });
-
-      // 数字しばりイベントリスナー（特殊：effect以外のイベント）
-      eventBus.on('numberLock:triggered', () => {
-        get().enqueueCutIn({
-          id: `numberlock-${Date.now()}`,
-          text: '数字しばり！',
-          variant: 'blue',
-          duration: 500
-        });
-      });
-
-      // 7渡しイベントリスナー（特殊：effectとは別のタイミングで発火）
-      eventBus.on('sevenPass:triggered', (data: { fromPlayer: string; toPlayer: string }) => {
-        get().enqueueCutIn({
-          id: `sevenpass-${Date.now()}`,
-          text: '7渡し！',
-          variant: 'blue',
-          duration: 500
-        });
-      });
-
-      // 10捨てイベントリスナー（特殊：effectとは別のタイミングで発火）
-      eventBus.on('tenDiscard:triggered', (data: { player: string }) => {
-        get().enqueueCutIn({
-          id: `tendiscard-${Date.now()}`,
-          text: '10捨て！',
-          variant: 'red',
-          duration: 500
-        });
-      });
-
-      // クイーンボンバーイベントリスナー（特殊：effectとは別のタイミングで発火）
-      eventBus.on('queenBomber:triggered', () => {
-        get().enqueueCutIn({
-          id: `queenbomber-${Date.now()}`,
-          text: 'クイーンボンバー！',
-          variant: 'red',
-          duration: 500
-        });
-      });
-
-      // ラッキーセブン勝利イベントリスナー
-      eventBus.on('luckySeven:victory', (data: { playerName: string }) => {
-        get().enqueueCutIn({
-          id: `luckysevenvictory-${Date.now()}`,
-          text: `${data.playerName} ラッキーセブン勝利！`,
-          variant: 'gold',
-          duration: 1000
-        });
-      });
-
       set({ engine, error: null });
 
-      // ゲームを初期化（同期的）
-      engine.initialize();
-
-      // 初期状態を設定
-      set({ gameState: { ...engine.getState() } });
-    } catch (error) {
-      console.error('Failed to start game:', error);
-      set({ error: (error as Error).message });
-    }
-  },
-
-  playCards: (cards) => {
-    const { engine, selectedCards } = get();
-    if (!engine) return;
-
-    const gameState = engine.getState();
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-
-    // 現在のプレイヤーが人間の場合のみ
-    if (currentPlayer.type !== PlayerType.HUMAN) {
-      console.warn('Current player is not human');
-      return;
-    }
-
-    // 出すカードを決定（引数があればそれを使用、なければ選択中のカードを使用）
-    const cardsToPlay = cards.length > 0 ? cards : selectedCards;
-
-    if (cardsToPlay.length === 0) {
-      set({ error: 'カードを選択してください' });
-      return;
-    }
-
-    try {
-      // GameEngine.executePlay() を呼び出す（同期的）
-      engine.executePlay(currentPlayer.id.value, cardsToPlay);
-
-      // 成功したらエラーをクリアして選択解除
-      set({ error: null, selectedCards: [] });
-    } catch (error) {
-      // エラーが発生した場合はエラーメッセージを表示
-      set({ error: (error as Error).message });
-    }
-  },
-
-  pass: () => {
-    const { engine } = get();
-    if (!engine) return;
-
-    const gameState = engine.getState();
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-
-    // 現在のプレイヤーが人間の場合のみ
-    if (currentPlayer.type !== PlayerType.HUMAN) {
-      console.warn('Current player is not human');
-      return;
-    }
-
-    try {
-      // GameEngine.executePass() を呼び出す（同期的）
-      engine.executePass(currentPlayer.id.value);
-
-      // 成功したらエラーをクリアして選択解除
-      set({ error: null, selectedCards: [] });
-    } catch (error) {
-      // エラーが発生した場合はエラーメッセージを表示
-      set({ error: (error as Error).message });
+      // ゲームを開始（非同期）
+      engine.start().catch((error) => {
+        console.error('Game error:', error);
+        set({ error: error.message });
+      });
+    } catch (error: any) {
+      set({ error: error.message });
     }
   },
 
   toggleCardSelection: (card) => {
-    set((state) => {
-      const isSelected = state.selectedCards.some(c => c.id === card.id);
+    const { selectedCards } = get();
+    const isSelected = selectedCards.some(c => c.id === card.id);
 
-      if (isSelected) {
-        return {
-          selectedCards: state.selectedCards.filter(c => c.id !== card.id),
-        };
-      } else {
-        return {
-          selectedCards: [...state.selectedCards, card],
-        };
-      }
-    });
+    if (isSelected) {
+      set({ selectedCards: selectedCards.filter(c => c.id !== card.id) });
+    } else {
+      set({ selectedCards: [...selectedCards, card] });
+    }
   },
 
-  clearSelection: () => set({ selectedCards: [] }),
+  clearSelection: () => {
+    set({ selectedCards: [] });
+  },
 
-  clearError: () => set({ error: null }),
+  clearError: () => {
+    set({ error: null });
+  },
 
   addMovingCard: (card, fromX, fromY, toX, toY) => {
     const movingCard: MovingCard = {
       card,
-      id: `moving-${card.id}`,
+      id: `${card.id}-${Date.now()}`,
       fromX,
       fromY,
       toX,
-      toY,
+      toY
     };
-    set((state) => ({
-      movingCards: [...state.movingCards, movingCard],
-    }));
+    set(state => ({ movingCards: [...state.movingCards, movingCard] }));
   },
 
   removeMovingCard: (id) => {
-    set((state) => ({
-      movingCards: state.movingCards.filter(mc => mc.id !== id),
-    }));
+    set(state => ({ movingCards: state.movingCards.filter(m => m.id !== id) }));
   },
 
-  clearMovingCards: () => set({ movingCards: [] }),
-
-  getValidCombinations: () => {
-    const { gameState, engine } = get();
-    if (!gameState || !engine) return [];
-
-    const humanPlayer = LocalPlayerService.findLocalPlayer(gameState);
-    if (!humanPlayer) return [];
-
-    const ruleEngine = engine.getRuleEngine();
-
-    // Hand.findAllValidPlays() を使用してビット全探索で有効な組み合わせを取得
-    return humanPlayer.hand.findAllValidPlays(
-      humanPlayer,
-      gameState.field,
-      gameState,
-      ruleEngine
-    );
-  },
-
-  getRuleEngine: () => {
-    const { engine } = get();
-    if (!engine) {
-      throw new Error('Game engine not initialized');
-    }
-    return engine.getRuleEngine();
-  },
-
-  executeSevenPass: (playerId: string, card: Card) => {
-    const { engine } = get();
-    if (!engine) {
-      console.error('Game engine not initialized');
-      return;
-    }
-
-    try {
-      engine.executeSevenPass(playerId, card);
-      set({ selectedCards: [] }); // 選択をクリア
-    } catch (error) {
-      console.error('Seven pass error:', error);
-      set({ error: error instanceof Error ? error.message : '7渡しに失敗しました' });
-    }
-  },
-
-  executeTenDiscard: (playerId: string, card: Card) => {
-    const { engine } = get();
-    if (!engine) {
-      console.error('Game engine not initialized');
-      return;
-    }
-
-    try {
-      engine.executeTenDiscard(playerId, card);
-      set({ selectedCards: [] }); // 選択をクリア
-    } catch (error) {
-      console.error('Ten discard error:', error);
-      set({ error: error instanceof Error ? error.message : '10捨てに失敗しました' });
-    }
-  },
-
-  executeQueenBomber: (playerId: string, rank?: string, cards?: Card[]) => {
-    const { engine, gameState } = get();
-    if (!engine) {
-      console.error('Game engine not initialized');
-      return;
-    }
-
-    try {
-      engine.executeQueenBomber(playerId, rank, cards);
-
-      // ランク選択のみの場合は選択をクリアしない（次にカード選択があるため）
-      if (rank && !cards) {
-        console.log(`クイーンボンバー: ランク ${rank} を選択しました`);
-      } else if (cards) {
-        set({ selectedCards: [] }); // カード選択完了時はクリア
-      }
-    } catch (error) {
-      console.error('Queen bomber error:', error);
-      set({ error: error instanceof Error ? error.message : 'クイーンボンバーに失敗しました' });
-    }
-  },
-
-
-  enqueueCutIn: (cutIn) => {
-    return new Promise<void>((resolve) => {
-      set((state) => ({
-        cutInQueue: [...state.cutInQueue, { ...cutIn, resolve }]
-      }));
-      // 次のイベントループでprocessQueueを実行（複数のenqueueCutInが同期的に呼ばれた場合にバッチ処理できるようにする）
-      setTimeout(() => get().processQueue(), 0);
-    });
-  },
-
-  processQueue: () => {
-    const { cutInQueue, activeCutIns } = get();
-
-    // アクティブなカットインがない場合、キューから取り出して表示
-    if (activeCutIns.length === 0 && cutInQueue.length > 0) {
-      // 連続したカットインを全て取り出す（最大4つまで）
-      const batchSize = Math.min(cutInQueue.length, 4);
-      const batch = cutInQueue.slice(0, batchSize);
-      const rest = cutInQueue.slice(batchSize);
-
-      // 縦位置を計算する関数
-      const calculateVerticalPosition = (index: number, total: number): string => {
-        if (total === 1) {
-          return '50%'; // 中央
-        }
-        const spacing = 100 / (total + 1);
-        const position = `${spacing * (index + 1)}%`;
-        console.log(`Cut-in ${index + 1}/${total}: vertical position = ${position}`);
-        return position;
-      };
-
-      // 各カットインに遅延と縦位置を設定（100msずつずらす）
-      const cutInsWithDelay = batch.map((cutIn, index) => ({
-        ...cutIn,
-        delay: index * 100,
-        verticalPosition: calculateVerticalPosition(index, batchSize)
-      }));
-
-      set({
-        activeCutIns: cutInsWithDelay,
-        cutInQueue: rest,
-        cutInResolve: (batch[0] as any).resolve || null
-      });
-    }
-  },
-
-  removeCutIn: (id) => {
-    console.log(`[removeCutIn] Removing cut-in: ${id}`);
-    set((state) => ({
-      activeCutIns: state.activeCutIns.filter(c => c.id !== id)
-    }));
-
-    // 全てのカットインが消えたらresolveして次を処理
-    const { activeCutIns, cutInResolve } = get();
-    console.log(`[removeCutIn] Remaining activeCutIns: ${activeCutIns.length}`);
-    if (activeCutIns.length === 0) {
-      console.log('[removeCutIn] All cut-ins removed, processing queue...');
-      if (cutInResolve) {
-        cutInResolve();
-      }
-      set({ cutInResolve: null });
-      get().processQueue();
-    }
-  },
-
-  waitForCutIn: async () => {
-    const { activeCutIns, cutInQueue } = get();
-    // 表示中のカットインもキューも空なら即座に戻る
-    if (activeCutIns.length === 0 && cutInQueue.length === 0) return;
-
-    console.log('[waitForCutIn] Waiting for cut-ins to complete...');
-
-    return new Promise<void>((resolve) => {
-      const checkInterval = setInterval(() => {
-        const { activeCutIns: current, cutInQueue: queue } = get();
-        // 表示中のカットインとキューの両方が空になるまで待つ
-        if (current.length === 0 && queue.length === 0) {
-          console.log('[waitForCutIn] All cut-ins completed!');
-          clearInterval(checkInterval);
-          resolve();
-        } else {
-          console.log(`[waitForCutIn] Still waiting... activeCutIns: ${current.length}, queue: ${queue.length}`);
-        }
-      }, 100);
-    });
-  },
-
-  /**
-   * CPUのターンを実行する
-   * CPUStrategy を使って判断し、executePlay または executePass を呼び出す
-   */
-  executeCPUTurn: async () => {
-    const { engine } = get();
-    if (!engine) return;
-
-    const gameState = engine.getState();
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-
-    // CPUプレイヤーでない場合は何もしない
-    if (currentPlayer.type === PlayerType.HUMAN) {
-      return;
-    }
-
-    if (currentPlayer.isFinished) {
-      return;
-    }
-
-    // CPU戦略を取得
-    const strategy = engine.getStrategyMap().get(currentPlayer.id.value);
-    if (!strategy) {
-      console.error(`Strategy not found for CPU player ${currentPlayer.id.value}`);
-      return;
-    }
-
-    // 戦略に基づいて行動決定（非同期）
-    const decision = await strategy.decidePlay(currentPlayer, gameState.field, gameState);
-
-    try {
-      if (decision.type === 'PLAY' && decision.cards) {
-        engine.executePlay(currentPlayer.id.value, decision.cards);
-      } else {
-        engine.executePass(currentPlayer.id.value);
-      }
-    } catch (error) {
-      // 無効なプレイの場合はパス
-      console.error(`CPU play failed, passing instead:`, error);
-      try {
-        engine.executePass(currentPlayer.id.value);
-      } catch (passError) {
-        console.error(`CPU pass also failed:`, passError);
-      }
-    }
+  clearMovingCards: () => {
+    set({ movingCards: [] });
   },
 
   reset: () => {
@@ -529,6 +218,174 @@ export const useGameStore = create<GameStore>((set, get) => ({
       cutInQueue: [],
       activeCutIns: [],
       cutInResolve: null,
+      cardSelectionCallback: null,
+      queenBomberRankCallback: null,
+      cardSelectionValidator: null,
+      isCardSelectionEnabled: false,
+      isQueenBomberRankSelectionEnabled: false,
     });
+  },
+
+  enqueueCutIn: async (cutIn) => {
+    set(state => ({ cutInQueue: [...state.cutInQueue, cutIn] }));
+    get().processQueue();
+  },
+
+  removeCutIn: (id) => {
+    set(state => ({ activeCutIns: state.activeCutIns.filter(c => c.id !== id) }));
+
+    const { activeCutIns, cutInResolve, cutInQueue } = get();
+    if (activeCutIns.length === 0) {
+      if (cutInResolve) {
+        cutInResolve();
+        set({ cutInResolve: null });
+      }
+      if (cutInQueue.length > 0) {
+        get().processQueue();
+      }
+    }
+  },
+
+  processQueue: () => {
+    const { cutInQueue, activeCutIns } = get();
+
+    if (cutInQueue.length === 0 || activeCutIns.length > 0) {
+      return;
+    }
+
+    const batchSize = Math.min(cutInQueue.length, 4);
+    const batch = cutInQueue.slice(0, batchSize);
+    const rest = cutInQueue.slice(batchSize);
+
+    const calculateVerticalPosition = (index: number, total: number): string => {
+      if (total === 1) return '50%';
+      const spacing = 100 / (total + 1);
+      return `${spacing * (index + 1)}%`;
+    };
+
+    const cutInsWithDelay = batch.map((cutIn, index) => ({
+      ...cutIn,
+      delay: index * 100,
+      verticalPosition: calculateVerticalPosition(index, batchSize)
+    }));
+
+    set({ activeCutIns: cutInsWithDelay, cutInQueue: rest });
+  },
+
+  waitForCutIn: async () => {
+    const { cutInQueue, activeCutIns } = get();
+
+    if (cutInQueue.length === 0 && activeCutIns.length === 0) {
+      return;
+    }
+
+    return new Promise<void>((resolve) => {
+      set({ cutInResolve: resolve });
+    });
+  },
+
+  // Callback methods for HumanPlayerController
+  setCardSelectionCallback: (callback) => {
+    set({ cardSelectionCallback: callback });
+  },
+
+  clearCardSelectionCallback: () => {
+    set({ cardSelectionCallback: null });
+  },
+
+  enableCardSelection: (validator) => {
+    set({
+      cardSelectionValidator: validator,
+      isCardSelectionEnabled: true,
+      selectedCards: []
+    });
+  },
+
+  disableCardSelection: () => {
+    set({
+      isCardSelectionEnabled: false,
+      cardSelectionValidator: null,
+      selectedCards: []
+    });
+  },
+
+  submitCardSelection: () => {
+    const { selectedCards, cardSelectionCallback } = get();
+    if (cardSelectionCallback) {
+      cardSelectionCallback(selectedCards);
+    }
+  },
+
+  setQueenBomberRankCallback: (callback) => {
+    set({ queenBomberRankCallback: callback });
+  },
+
+  clearQueenBomberRankCallback: () => {
+    set({ queenBomberRankCallback: null });
+  },
+
+  showQueenBomberRankSelectionUI: () => {
+    set({ isQueenBomberRankSelectionEnabled: true });
+  },
+
+  hideQueenBomberRankSelectionUI: () => {
+    set({ isQueenBomberRankSelectionEnabled: false });
+  },
+
+  submitQueenBomberRank: (rank) => {
+    const { queenBomberRankCallback } = get();
+    if (queenBomberRankCallback) {
+      queenBomberRankCallback(rank);
+    }
+  },
+
+  getValidCombinations: () => {
+    const { gameState, engine, cardSelectionValidator } = get();
+    if (!gameState || !engine) return [];
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (!currentPlayer || currentPlayer.type !== PlayerType.HUMAN) {
+      return [];
+    }
+
+    // カード選択が有効でvalidatorがある場合
+    if (cardSelectionValidator) {
+      const handCards = currentPlayer.hand.getCards();
+      const combinations: Card[][] = [];
+
+      // すべての可能な組み合わせを試す（ビット全探索）
+      const n = handCards.length;
+      for (let mask = 1; mask < (1 << n); mask++) {
+        const combo: Card[] = [];
+        for (let i = 0; i < n; i++) {
+          if (mask & (1 << i)) {
+            combo.push(handCards[i]);
+          }
+        }
+
+        if (cardSelectionValidator.validate(combo)) {
+          combinations.push(combo);
+        }
+      }
+
+      return combinations;
+    }
+
+    // 通常の場合は既存のロジックを使用
+    const ruleEngine = engine.getRuleEngine();
+    return currentPlayer.hand.findAllValidPlays(
+      currentPlayer,
+      gameState.field,
+      gameState,
+      ruleEngine
+    );
+  },
+
+  getRuleEngine: () => {
+    const { engine } = get();
+    if (!engine) {
+      throw new Error('Engine not initialized');
+    }
+    return engine.getRuleEngine();
   },
 }));

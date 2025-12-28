@@ -1,7 +1,7 @@
 import { GameState } from '../../domain/game/GameState';
 import { TriggerEffect } from './TriggerEffectAnalyzer';
 import { EFFECT_DEFINITIONS, EffectContext } from './EffectDefinitions';
-import { GameEventEmitter } from '../events/GameEventEmitter';
+import { GameEventEmitter } from '../../domain/events/GameEventEmitter';
 
 /**
  * エフェクトハンドラー

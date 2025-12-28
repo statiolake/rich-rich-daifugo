@@ -11,12 +11,9 @@ export const HumanControl: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
   const selectedCards = useGameStore(state => state.selectedCards);
   const error = useGameStore(state => state.error);
-  const playCards = useGameStore(state => state.playCards);
-  const pass = useGameStore(state => state.pass);
   const clearError = useGameStore(state => state.clearError);
-  const executeSevenPass = useGameStore(state => state.executeSevenPass);
-  const executeTenDiscard = useGameStore(state => state.executeTenDiscard);
-  const executeQueenBomber = useGameStore(state => state.executeQueenBomber);
+  const submitCardSelection = useGameStore(state => state.submitCardSelection);
+  const submitQueenBomberRank = useGameStore(state => state.submitQueenBomberRank);
 
   // ウィンドウ高さを state で管理（リサイズ対応）
   const [screenHeight, setScreenHeight] = useState(window.innerHeight);
@@ -44,19 +41,19 @@ export const HumanControl: React.FC = () => {
 
   const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
 
-  // 特殊ルール選択が必要かを gameState.pendingSpecialRule から取得
-  const pendingSpecialRule = gameState.pendingSpecialRule;
-  const isPendingCardSelection = pendingSpecialRule?.type === 'sevenPass' || pendingSpecialRule?.type === 'tenDiscard';
-  const isPendingRankSelection = pendingSpecialRule?.type === 'queenBomber' && !pendingSpecialRule?.context?.selectedRank;
-  const selectionContext = pendingSpecialRule?.context;
+  // 特殊ルール選択が必要かを新しいアーキテクチャから取得
+  const isCardSelectionEnabled = useGameStore(state => state.isCardSelectionEnabled);
+  const isQueenBomberRankSelectionEnabled = useGameStore(state => state.isQueenBomberRankSelectionEnabled);
+  const cardSelectionValidator = useGameStore(state => state.cardSelectionValidator);
+  const isPendingCardSelection = isCardSelectionEnabled;
+  const isPendingRankSelection = isQueenBomberRankSelectionEnabled;
 
   // RuleEngine で出せるかを判定
   const ruleEngine = getRuleEngine();
 
-  // カード選択リクエスト時は単純に1枚選択されているかチェック
-  // TODO: 特殊ルール用のバリデーターを実装（10捨てなら10より弱いカードのみ、など）
+  // カード選択リクエスト時はvalidatorを使用
   const validationResult = isPendingCardSelection
-    ? { valid: selectedCards.length === 1 }
+    ? { valid: cardSelectionValidator ? cardSelectionValidator.validate(selectedCards) : false }
     : selectedCards.length > 0
     ? ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState)
     : { valid: false };
@@ -123,7 +120,7 @@ export const HumanControl: React.FC = () => {
             >
             {/* 説明テキスト */}
             <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
-              クイーンボンバー：全員が捨てるランクを選んでください
+              クイーンボンバー：捨てるランクを選んでください
             </div>
 
             {/* 全ランクのボタンを表示 */}
@@ -164,7 +161,7 @@ export const HumanControl: React.FC = () => {
               <button
                 onClick={() => {
                   const rank = selectedCards[0].rank;
-                  executeQueenBomber(humanPlayer.id.value, rank);
+                  submitQueenBomberRank(rank);
                 }}
                 className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
               >
@@ -183,21 +180,13 @@ export const HumanControl: React.FC = () => {
             >
             {/* 説明テキスト */}
             <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
-              {selectionContext?.message || 'カードを選んでください'}
+              カードを選んでください
             </div>
 
             {/* カード選択の確定ボタン */}
             {canPlaySelected && (
               <button
-                onClick={() => {
-                  if (pendingSpecialRule?.type === 'sevenPass' && selectedCards.length === 1) {
-                    executeSevenPass(humanPlayer.id.value, selectedCards[0]);
-                  } else if (pendingSpecialRule?.type === 'tenDiscard' && selectedCards.length === 1) {
-                    executeTenDiscard(humanPlayer.id.value, selectedCards[0]);
-                  } else if (pendingSpecialRule?.type === 'queenBomber' && pendingSpecialRule.context?.selectedRank) {
-                    executeQueenBomber(humanPlayer.id.value, undefined, selectedCards);
-                  }
-                }}
+                onClick={submitCardSelection}
                 className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
               >
                 決定
@@ -259,7 +248,7 @@ export const HumanControl: React.FC = () => {
                 </AnimatePresence>
 
                 <button
-                  onClick={() => playCards(selectedCards)}
+                  onClick={submitCardSelection}
                   className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
                 >
                   出す
@@ -270,7 +259,7 @@ export const HumanControl: React.FC = () => {
             {/* パスボタン：パスができる場合のみ表示 */}
             {canPass && (
               <button
-                onClick={pass}
+                onClick={submitCardSelection}
                 className={`
                   px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all cursor-pointer
                   ${shouldHighlightPass

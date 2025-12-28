@@ -144,7 +144,7 @@ export class PlayValidator {
   /**
    * マークしばりチェック
    */
-  private validateSuitLock(cards: Card[], lockedSuit: Suit): ValidationResult {
+  private validateSuitLock(cards: Card[], lockedSuit: string): ValidationResult {
     const allSameSuit = cards.every(card => card.suit === lockedSuit);
     if (!allSameSuit) {
       return {

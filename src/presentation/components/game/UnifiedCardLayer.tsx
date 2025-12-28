@@ -25,10 +25,11 @@ export const UnifiedCardLayer: React.FC = () => {
   const clearSelection = useGameStore(state => state.clearSelection);
   const humanPlayer = gameState ? LocalPlayerService.findLocalPlayer(gameState) : null;
 
-  // カード選択リクエスト・ランク選択リクエストの状態を取得
-  const pendingSpecialRule = gameState?.pendingSpecialRule;
-  const isPendingCardSelection = pendingSpecialRule?.type === 'sevenPass' || pendingSpecialRule?.type === 'tenDiscard';
-  const isPendingRankSelection = pendingSpecialRule?.type === 'queenBomber' && !pendingSpecialRule?.context?.selectedRank;
+  // カード選択リクエスト・ランク選択リクエストの状態を取得（新しいアーキテクチャ）
+  const isCardSelectionEnabled = useGameStore(state => state.isCardSelectionEnabled);
+  const isQueenBomberRankSelectionEnabled = useGameStore(state => state.isQueenBomberRankSelectionEnabled);
+  const isPendingCardSelection = isCardSelectionEnabled;
+  const isPendingRankSelection = isQueenBomberRankSelectionEnabled;
 
   // validatorがbottom type（すべて禁止）かどうかをチェック
   // TODO: 特殊ルール用のバリデーター実装が必要

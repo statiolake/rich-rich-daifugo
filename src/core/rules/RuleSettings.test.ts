@@ -18,7 +18,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
       const cardK_1 = CardFactory.create(Suit.SPADE, 'K');
       const cardK_2 = CardFactory.create(Suit.HEART, 'K');
       const cardK_3 = CardFactory.create(Suit.DIAMOND, 'K');
-      field.addPlay({ cards: [cardK_1, cardK_2, cardK_3], type: PlayType.TRIPLE, strength: 13, triggersRevolution: false }, player.id);
+      field.addPlay({ cards: [cardK_1, cardK_2, cardK_3], type: PlayType.TRIPLE, strength: 13 }, player.id);
 
       // 3のスリーカードを手札に追加
       const card3_1 = CardFactory.create(Suit.SPADE, '3');
@@ -44,7 +44,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
       const cardK_1 = CardFactory.create(Suit.SPADE, 'K');
       const cardK_2 = CardFactory.create(Suit.HEART, 'K');
       const cardK_3 = CardFactory.create(Suit.DIAMOND, 'K');
-      field.addPlay({ cards: [cardK_1, cardK_2, cardK_3], type: PlayType.TRIPLE, strength: 13, triggersRevolution: false }, player.id);
+      field.addPlay({ cards: [cardK_1, cardK_2, cardK_3], type: PlayType.TRIPLE, strength: 13 }, player.id);
 
       // 3のスリーカードを手札に追加
       const card3_1 = CardFactory.create(Suit.SPADE, '3');
@@ -113,7 +113,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
 
       // 場にJokerを出す（手動でJokerを作成）
       const joker = { id: 'JOKER-1', suit: Suit.JOKER, rank: 'JOKER' as const, strength: 15 };
-      field.addPlay({ cards: [joker], type: PlayType.SINGLE, strength: 15, triggersRevolution: false }, player.id);
+      field.addPlay({ cards: [joker], type: PlayType.SINGLE, strength: 15 }, player.id);
 
       // スペードの3を手札に追加
       const spade3 = CardFactory.create(Suit.SPADE, '3');
@@ -135,7 +135,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
 
       // 場にJokerを出す（手動でJokerを作成）
       const joker = { id: 'JOKER-1', suit: Suit.JOKER, rank: 'JOKER' as const, strength: 15 };
-      field.addPlay({ cards: [joker], type: PlayType.SINGLE, strength: 15, triggersRevolution: false }, player.id);
+      field.addPlay({ cards: [joker], type: PlayType.SINGLE, strength: 15 }, player.id);
 
       // スペードの3を手札に追加
       const spade3 = CardFactory.create(Suit.SPADE, '3');

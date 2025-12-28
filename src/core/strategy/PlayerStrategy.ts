@@ -2,7 +2,7 @@ import { Card, Rank } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
 import { Field } from '../domain/game/Field';
 import { GameState } from '../domain/game/GameState';
-import { ValidationResult } from '../rules/validators/BasicValidator';
+import { ValidationResult } from '../rules/base/RuleEngine';
 
 export interface PlayDecision {
   type: 'PLAY' | 'PASS';
@@ -66,3 +66,8 @@ export interface PlayerStrategy {
     player: Player
   ): Promise<Rank>;
 }
+
+/**
+ * CPUStrategy is an alias for PlayerStrategy (for backward compatibility)
+ */
+export type CPUStrategy = PlayerStrategy;

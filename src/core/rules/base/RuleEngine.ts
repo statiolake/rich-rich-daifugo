@@ -8,6 +8,9 @@ import { DEFAULT_RULE_SETTINGS } from '../../domain/game/RuleSettings';
 import { TriggerEffectAnalyzer } from '../effects/TriggerEffectAnalyzer';
 import { PlayAnalyzer } from '../../domain/card/Play';
 
+// Re-export ValidationResult for external use
+export type { ValidationResult };
+
 /**
  * ルールエンジン
  * PlayValidator を使用してバリデーションを行う
@@ -41,21 +44,7 @@ export class RuleEngine {
     };
 
     // バリデーション実行
-    const validationResult = this.validator.validate(player, cards, context);
-
-    // 有効なプレイの場合のみ、トリガーエフェクトを分析
-    if (validationResult.valid && cards.length > 0) {
-      const play = PlayAnalyzer.analyze(cards);
-      if (play) {
-        const triggerEffects = this.effectAnalyzer.analyze(play, gameState);
-        return {
-          ...validationResult,
-          triggerEffects: triggerEffects.length > 0 ? triggerEffects : undefined,
-        };
-      }
-    }
-
-    return validationResult;
+    return this.validator.validate(player, cards, context);
   }
 
   /**

@@ -1,6 +1,5 @@
 import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
-import { PlayerStrategy } from '../strategy/PlayerStrategy';
 import { Card } from '../domain/card/Card';
 import { PlayAnalyzer } from '../domain/card/Play';
 import { Player } from '../domain/player/Player';
@@ -8,28 +7,28 @@ import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { TriggerEffectAnalyzer, TriggerEffect } from '../rules/effects/TriggerEffectAnalyzer';
 import { EffectHandler } from '../rules/effects/EffectHandler';
-import { SpecialRuleExecutor } from './handlers/SpecialRuleExecutor';
 import { ConstraintChecker } from './handlers/ConstraintChecker';
 import { GameEndChecker } from './handlers/GameEndChecker';
 import { RankAssignmentService } from './handlers/RankAssignmentService';
+import { PlayerController, Validator } from '../domain/player/PlayerController';
+import { PresentationRequester, CutIn } from '../domain/presentation/PresentationRequester';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
   private effectAnalyzer: TriggerEffectAnalyzer;
   private effectHandler: EffectHandler;
-  private specialRuleExecutor: SpecialRuleExecutor;
   private constraintChecker: ConstraintChecker;
   private gameEndChecker: GameEndChecker;
   private rankAssignmentService: RankAssignmentService;
 
   constructor(
-    private strategyMap: Map<string, PlayerStrategy>,
+    private playerControllers: Map<string, PlayerController>,
     private ruleEngine: RuleEngine,
-    private eventBus?: GameEventEmitter
+    private eventBus: GameEventEmitter,
+    private presentationRequester: PresentationRequester
   ) {
     this.effectAnalyzer = new TriggerEffectAnalyzer();
     this.effectHandler = new EffectHandler(eventBus);
-    this.specialRuleExecutor = new SpecialRuleExecutor(strategyMap, eventBus);
     this.constraintChecker = new ConstraintChecker(eventBus);
     this.gameEndChecker = new GameEndChecker(ruleEngine);
     this.rankAssignmentService = new RankAssignmentService();
@@ -46,26 +45,50 @@ export class PlayPhase implements GamePhase {
     console.log(`Play phase started. Starting player: ${gameState.players[gameState.currentPlayerIndex].name}`);
   }
 
-  /**
-   * @deprecated ステップ実行モードでは使用しない。executePlay/executePassを使用。
-   */
   async update(gameState: GameState): Promise<GamePhaseType | null> {
-    throw new Error('update() is deprecated in step-execution mode. Use GameEngine.executePlay() or executePass() instead.');
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+
+    if (currentPlayer.isFinished) {
+      this.nextPlayer(gameState);
+      return null;
+    }
+
+    const controller = this.playerControllers.get(currentPlayer.id.value);
+    if (!controller) {
+      throw new Error(`Player controller not found for ${currentPlayer.id.value}`);
+    }
+
+    // バリデーターを作成
+    const validator: Validator = {
+      validate: (cards: Card[]) => {
+        if (cards.length === 0) return true; // パスは常に有効
+        return this.ruleEngine.validate(currentPlayer, cards, gameState.field, gameState).valid;
+      }
+    };
+
+    // プレイヤーにカード選択を要求
+    const selectedCards = await controller.chooseCardsInHand(validator);
+
+    if (selectedCards.length === 0) {
+      // パス
+      await this.handlePass(gameState, currentPlayer);
+    } else {
+      // プレイ
+      await this.handlePlay(gameState, currentPlayer, selectedCards);
+    }
+
+    return null;
   }
 
   async exit(gameState: GameState): Promise<void> {
     console.log('Play phase ended');
   }
 
-  /**
-   * プレイを処理（同期的）
-   * カットイン待機は削除され、エフェクトはイベント発火のみ行う
-   */
-  handlePlaySync(
+  private async handlePlay(
     gameState: GameState,
     player: Player,
     cards: Card[]
-  ): void {
+  ): Promise<void> {
     // 検証
     const validation = this.ruleEngine.validate(player, cards, gameState.field, gameState);
     if (!validation.valid) {
@@ -81,71 +104,71 @@ export class PlayPhase implements GamePhase {
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
-    // === エフェクトの検出と適用（リファクタリング済み） ===
-    // エフェクトを分析（ドメイン層で一括検出）
+    // エフェクトを分析
     const effects = this.effectAnalyzer.analyze(play, gameState);
 
-    // ラッキーセブンのリセット（新しいカードが出されたら、それがラッキーセブンでない限りリセット）
+    // ラッキーセブンのリセット
     if (gameState.luckySeven && !effects.includes('ラッキーセブン')) {
       console.log('ラッキーセブンが破られました');
       gameState.luckySeven = null;
     }
 
-    // マークしばりチェック（ルール有効時のみ）
+    // マークしばりチェック
     this.constraintChecker.updateSuitLock(gameState, play);
 
-    // 数字しばりチェック（ルール有効時のみ）
+    // 数字しばりチェック
     this.constraintChecker.updateNumberLock(gameState, play);
 
-    // === エフェクト適用（for-each パターン） ===
-    // すべてのエフェクトに対してイベントを発火し、状態を更新
+    // エフェクトを適用してカットインを収集
+    const cutIns: CutIn[] = [];
     for (const effect of effects) {
       this.applyEffect(effect, gameState, player);
+
+      // カットイン情報を収集
+      const cutInData = this.getCutInData(effect);
+      if (cutInData) {
+        cutIns.push(cutInData);
+      }
     }
 
-    // カットイン待機は削除（UIが自動的にアニメーション再生）
+    // カットインを表示（すべて完了まで待機）
+    if (cutIns.length > 0) {
+      await this.presentationRequester.requestCutIns(cutIns);
+    }
 
-    // カットイン完了後にソート（XORロジック反映）
+    // ソート
     if (effects.length > 0) {
       gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
     }
 
-    // 8切りが発動中の場合、次のプレイで場をクリア（4止めで止められていない場合）
-    let shouldClearFieldFromPreviousEightCut = false;
+    // 場のクリア判定
+    let shouldClearField = false;
     if (gameState.isEightCutPending && !effects.includes('4止め')) {
-      shouldClearFieldFromPreviousEightCut = true;
-      console.log('8切りが発動します（前のプレイで8が出された）');
+      shouldClearField = true;
+      console.log('8切りが発動します');
     }
-
-    // 4止めが発動した場合、8切りフラグをクリア（場はクリアしない）
     if (effects.includes('4止め')) {
-      console.log('4止めが発動しました！8切りを止めます');
+      console.log('4止めが発動しました！');
       gameState.isEightCutPending = false;
     }
-
-    // 8切り・救急車・ろくろ首の場合、場をクリア
-    const shouldClearField =
-      shouldClearFieldFromPreviousEightCut ||
-      effects.includes('救急車') ||
-      effects.includes('ろくろ首');
+    if (effects.includes('救急車') || effects.includes('ろくろ首')) {
+      shouldClearField = true;
+    }
 
     if (shouldClearField) {
       this.handleLuckySevenVictory(gameState);
       this.clearFieldAndResetState(gameState);
     }
 
-    // 場をクリアした場合は、手番を維持する（nextPlayerを呼ばない）
     const shouldKeepTurn = shouldClearField;
 
     // 大革命の即勝利処理
     if (effects.includes('大革命＋即勝利')) {
-      // 残りの手札をすべて削除して即座に上がり
       const remainingCards = player.hand.getCards();
       if (remainingCards.length > 0) {
         player.hand.remove([...remainingCards]);
       }
       this.handlePlayerFinish(gameState, player);
-      // 大革命で上がった場合は次のプレイヤーに進む
       if (!shouldKeepTurn) {
         this.nextPlayer(gameState);
       }
@@ -157,51 +180,39 @@ export class PlayPhase implements GamePhase {
       this.handlePlayerFinish(gameState, player);
     }
 
-    // 特殊ルール（7渡し、10捨て、クイーンボンバー）は gameState にフラグを立てる
-    // UIが検出して、別のフローで処理する
+    // 特殊ルール処理（await で待機）
     if (effects.includes('7渡し') && !player.hand.isEmpty()) {
-      gameState.pendingSpecialRule = {
-        type: 'sevenPass',
-        playerId: player.id.value
-      };
-      // nextPlayer() を呼ばずに、UIが7渡し処理を行うまで待機
+      await this.handleSevenPass(gameState, player);
+      this.nextPlayer(gameState);
       return;
     }
 
     if (effects.includes('10捨て') && !player.hand.isEmpty()) {
-      gameState.pendingSpecialRule = {
-        type: 'tenDiscard',
-        playerId: player.id.value
-      };
+      await this.handleTenDiscard(gameState, player);
+      this.nextPlayer(gameState);
       return;
     }
 
     if (effects.includes('クイーンボンバー')) {
-      gameState.pendingSpecialRule = {
-        type: 'queenBomber',
-        playerId: player.id.value
-      };
+      await this.handleQueenBomber(gameState, player);
+      this.nextPlayer(gameState);
       return;
     }
 
     // 5スキップ判定
     const shouldSkipNext = effects.includes('5スキップ');
 
-    // 場をクリアした場合は手番を維持する（nextPlayerを呼ばない）
+    // 次プレイヤーへ
     if (!shouldKeepTurn) {
       this.nextPlayer(gameState);
 
-      // 5スキップの場合は、さらにもう1人スキップ
       if (shouldSkipNext) {
         this.nextPlayer(gameState);
       }
     }
   }
 
-  /**
-   * パスを処理（同期的）
-   */
-  handlePassSync(gameState: GameState, player: Player): void {
+  private async handlePass(gameState: GameState, player: Player): Promise<void> {
     console.log(`${player.name} passed`);
 
     gameState.passCount++;
@@ -314,20 +325,62 @@ export class PlayPhase implements GamePhase {
   }
 
   /**
-   * 7渡し実行（同期的）
+   * エフェクトに応じたカットイン情報を取得
    */
-  executeSevenPassSync(gameState: GameState, player: Player, card: Card): void {
-    // カードの所有権チェック
-    if (!player.hand.getCards().some(c => c.id === card.id)) {
-      throw new Error('Card not in hand');
+  private getCutInData(effect: TriggerEffect): CutIn | null {
+    const cutInMap: Partial<Record<TriggerEffect, CutIn>> = {
+      '砂嵐': { effect: '砂嵐', variant: 'red' },
+      '革命': { effect: '革命', variant: 'red' },
+      '革命終了': { effect: '革命終了', variant: 'blue' },
+      'イレブンバック': { effect: 'イレブンバック', variant: 'blue' },
+      'イレブンバック解除': { effect: 'イレブンバック解除', variant: 'blue' },
+      '4止め': { effect: '4止め', variant: 'blue' },
+      '8切り': { effect: '8切り', variant: 'green' },
+      '救急車': { effect: '救急車', variant: 'red' },
+      'ろくろ首': { effect: 'ろくろ首', variant: 'red' },
+      'エンペラー': { effect: 'エンペラー', variant: 'gold' },
+      'エンペラー終了': { effect: 'エンペラー終了', variant: 'blue' },
+      'クーデター': { effect: 'クーデター', variant: 'red' },
+      'クーデター終了': { effect: 'クーデター終了', variant: 'blue' },
+      'オーメン': { effect: 'オーメン', variant: 'yellow' },
+      '大革命＋即勝利': { effect: '大革命＋即勝利', variant: 'gold' },
+      '5スキップ': { effect: '5スキップ', variant: 'blue' },
+      '7渡し': { effect: '7渡し', variant: 'blue' },
+      '10捨て': { effect: '10捨て', variant: 'red' },
+      'クイーンボンバー': { effect: 'クイーンボンバー', variant: 'red' },
+      '9リバース': { effect: '9リバース', variant: 'blue' },
+      'スペ3返し': { effect: 'スペ3返し', variant: 'green' },
+      'ダウンナンバー': { effect: 'ダウンナンバー', variant: 'blue' },
+      'ラッキーセブン': { effect: 'ラッキーセブン', variant: 'gold' },
+    };
+
+    return cutInMap[effect] || null;
+  }
+
+  /**
+   * 7渡し処理（非同期）
+   */
+  private async handleSevenPass(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
+
+    // バリデーター: 1枚だけ選択可能
+    const validator: Validator = {
+      validate: (cards: Card[]) => cards.length === 1
+    };
+
+    const cards = await controller.chooseCardsInHand(validator);
+    if (cards.length !== 1) {
+      throw new Error('Must select exactly 1 card for seven pass');
     }
+
+    const card = cards[0];
 
     // 次のプレイヤーを探す
     const direction = gameState.isReversed ? -1 : 1;
     const nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
     let nextPlayer = gameState.players[nextIndex];
 
-    // 上がっていないプレイヤーを探す
     let searchIndex = nextIndex;
     let attempts = 0;
     while (nextPlayer.isFinished && attempts < gameState.players.length) {
@@ -337,102 +390,86 @@ export class PlayPhase implements GamePhase {
     }
 
     if (!nextPlayer.isFinished) {
-      // カードを渡す
       player.hand.remove([card]);
       nextPlayer.hand.add([card]);
-
       console.log(`${player.name} が ${nextPlayer.name} に ${card.rank}${card.suit} を渡しました`);
 
-      // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
       nextPlayer.hand.sort(shouldReverse);
     }
 
-    // 手札が空になったら上がり
     if (player.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, player);
     }
-
-    // 次のプレイヤーに進む
-    this.nextPlayer(gameState);
   }
 
   /**
-   * 10捨て実行（同期的）
+   * 10捨て処理（非同期）
    */
-  executeTenDiscardSync(gameState: GameState, player: Player, card: Card): void {
-    // カードの所有権チェック
-    if (!player.hand.getCards().some(c => c.id === card.id)) {
-      throw new Error('Card not in hand');
-    }
+  private async handleTenDiscard(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
 
-    // 10より弱いカードかチェック（革命・11バックを考慮）
+    // バリデーター: 10より弱いカード1枚のみ
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    const tenStrength = shouldReverse ? 5 : 10; // 10のランク強さ（通常は10、革命時は5）
-    const cardStrength = this.getCardStrength(card.rank, shouldReverse);
+    const tenStrength = shouldReverse ? 5 : 10;
 
-    // 10より弱いか確認（shouldReverse時は強さが逆転）
-    const isWeakerThanTen = shouldReverse
-      ? cardStrength > tenStrength
-      : cardStrength < tenStrength;
+    const validator: Validator = {
+      validate: (cards: Card[]) => {
+        if (cards.length !== 1) return false;
+        const cardStrength = this.getCardStrength(cards[0].rank, shouldReverse);
+        return shouldReverse ? cardStrength > tenStrength : cardStrength < tenStrength;
+      }
+    };
 
-    if (!isWeakerThanTen) {
-      throw new Error('Card is not weaker than 10');
+    const cards = await controller.chooseCardsInHand(validator);
+    if (cards.length !== 1) {
+      throw new Error('Must select exactly 1 card for ten discard');
     }
 
-    // カードを捨てる
+    const card = cards[0];
     player.hand.remove([card]);
-
     console.log(`${player.name} が ${card.rank}${card.suit} を捨てました`);
 
-    // 手札が空になったら上がり
     if (player.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, player);
     }
-
-    // 次のプレイヤーに進む
-    this.nextPlayer(gameState);
   }
 
   /**
-   * クイーンボンバー実行（同期的）
+   * クイーンボンバー処理（非同期）
    */
-  executeQueenBomberSync(gameState: GameState, player: Player, rank?: string, cards?: Card[]): void {
-    // ランク選択フェーズ
-    if (rank && !cards) {
-      // contextにランクを保存
-      if (!gameState.pendingSpecialRule) {
-        throw new Error('No pending special rule');
-      }
-      gameState.pendingSpecialRule.context = { selectedRank: rank };
-      console.log(`クイーンボンバー：ランク ${rank} が指定されました`);
-      return;
-    }
+  private async handleQueenBomber(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
 
-    // カード捨てフェーズ
-    if (cards && gameState.pendingSpecialRule?.context?.selectedRank) {
-      const selectedRank = gameState.pendingSpecialRule.context.selectedRank;
+    // ランク選択
+    const rank = await controller.chooseRankForQueenBomber();
+    console.log(`クイーンボンバー：ランク ${rank} が指定されました`);
 
-      // 全カードが指定ランクか確認
-      const allMatchRank = cards.every(c => c.rank === selectedRank);
-      if (!allMatchRank) {
-        throw new Error(`All cards must be rank ${selectedRank}`);
-      }
+    // 全プレイヤーがカード選択
+    for (const p of gameState.players) {
+      if (p.isFinished) continue;
 
-      // カードの所有権チェック
-      const playerCards = player.hand.getCards();
-      const allOwned = cards.every(c => playerCards.some(pc => pc.id === c.id));
-      if (!allOwned) {
-        throw new Error('Not all cards are in hand');
-      }
+      const pController = this.playerControllers.get(p.id.value);
+      if (!pController) continue;
 
-      // カードを捨てる
-      player.hand.remove(cards);
-      console.log(`${player.name} が ${cards.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
+      // バリデーター: 指定ランクのカードのみ
+      const validator: Validator = {
+        validate: (cards: Card[]) => {
+          return cards.every(c => c.rank === rank);
+        }
+      };
 
-      // 手札が空になったら上がり
-      if (player.hand.isEmpty()) {
-        this.handlePlayerFinish(gameState, player);
+      const cards = await pController.chooseCardsInHand(validator);
+
+      if (cards.length > 0) {
+        p.hand.remove(cards);
+        console.log(`${p.name} が ${cards.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
+
+        if (p.hand.isEmpty()) {
+          this.handlePlayerFinish(gameState, p);
+        }
       }
     }
   }

@@ -27,6 +27,8 @@ describe('TriggerEffectAnalyzer', () => {
       numberLock: false,
       isReversed: false,
       isOmenActive: false,
+      luckySeven: null,
+      round: 1,
       ...overrides,
     };
   }
