@@ -88,31 +88,24 @@ export const UnifiedCardLayer: React.FC = () => {
       return legal; // 敵のターンは何も光らせない
     }
 
+    // isPendingPlayでなくても、自分のターンならカードを選択可能にする
+    // （場が流れた直後など、まだdecidePlay()が呼ばれていない状態でも選択できるようにする）
+
     // 選択したカードが部分集合になっている出せる手をすべて見つけ、
     // その手に含まれるカードの和集合を光らせる
-    if (selectedCards.length === 0) {
-      // 何も選択していない場合：すべての有効な手の全カードを光らせる
-      validCombinations.forEach((combo) => {
+    validCombinations.forEach((combo) => {
+      // この役が選択状態を部分集合として含むか確認
+      const isSubset = selectedCards.every((selectedCard) =>
+        combo.some((c) => c.id === selectedCard.id)
+      );
+
+      if (isSubset) {
+        // この役のすべてのカードを光らせる
         combo.forEach((card) => {
           legal.add(card.id);
         });
-      });
-    } else {
-      // カードを選択中の場合：選択済みカードを含む有効な手のみを光らせる
-      validCombinations.forEach((combo) => {
-        // この役が選択状態を部分集合として含むか確認
-        const isSubset = selectedCards.every((selectedCard) =>
-          combo.some((c) => c.id === selectedCard.id)
-        );
-
-        if (isSubset) {
-          // この役のすべてのカードを光らせる
-          combo.forEach((card) => {
-            legal.add(card.id);
-          });
-        }
-      });
-    }
+      }
+    });
 
     return legal;
   }, [validCombinations, selectedCards, humanPlayer, gameState, isValidatorBottomType, isPendingCardSelection, isPendingRankSelection]);
