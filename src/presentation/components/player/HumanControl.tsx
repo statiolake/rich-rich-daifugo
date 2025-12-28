@@ -1,6 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
-import { PlayerType } from '../../../core/domain/player/Player';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerService';
 import { useMemo, useState } from 'react';
@@ -47,8 +46,6 @@ export const HumanControl: React.FC = () => {
     return null;
   }
 
-  const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
-
   const isPendingCardSelection = isCardSelectionEnabled;
   const isPendingRankSelection = isQueenBomberRankSelectionEnabled;
 
@@ -62,13 +59,6 @@ export const HumanControl: React.FC = () => {
     ? ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState)
     : { valid: false };
   const canPlaySelected = validationResult.valid;
-
-  // 発動するエフェクトを取得
-  const triggerEffects = validationResult.triggeredEffects || [];
-
-  const canPass = ruleEngine.validate(humanPlayer, [], gameState.field, gameState).valid;
-  // パスを目立たせるのは、合法手が一つもないときだけ
-  const shouldHighlightPass = validCombinations.length === 0 && canPass;
 
   const needsSelection = isPendingCardSelection || isPendingRankSelection;
 
@@ -247,94 +237,6 @@ export const HumanControl: React.FC = () => {
                 </motion.div>
               );
             })()
-        ) : isHumanTurn ? (
-          <motion.div
-            key="buttons"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="flex justify-center gap-4 pointer-events-auto"
-          >
-            {/* 出すボタン：選択したカードが有効な場合のみ表示 */}
-            {canPlaySelected && (
-              <div className="relative inline-block">
-                {/* 効果プレビュー */}
-                <AnimatePresence>
-                  {(validationResult.reason || triggerEffects.length > 0) && selectedCards.length > 0 && (
-                    <div className="absolute bottom-full left-1/2 mb-3 w-screen max-w-4xl" style={{ transform: 'translateX(-50%)' }}>
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                        className="flex flex-col gap-2 items-center px-4"
-                      >
-                        {/* 理由（valid=trueなら緑、falseなら赤） */}
-                        {validationResult.reason && (
-                          <div
-                            className={`px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 whitespace-nowrap ${
-                              validationResult.valid
-                                ? 'bg-green-500 text-white border-green-300'
-                                : 'bg-red-500 text-white border-red-300'
-                            }`}
-                          >
-                            {validationResult.reason}
-                          </div>
-                        )}
-
-                        {/* 発動するイベント（黄色系バッジ） */}
-                        {triggerEffects.length > 0 && (
-                          <div className="flex flex-col gap-2 items-center max-w-full">
-                            {triggerEffects.map((effect: string, index: number) => (
-                              <div
-                                key={index}
-                                className="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-yellow-300 whitespace-nowrap"
-                              >
-                                {effect}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </motion.div>
-                    </div>
-                  )}
-                </AnimatePresence>
-
-                <button
-                  onClick={submitCardSelection}
-                  className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-blue-500 hover:bg-blue-600 text-white cursor-pointer"
-                >
-                  出す
-                </button>
-              </div>
-            )}
-
-            {/* パスボタン：パスができる場合のみ表示 */}
-            {canPass && (
-              <button
-                onClick={submitCardSelection}
-                className={`
-                  px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all cursor-pointer
-                  ${shouldHighlightPass
-                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse ring-2 ring-red-300'
-                    : 'bg-gray-600 hover:bg-gray-700 text-white'}
-                `}
-              >
-                パス
-              </button>
-            )}
-
-            {/* カード選択を促すメッセージ、または無効な選択の理由 */}
-            {!canPlaySelected && selectedCards.length === 0 && (
-              <div className="text-white text-lg font-bold opacity-75">場に出すカードを選んでください</div>
-            )}
-            {!canPlaySelected && selectedCards.length > 0 && validationResult.reason && (
-              <div className="bg-red-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-red-300 whitespace-nowrap">
-                {validationResult.reason}
-              </div>
-            )}
-          </motion.div>
         ) : (
           <motion.div
             key="waiting"
