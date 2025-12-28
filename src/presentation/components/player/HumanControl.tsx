@@ -27,6 +27,13 @@ export const HumanControl: React.FC = () => {
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
   const getRuleEngine = useGameStore(state => state.getRuleEngine);
   const cardSelectionValidatorForMemo = useGameStore(state => state.cardSelectionValidator);
+
+  // 特殊ルール選択が必要かを新しいアーキテクチャから取得（フックはすべて早期リターンの前に呼び出す）
+  const isCardSelectionEnabled = useGameStore(state => state.isCardSelectionEnabled);
+  const isQueenBomberRankSelectionEnabled = useGameStore(state => state.isQueenBomberRankSelectionEnabled);
+  const cardSelectionValidator = useGameStore(state => state.cardSelectionValidator);
+  const cardSelectionPrompt = useGameStore(state => state.cardSelectionPrompt);
+
   const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length, cardSelectionValidatorForMemo]);
 
   // すべてのフックを呼び出した後に早期リターンチェック
@@ -42,11 +49,6 @@ export const HumanControl: React.FC = () => {
 
   const isHumanTurn = currentPlayer.type === PlayerType.HUMAN && !currentPlayer.isFinished;
 
-  // 特殊ルール選択が必要かを新しいアーキテクチャから取得
-  const isCardSelectionEnabled = useGameStore(state => state.isCardSelectionEnabled);
-  const isQueenBomberRankSelectionEnabled = useGameStore(state => state.isQueenBomberRankSelectionEnabled);
-  const cardSelectionValidator = useGameStore(state => state.cardSelectionValidator);
-  const cardSelectionPrompt = useGameStore(state => state.cardSelectionPrompt);
   const isPendingCardSelection = isCardSelectionEnabled;
   const isPendingRankSelection = isQueenBomberRankSelectionEnabled;
 
