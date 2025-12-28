@@ -25,7 +25,7 @@ export class MockPlayerController implements PlayerController {
     this.rankChoices.push(rank);
   }
 
-  async chooseCardsInHand(validator: Validator): Promise<Card[]> {
+  async chooseCardsInHand(validator: Validator, _prompt?: string): Promise<Card[]> {
     if (this.cardChoiceIndex >= this.cardChoices.length) {
       throw new Error('No more card choices available in mock');
     }

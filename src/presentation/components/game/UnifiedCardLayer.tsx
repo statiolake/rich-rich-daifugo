@@ -69,14 +69,22 @@ export const UnifiedCardLayer: React.FC = () => {
 
     // 優先順位2: カード選択リクエストがある場合
     if (isPendingCardSelection) {
-      // TODO: 特殊ルール用のバリデーター実装が必要
-      // 現在はすべてのカードを選択可能にする
-      if (humanPlayer) {
-        const handCards = humanPlayer.hand.getCards();
-        handCards.forEach((card) => {
-          legal.add(card.id);
-        });
-      }
+      // validCombinations を使って有効な組み合わせに含まれるカードをハイライト
+      // 選択したカードが部分集合になっている出せる手をすべて見つけ、
+      // その手に含まれるカードの和集合を光らせる
+      validCombinations.forEach((combo) => {
+        // この役が選択状態を部分集合として含むか確認
+        const isSubset = selectedCards.every((selectedCard) =>
+          combo.some((c) => c.id === selectedCard.id)
+        );
+
+        if (isSubset) {
+          // この役のすべてのカードを光らせる
+          combo.forEach((card) => {
+            legal.add(card.id);
+          });
+        }
+      });
       return legal;
     }
 

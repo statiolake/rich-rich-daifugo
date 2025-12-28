@@ -15,7 +15,7 @@ export class CPUPlayerController implements PlayerController {
     private gameState: GameState
   ) {}
 
-  async chooseCardsInHand(validator: Validator): Promise<Card[]> {
+  async chooseCardsInHand(validator: Validator, _prompt?: string): Promise<Card[]> {
     // CPU思考時間をシミュレート
     await new Promise(resolve => setTimeout(resolve, 500));
 

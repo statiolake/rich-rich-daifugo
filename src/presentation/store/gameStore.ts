@@ -46,6 +46,7 @@ interface GameStore {
   cardSelectionCallback: ((cards: Card[]) => void) | null;
   queenBomberRankCallback: ((rank: string) => void) | null;
   cardSelectionValidator: Validator | null;
+  cardSelectionPrompt: string | null;
   isCardSelectionEnabled: boolean;
   isQueenBomberRankSelectionEnabled: boolean;
 
@@ -66,7 +67,7 @@ interface GameStore {
   // Callback methods for HumanPlayerController
   setCardSelectionCallback: (callback: (cards: Card[]) => void) => void;
   clearCardSelectionCallback: () => void;
-  enableCardSelection: (validator: Validator) => void;
+  enableCardSelection: (validator: Validator, prompt?: string) => void;
   disableCardSelection: () => void;
   submitCardSelection: () => void;
   setQueenBomberRankCallback: (callback: (rank: string) => void) => void;
@@ -92,6 +93,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cardSelectionCallback: null,
   queenBomberRankCallback: null,
   cardSelectionValidator: null,
+  cardSelectionPrompt: null,
   isCardSelectionEnabled: false,
   isQueenBomberRankSelectionEnabled: false,
 
@@ -221,6 +223,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       cardSelectionCallback: null,
       queenBomberRankCallback: null,
       cardSelectionValidator: null,
+      cardSelectionPrompt: null,
       isCardSelectionEnabled: false,
       isQueenBomberRankSelectionEnabled: false,
     });
@@ -293,9 +296,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ cardSelectionCallback: null });
   },
 
-  enableCardSelection: (validator) => {
+  enableCardSelection: (validator, prompt) => {
     set({
       cardSelectionValidator: validator,
+      cardSelectionPrompt: prompt || null,
       isCardSelectionEnabled: true,
       selectedCards: []
     });
@@ -305,6 +309,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       isCardSelectionEnabled: false,
       cardSelectionValidator: null,
+      cardSelectionPrompt: null,
       selectedCards: []
     });
   },

@@ -14,14 +14,14 @@ export class HumanPlayerController implements PlayerController {
     private playerId: string
   ) {}
 
-  async chooseCardsInHand(validator: Validator): Promise<Card[]> {
+  async chooseCardsInHand(validator: Validator, prompt?: string): Promise<Card[]> {
     // 1. コールバックを設定（Promise を作成）
     const resultPromise = new Promise<Card[]>((resolve) => {
       this.gameStore.setCardSelectionCallback(resolve);
     });
 
     // 2. UI を表示（validator を渡して、有効なカードのみハイライト）
-    this.gameStore.enableCardSelection(validator);
+    this.gameStore.enableCardSelection(validator, prompt);
 
     // 3. ユーザーの選択を待機
     const result = await resultPromise;

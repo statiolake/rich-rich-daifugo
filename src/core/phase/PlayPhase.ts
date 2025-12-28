@@ -369,7 +369,7 @@ export class PlayPhase implements GamePhase {
       validate: (cards: Card[]) => cards.length === 1
     };
 
-    const cards = await controller.chooseCardsInHand(validator);
+    const cards = await controller.chooseCardsInHand(validator, '7渡し：次のプレイヤーに渡すカードを1枚選んでください');
     if (cards.length !== 1) {
       throw new Error('Must select exactly 1 card for seven pass');
     }
@@ -422,7 +422,7 @@ export class PlayPhase implements GamePhase {
       }
     };
 
-    const cards = await controller.chooseCardsInHand(validator);
+    const cards = await controller.chooseCardsInHand(validator, '10捨て：10より弱いカードを1枚捨ててください');
     if (cards.length !== 1) {
       throw new Error('Must select exactly 1 card for ten discard');
     }
@@ -461,7 +461,7 @@ export class PlayPhase implements GamePhase {
         }
       };
 
-      const cards = await pController.chooseCardsInHand(validator);
+      const cards = await pController.chooseCardsInHand(validator, `クイーンボンバー：${rank}を捨ててください`);
 
       if (cards.length > 0) {
         p.hand.remove(cards);

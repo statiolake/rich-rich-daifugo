@@ -45,6 +45,7 @@ export const HumanControl: React.FC = () => {
   const isCardSelectionEnabled = useGameStore(state => state.isCardSelectionEnabled);
   const isQueenBomberRankSelectionEnabled = useGameStore(state => state.isQueenBomberRankSelectionEnabled);
   const cardSelectionValidator = useGameStore(state => state.cardSelectionValidator);
+  const cardSelectionPrompt = useGameStore(state => state.cardSelectionPrompt);
   const isPendingCardSelection = isCardSelectionEnabled;
   const isPendingRankSelection = isQueenBomberRankSelectionEnabled;
 
@@ -178,10 +179,12 @@ export const HumanControl: React.FC = () => {
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className="flex flex-col items-center gap-4 pointer-events-auto"
             >
-            {/* 説明テキスト */}
-            <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
-              カードを選んでください
-            </div>
+            {/* 説明テキスト：リード文がある場合のみ表示 */}
+            {cardSelectionPrompt && (
+              <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
+                {cardSelectionPrompt}
+              </div>
+            )}
 
             {/* カード選択の確定ボタン */}
             {canPlaySelected && (

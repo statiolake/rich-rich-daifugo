@@ -24,9 +24,10 @@ export interface PlayerController {
    * - クイーンボンバー: validator が指定ランクのみ許可
    *
    * @param validator カード選択のバリデーター
+   * @param prompt UIに表示するリード文（通常プレイ時はundefined）
    * @returns 選択されたカードの配列（パスの場合は空配列）
    */
-  chooseCardsInHand(validator: Validator): Promise<Card[]>;
+  chooseCardsInHand(validator: Validator, prompt?: string): Promise<Card[]>;
 
   /**
    * クイーンボンバー用のランクを選択
