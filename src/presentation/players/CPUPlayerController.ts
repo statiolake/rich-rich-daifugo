@@ -19,48 +19,53 @@ export class CPUPlayerController implements PlayerController {
     // CPU思考時間をシミュレート
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // 通常プレイかどうかチェック（validator が空配列を許可するかで判定）
+    const handCards = this.player.hand.getCards();
+
+    // ビット全探索で validator を満たすすべての組み合わせを列挙
+    const validCombinations: Card[][] = [];
+    const n = handCards.length;
+
+    for (let mask = 0; mask < (1 << n); mask++) {
+      const combo: Card[] = [];
+      for (let i = 0; i < n; i++) {
+        if (mask & (1 << i)) {
+          combo.push(handCards[i]);
+        }
+      }
+
+      if (validator.validate(combo)) {
+        validCombinations.push(combo);
+      }
+    }
+
+    // 有効な手がない場合（通常はありえないが念のため）
+    if (validCombinations.length === 0) {
+      return [];
+    }
+
+    // 通常プレイかどうかチェック（空配列が有効かどうか）
     const canPass = validator.validate([]);
 
     if (canPass) {
-      // 通常プレイ: CPUStrategy を使用
-      const decision = await this.strategy.decidePlay(
-        this.player,
-        this.gameState.field,
-        this.gameState
-      );
+      // 通常プレイ: パス以外の手がある場合、50%の確率でパス
+      const nonPassCombos = validCombinations.filter(c => c.length > 0);
 
-      if (decision.type === 'PLAY' && decision.cards) {
-        return decision.cards;
+      if (nonPassCombos.length === 0) {
+        return []; // パスしかできない
       }
 
-      return []; // パス
-    }
-
-    // 特殊ルール用のカード選択: validator で有効なカードを列挙してランダム選択
-    const handCards = this.player.hand.getCards();
-
-    // すべての可能な組み合わせを試す（1枚選択の場合）
-    const validCards = handCards.filter(c => validator.validate([c]));
-    if (validCards.length > 0) {
-      return [validCards[Math.floor(Math.random() * validCards.length)]];
-    }
-
-    // 複数枚選択の場合（クイーンボンバー）: 指定ランクのカードをすべて選択
-    // validator が手札のすべてのカードを許可するかチェック
-    const cardsByRank = new Map<string, Card[]>();
-    for (const card of handCards) {
-      if (!cardsByRank.has(card.rank)) {
-        cardsByRank.set(card.rank, []);
+      if (!this.gameState.field.isEmpty() && Math.random() < 0.5) {
+        return []; // パス
       }
-      cardsByRank.get(card.rank)!.push(card);
+
+      // ランダムに選択
+      return nonPassCombos[Math.floor(Math.random() * nonPassCombos.length)];
     }
 
-    // 各ランクのカードグループをチェック
-    for (const cards of cardsByRank.values()) {
-      if (validator.validate(cards)) {
-        return cards;
-      }
+    // 特殊ルール用のカード選択: 有効な組み合わせからランダムに選択
+    const nonEmptyCombos = validCombinations.filter(c => c.length > 0);
+    if (nonEmptyCombos.length > 0) {
+      return nonEmptyCombos[Math.floor(Math.random() * nonEmptyCombos.length)];
     }
 
     return [];
