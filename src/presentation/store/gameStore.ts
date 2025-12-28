@@ -30,6 +30,7 @@ export interface RuleCutInData {
   duration?: number;
   delay?: number;
   verticalPosition?: string;
+  onComplete?: () => void; // カットイン完了時のコールバック
 }
 
 interface GameStore {
@@ -230,15 +231,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   enqueueCutIn: async (cutIn) => {
-    set(state => ({ cutInQueue: [...state.cutInQueue, cutIn] }));
-    get().processQueue();
+    return new Promise<void>((resolve) => {
+      const cutInWithCallback: RuleCutInData = {
+        ...cutIn,
+        onComplete: resolve,
+      };
+      set(state => ({ cutInQueue: [...state.cutInQueue, cutInWithCallback] }));
+      get().processQueue();
+    });
   },
 
   removeCutIn: (id) => {
+    // カットインを削除する前に onComplete コールバックを取得
+    const { activeCutIns } = get();
+    const removedCutIn = activeCutIns.find(c => c.id === id);
+
     set(state => ({ activeCutIns: state.activeCutIns.filter(c => c.id !== id) }));
 
-    const { activeCutIns, cutInResolve, cutInQueue } = get();
-    if (activeCutIns.length === 0) {
+    // カットインが削除されたら onComplete を呼び出す
+    if (removedCutIn?.onComplete) {
+      removedCutIn.onComplete();
+    }
+
+    const { activeCutIns: remainingCutIns, cutInResolve, cutInQueue } = get();
+    if (remainingCutIns.length === 0) {
       if (cutInResolve) {
         cutInResolve();
         set({ cutInResolve: null });
