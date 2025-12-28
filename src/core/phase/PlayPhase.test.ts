@@ -14,12 +14,10 @@ describe('PlayPhase - 11バック機能', () => {
     ruleEngine = new RuleEngine();
     strategyMap = new Map();
     playPhase = new PlayPhase(strategyMap, ruleEngine);
-    // waitForCutInFnをモック（即座に解決）
-    playPhase.setWaitForCutIn(async () => {});
   });
 
   describe('11バックの発動', () => {
-    it('Jが出されたときに11バックが発動する', async () => {
+    it('Jが出されたときに11バックが発動する', () => {
       // プレイヤー作成
       const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
@@ -37,22 +35,14 @@ describe('PlayPhase - 11バック機能', () => {
       // 初期状態では11バックはfalse
       expect(gameState.isElevenBack).toBe(false);
 
-      // 戦略設定（手札の中のJを出す）
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [jackCard]
-        })
-      });
-
       // Jを出す
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [jackCard]);
 
       // 11バックが発動したことを確認
       expect(gameState.isElevenBack).toBe(true);
     });
 
-    it('Jが再度出されたときに11バックが解除される', async () => {
+    it('Jが再度出されたときに11バックが解除される', () => {
       // プレイヤー作成
       const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
@@ -70,32 +60,18 @@ describe('PlayPhase - 11バック機能', () => {
       gameState.isElevenBack = false;
 
       // 1回目のJ
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [jack1]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [jack1]);
       expect(gameState.isElevenBack).toBe(true);
 
       // 2回目のJ
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [jack2]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [jack2]);
       expect(gameState.isElevenBack).toBe(false);
     });
   });
 
   describe('11バックのリセット', () => {
-    it('場が流れたときに11バックがリセットされる', async () => {
+    it('場が流れたときに11バックがリセットされる', () => {
       // 4人プレイヤー作成
       const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
@@ -116,36 +92,19 @@ describe('PlayPhase - 11バック機能', () => {
       gameState.isElevenBack = false;
 
       // Player1がJを出して11バック発動
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [jackCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [jackCard]);
       expect(gameState.isElevenBack).toBe(true);
 
       // Player2, 3, 4がパス
-      strategyMap.set(player2.id.value, {
-        decidePlay: async () => ({ type: 'PASS' })
-      });
-      strategyMap.set(player3.id.value, {
-        decidePlay: async () => ({ type: 'PASS' })
-      });
-      strategyMap.set(player4.id.value, {
-        decidePlay: async () => ({ type: 'PASS' })
-      });
-
-      await playPhase.update(gameState); // Player2パス
-      await playPhase.update(gameState); // Player3パス
-      await playPhase.update(gameState); // Player4パス（場が流れる）
+      playPhase.handlePassSync(gameState, player2); // Player2パス
+      playPhase.handlePassSync(gameState, player3); // Player3パス
+      playPhase.handlePassSync(gameState, player4); // Player4パス（場が流れる）
 
       // 11バックがリセットされたことを確認
       expect(gameState.isElevenBack).toBe(false);
     });
 
-    it('新しいラウンド開始時に11バックがリセットされる', async () => {
+    it('新しいラウンド開始時に11バックがリセットされる', () => {
       // プレイヤー作成
       const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
@@ -156,13 +115,13 @@ describe('PlayPhase - 11バック機能', () => {
       gameState.isElevenBack = true; // 11バックがactive
 
       // 新しいラウンド開始
-      await playPhase.enter(gameState);
+      playPhase.enter(gameState);
 
       // 11バックがリセットされたことを確認
       expect(gameState.isElevenBack).toBe(false);
     });
 
-    it('8切りで場が流れたときに11バックがリセットされる', async () => {
+    it('8切りで場が流れたときに11バックがリセットされる', () => {
       // プレイヤー作成
       const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
@@ -183,55 +142,27 @@ describe('PlayPhase - 11バック機能', () => {
       gameState.isElevenBack = false;
 
       // Player1が3を出す
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [threeCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [threeCard]);
 
       // Player1がJを出して11バック発動
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [jackCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [jackCard]);
       expect(gameState.isElevenBack).toBe(true);
 
       // Player1が2を出す（11バック中は2の方が弱いとみなされる）
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [twoCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [twoCard]);
 
       // Player1が8を出す（11バック中は8の方が弱いとみなされる＆8切り発動）
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [eightCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [eightCard]);
 
       // 8切りで場が流れて11バックがリセットされたことを確認
       expect(gameState.isElevenBack).toBe(false);
       expect(gameState.field.isEmpty()).toBe(true);
     });
 
-    it('救急車（9x2）で場が流れたときに11バックがリセットされる', async () => {
+    it('救急車（9x2）で場が流れたときに11バックがリセットされる', () => {
       // プレイヤー作成
       const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
@@ -254,55 +185,27 @@ describe('PlayPhase - 11バック機能', () => {
       gameState.isElevenBack = false;
 
       // Player1が3を出す
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [threeCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [threeCard]);
 
       // Player1がJを出して11バック発動
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [jackCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [jackCard]);
       expect(gameState.isElevenBack).toBe(true);
 
       // Player1がQ,Qを出す（11バック中は弱いとみなされる）
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [queen1, queen2]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [queen1, queen2]);
 
       // Player1が9,9（救急車）を出す（11バック中は弱いとみなされる）
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [nine1, nine2]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [nine1, nine2]);
 
       // 救急車で場が流れて11バックがリセットされたことを確認
       expect(gameState.isElevenBack).toBe(false);
       expect(gameState.field.isEmpty()).toBe(true);
     });
 
-    it('ろくろ首（6x2）で場が流れたときに11バックがリセットされる', async () => {
+    it('ろくろ首（6x2）で場が流れたときに11バックがリセットされる', () => {
       // プレイヤー作成
       const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
@@ -325,48 +228,20 @@ describe('PlayPhase - 11バック機能', () => {
       gameState.isElevenBack = false;
 
       // Player1が3を出す
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [threeCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [threeCard]);
 
       // Player1がJを出して11バック発動
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [jackCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [jackCard]);
       expect(gameState.isElevenBack).toBe(true);
 
       // Player1が9,9を出す（11バック中は弱いとみなされる）
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [nine1, nine2]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [nine1, nine2]);
 
       // Player1が6,6（ろくろ首）を出す（11バック中は弱いとみなされる）
       gameState.currentPlayerIndex = 0;
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [six1, six2]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [six1, six2]);
 
       // ろくろ首で場が流れて11バックがリセットされたことを確認
       expect(gameState.isElevenBack).toBe(false);
@@ -375,7 +250,7 @@ describe('PlayPhase - 11バック機能', () => {
   });
 
   describe('革命との組み合わせ', () => {
-    it('革命中にJを出すと両方activeになる（XORで通常に戻る）', async () => {
+    it('革命中にJを出すと両方activeになる（XORで通常に戻る）', () => {
       // プレイヤー作成
       const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
@@ -393,14 +268,7 @@ describe('PlayPhase - 11バック機能', () => {
       gameState.isElevenBack = false;
 
       // Jを出す
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [jackCard]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [jackCard]);
 
       // 両方がtrueになっている
       expect(gameState.isRevolution).toBe(true);
@@ -413,7 +281,7 @@ describe('PlayPhase - 11バック機能', () => {
       expect(shouldReverse).toBe(false);
     });
 
-    it('JJJJ（4枚出し）で革命と11バックが両方発動する', async () => {
+    it('JJJJ（4枚出し）で革命と11バックが両方発動する', () => {
       // プレイヤー作成
       const player1 = createPlayer('p1', 'Player 1', PlayerType.CPU);
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
@@ -434,14 +302,7 @@ describe('PlayPhase - 11バック機能', () => {
       gameState.isElevenBack = false;
 
       // JJJJ（4枚）を出す
-      strategyMap.set(player1.id.value, {
-        decidePlay: async () => ({
-          type: 'PLAY',
-          cards: [jack1, jack2, jack3, jack4]
-        })
-      });
-
-      await playPhase.update(gameState);
+      playPhase.handlePlaySync(gameState, player1, [jack1, jack2, jack3, jack4]);
 
       // 革命と11バックの両方が発動している
       expect(gameState.isRevolution).toBe(true);

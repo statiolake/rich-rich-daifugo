@@ -25,6 +25,11 @@ export interface GameState {
   round: number;
   phase: GamePhaseType;
   ruleSettings: RuleSettings;
+  pendingSpecialRule?: {
+    type: 'sevenPass' | 'tenDiscard' | 'queenBomber';
+    playerId: string;
+    context?: any; // クイーンボンバーのランク選択など
+  };
 }
 
 export function createGameState(players: Player[], ruleSettings: RuleSettings = DEFAULT_RULE_SETTINGS): GameState {

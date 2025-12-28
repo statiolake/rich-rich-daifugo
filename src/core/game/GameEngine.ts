@@ -7,9 +7,8 @@ import { ResultPhase } from '../phase/ResultPhase';
 import { PlayerStrategy } from '../strategy/PlayerStrategy';
 import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
-import { createPlayer } from '../domain/player/Player';
+import { createPlayer, Player } from '../domain/player/Player';
 import { Card } from '../domain/card/Card';
-import { HumanStrategy } from '../strategy/HumanStrategy';
 
 export class GameEngine {
   private gameState: GameState;
@@ -18,8 +17,6 @@ export class GameEngine {
   private eventEmitter: GameEventEmitter;
   private strategyMap: Map<string, PlayerStrategy>;
   private ruleEngine: RuleEngine;
-  private isRunning: boolean = false;
-  private shouldStop: boolean = false;
 
   constructor(config: GameConfig, eventEmitter: GameEventEmitter) {
     this.eventEmitter = eventEmitter;
@@ -54,76 +51,106 @@ export class GameEngine {
     this.currentPhase = this.phases.get(GamePhaseType.SETUP)!;
   }
 
-  setWaitForCutIn(fn: () => Promise<void>): void {
-    const playPhase = this.phases.get(GamePhaseType.PLAY) as PlayPhase;
-    if (playPhase) {
-      playPhase.setWaitForCutIn(fn);
-    }
+  /**
+   * ゲームを初期化する（同期的）
+   * SETUP フェーズに入り、カードを配布してから PLAY フェーズに移行する
+   */
+  initialize(): void {
+    // SETUP フェーズに入る（カード配布など）
+    this.currentPhase.enter(this.gameState);
+    this.eventEmitter.emit('game:started', { gameState: this.getState() });
+
+    // PLAY フェーズに移行
+    this.transitionPhase(GamePhaseType.PLAY);
+
+    this.eventEmitter.emit('state:updated', { gameState: this.getState() });
   }
 
-  async start(): Promise<void> {
-    if (this.isRunning) {
-      console.warn('Game is already running');
-      return;
+  /**
+   * プレイを実行（同期的）
+   * @param playerId プレイヤーID
+   * @param cards プレイするカード
+   */
+  executePlay(playerId: string, cards: Card[]): void {
+    const currentPlayer = this.gameState.players[this.gameState.currentPlayerIndex];
+
+    // プレイヤー検証
+    if (currentPlayer.id.value !== playerId) {
+      throw new Error('Not your turn');
     }
 
-    this.isRunning = true;
-    this.shouldStop = false;
-
-    try {
-      await this.currentPhase.enter(this.gameState);
-      this.eventEmitter.emit('game:started', { gameState: this.getState() });
-      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
-
-      await this.runGameLoop();
-    } catch (error) {
-      console.error('Error in game loop:', error);
-      this.isRunning = false;
-      throw error;
+    if (currentPlayer.isFinished) {
+      throw new Error('Player already finished');
     }
+
+    // PlayPhase.handlePlaySync() を呼び出す（同期的）
+    const playPhase = this.currentPhase as PlayPhase;
+    playPhase.handlePlaySync(this.gameState, currentPlayer, cards);
+
+    // ゲーム終了チェック
+    this.checkPhaseTransition();
+
+    // 状態更新イベント
+    this.eventEmitter.emit('state:updated', { gameState: this.getState() });
   }
 
-  stop(): void {
-    this.shouldStop = true;
-    this.isRunning = false;
-  }
+  /**
+   * パスを実行（同期的）
+   * @param playerId プレイヤーID
+   */
+  executePass(playerId: string): void {
+    const currentPlayer = this.gameState.players[this.gameState.currentPlayerIndex];
 
-  private async runGameLoop(): Promise<void> {
-    while (this.gameState.phase !== GamePhaseType.RESULT && !this.shouldStop) {
-      // 現在のフェーズを更新
-      const nextPhaseType = await this.currentPhase.update(this.gameState);
-
-      // 状態が更新されたことを通知
-      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
-
-      // フェーズ遷移が必要な場合
-      if (nextPhaseType) {
-        await this.transitionPhase(nextPhaseType);
-      }
-
-      // UIの更新を待つ（フレーム単位で動作）
-      await this.waitForFrame();
+    if (currentPlayer.id.value !== playerId) {
+      throw new Error('Not your turn');
     }
 
-    // 結果フェーズに入ったら一度だけ更新を実行
-    if (this.gameState.phase === GamePhaseType.RESULT) {
-      await this.currentPhase.update(this.gameState);
-      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
+    const playPhase = this.currentPhase as PlayPhase;
+    playPhase.handlePassSync(this.gameState, currentPlayer);
+
+    this.checkPhaseTransition();
+    this.eventEmitter.emit('state:updated', { gameState: this.getState() });
+  }
+
+  /**
+   * 現在のプレイヤーを取得
+   */
+  getCurrentPlayer(): Player {
+    return this.gameState.players[this.gameState.currentPlayerIndex];
+  }
+
+  /**
+   * 指定プレイヤーの入力待ちか判定
+   */
+  isWaitingForPlayer(playerId: string): boolean {
+    if (this.gameState.phase !== GamePhaseType.PLAY) {
+      return false;
+    }
+    const currentPlayer = this.getCurrentPlayer();
+    return currentPlayer.id.value === playerId && !currentPlayer.isFinished;
+  }
+
+  /**
+   * フェーズ遷移チェック
+   */
+  private checkPhaseTransition(): void {
+    const remainingPlayers = this.gameState.players.filter(p => !p.isFinished).length;
+
+    if (remainingPlayers <= 1) {
+      this.transitionPhase(GamePhaseType.RESULT);
       this.eventEmitter.emit('game:ended', { gameState: this.getState() });
     }
-
-    this.isRunning = false;
   }
 
-  private async transitionPhase(nextPhaseType: GamePhaseType): Promise<void> {
+  private transitionPhase(nextPhaseType: GamePhaseType): void {
     const fromPhase = this.currentPhase.type;
 
-    await this.currentPhase.exit(this.gameState);
+    this.currentPhase.exit(this.gameState);
 
     this.gameState.phase = nextPhaseType;
     this.currentPhase = this.phases.get(nextPhaseType)!;
 
-    await this.currentPhase.enter(this.gameState);
+    this.currentPhase.enter(this.gameState);
 
     this.eventEmitter.emit('phase:changed', {
       from: fromPhase,
@@ -142,67 +169,5 @@ export class GameEngine {
 
   getRuleEngine(): RuleEngine {
     return this.ruleEngine;
-  }
-
-  /**
-   * HumanStrategy インスタンスを取得する
-   */
-  getHumanStrategy(): HumanStrategy | null {
-    for (const strategy of this.strategyMap.values()) {
-      if (strategy instanceof HumanStrategy) {
-        return strategy;
-      }
-    }
-    return null;
-  }
-
-  isGameRunning(): boolean {
-    return this.isRunning;
-  }
-
-  /**
-   * カード選択を処理する（7渡し、10捨て、クイーンボンバー用）
-   * HumanPlayerの場合、HumanStrategyのsubmitCardSelectionを呼び出す
-   */
-  handleCardSelection(playerId: string, selectedCards: Card[]): void {
-    if (this.gameState.phase !== GamePhaseType.PLAY) {
-      return;
-    }
-
-    const strategy = this.strategyMap.get(playerId);
-    if (!strategy) {
-      console.error(`Strategy not found for player ${playerId}`);
-      return;
-    }
-
-    // HumanStrategyの場合、submitCardSelectionを呼び出してPromiseを解決
-    if (strategy instanceof HumanStrategy) {
-      strategy.submitCardSelection(selectedCards);
-    }
-  }
-
-  /**
-   * ランク選択を処理する（クイーンボンバー選択用）
-   * HumanPlayerの場合、HumanStrategyのsubmitRankSelectionを呼び出す
-   */
-  handleRankSelection(playerId: string, rank: string): void {
-    if (this.gameState.phase !== GamePhaseType.PLAY) {
-      return;
-    }
-
-    const strategy = this.strategyMap.get(playerId);
-    if (!strategy) {
-      console.error(`Strategy not found for player ${playerId}`);
-      return;
-    }
-
-    // HumanStrategyの場合、submitRankSelectionを呼び出してPromiseを解決
-    if (strategy instanceof HumanStrategy) {
-      strategy.submitRankSelection(rank as any);
-    }
-  }
-
-  private async waitForFrame(): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay for better UX
   }
 }

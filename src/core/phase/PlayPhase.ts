@@ -15,7 +15,6 @@ import { RankAssignmentService } from './handlers/RankAssignmentService';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
-  private waitForCutInFn?: () => Promise<void>;
   private effectAnalyzer: TriggerEffectAnalyzer;
   private effectHandler: EffectHandler;
   private specialRuleExecutor: SpecialRuleExecutor;
@@ -36,11 +35,6 @@ export class PlayPhase implements GamePhase {
     this.rankAssignmentService = new RankAssignmentService();
   }
 
-  setWaitForCutIn(fn: () => Promise<void>): void {
-    this.waitForCutInFn = fn;
-    this.specialRuleExecutor.setWaitForCutIn(fn);
-  }
-
   async enter(gameState: GameState): Promise<void> {
     this.clearFieldAndResetState(gameState, true);
     gameState.isReversed = false; // リバースをリセット
@@ -52,55 +46,30 @@ export class PlayPhase implements GamePhase {
     console.log(`Play phase started. Starting player: ${gameState.players[gameState.currentPlayerIndex].name}`);
   }
 
+  /**
+   * @deprecated ステップ実行モードでは使用しない。executePlay/executePassを使用。
+   */
   async update(gameState: GameState): Promise<GamePhaseType | null> {
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-
-    // 既に上がっているプレイヤーはスキップ
-    if (currentPlayer.isFinished) {
-      this.nextPlayer(gameState);
-      return null;
-    }
-
-    // プレイヤーの戦略を取得
-    const strategy = this.strategyMap.get(currentPlayer.id.value);
-    if (!strategy) {
-      throw new Error(`Strategy not found for player ${currentPlayer.id.value}`);
-    }
-
-    // 戦略に基づいて行動決定
-    const decision = await strategy.decidePlay(currentPlayer, gameState.field, gameState);
-
-    if (decision.type === 'PLAY' && decision.cards) {
-      await this.handlePlay(gameState, currentPlayer, decision.cards);
-    } else {
-      await this.handlePass(gameState, currentPlayer);
-    }
-
-    // ゲーム終了チェック
-    const nextPhase = this.gameEndChecker.checkGameEnd(gameState, this.handlePlayerFinish.bind(this));
-    if (nextPhase) {
-      return nextPhase;
-    }
-
-    return null; // 継続
+    throw new Error('update() is deprecated in step-execution mode. Use GameEngine.executePlay() or executePass() instead.');
   }
 
   async exit(gameState: GameState): Promise<void> {
     console.log('Play phase ended');
   }
 
-  private async handlePlay(
+  /**
+   * プレイを処理（同期的）
+   * カットイン待機は削除され、エフェクトはイベント発火のみ行う
+   */
+  handlePlaySync(
     gameState: GameState,
     player: Player,
     cards: Card[]
-  ): Promise<void> {
+  ): void {
     // 検証
     const validation = this.ruleEngine.validate(player, cards, gameState.field, gameState);
     if (!validation.valid) {
-      console.error(`Invalid play by ${player.name}: ${validation.reason}`);
-      // CPUの場合は自動的にパスさせる
-      await this.handlePass(gameState, player);
-      return;
+      throw new Error(`Invalid play: ${validation.reason}`);
     }
 
     const play = PlayAnalyzer.analyze(cards)!;
@@ -134,12 +103,7 @@ export class PlayPhase implements GamePhase {
       this.applyEffect(effect, gameState, player);
     }
 
-    // 全イベント発火後に1回だけ待機
-    if (effects.length > 0 && this.waitForCutInFn) {
-      console.log('[PlayPhase] Waiting for cut-in animations...');
-      await this.waitForCutInFn();
-      console.log('[PlayPhase] Cut-in animations completed, resuming game...');
-    }
+    // カットイン待機は削除（UIが自動的にアニメーション再生）
 
     // カットイン完了後にソート（XORロジック反映）
     if (effects.length > 0) {
@@ -193,19 +157,31 @@ export class PlayPhase implements GamePhase {
       this.handlePlayerFinish(gameState, player);
     }
 
-    // 7渡し判定（手札から1枚を次のプレイヤーに渡す）
+    // 特殊ルール（7渡し、10捨て、クイーンボンバー）は gameState にフラグを立てる
+    // UIが検出して、別のフローで処理する
     if (effects.includes('7渡し') && !player.hand.isEmpty()) {
-      await this.specialRuleExecutor.executeSevenPass(gameState, player, this.handlePlayerFinish.bind(this));
+      gameState.pendingSpecialRule = {
+        type: 'sevenPass',
+        playerId: player.id.value
+      };
+      // nextPlayer() を呼ばずに、UIが7渡し処理を行うまで待機
+      return;
     }
 
-    // 10捨て判定（手札から1枚を捨てる）
     if (effects.includes('10捨て') && !player.hand.isEmpty()) {
-      await this.specialRuleExecutor.executeTenDiscard(gameState, player, this.handlePlayerFinish.bind(this));
+      gameState.pendingSpecialRule = {
+        type: 'tenDiscard',
+        playerId: player.id.value
+      };
+      return;
     }
 
-    // クイーンボンバー判定（全員が指定されたカードを捨てる）
     if (effects.includes('クイーンボンバー')) {
-      await this.specialRuleExecutor.executeQueenBomber(gameState, player, this.handlePlayerFinish.bind(this));
+      gameState.pendingSpecialRule = {
+        type: 'queenBomber',
+        playerId: player.id.value
+      };
+      return;
     }
 
     // 5スキップ判定
@@ -222,7 +198,10 @@ export class PlayPhase implements GamePhase {
     }
   }
 
-  private async handlePass(gameState: GameState, player: Player): Promise<void> {
+  /**
+   * パスを処理（同期的）
+   */
+  handlePassSync(gameState: GameState, player: Player): void {
     console.log(`${player.name} passed`);
 
     gameState.passCount++;

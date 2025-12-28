@@ -92,6 +92,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         // CardPositionStoreを同期
         useCardPositionStore.getState().syncWithGameState(data.gameState);
+
+        // CPUのターンなら自動実行（少し遅延を入れてUIを見やすくする）
+        const currentPlayer = data.gameState.players[data.gameState.currentPlayerIndex];
+        if (currentPlayer && !currentPlayer.isFinished && currentPlayer.type !== PlayerType.HUMAN) {
+          setTimeout(() => {
+            get().executeCPUTurn();
+          }, 800); // 0.8秒の遅延でCPUの思考を演出
+        }
       });
 
       eventBus.on('game:started', (data) => {
@@ -180,16 +188,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
       });
 
-      // カットイン待機関数を注入
-      engine.setWaitForCutIn(get().waitForCutIn);
-
       set({ engine, error: null });
 
-      // ゲームを開始
-      engine.start().catch(error => {
-        console.error('Game error:', error);
-        set({ error: error.message });
-      });
+      // ゲームを初期化（同期的）
+      engine.initialize();
+
+      // 初期状態を設定
+      set({ gameState: { ...engine.getState() } });
     } catch (error) {
       console.error('Failed to start game:', error);
       set({ error: (error as Error).message });
@@ -217,27 +222,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // RuleEngine で検証
-    const ruleEngine = engine.getRuleEngine();
-    const validation = ruleEngine.validate(
-      currentPlayer,
-      cardsToPlay,
-      gameState.field,
-      gameState
-    );
+    try {
+      // GameEngine.executePlay() を呼び出す（同期的）
+      engine.executePlay(currentPlayer.id.value, cardsToPlay);
 
-    if (!validation.valid) {
-      // 無効な手の場合はエラーメッセージを表示
-      set({ error: validation.reason || '無効な手です' });
-      return;
-    }
-
-    // 有効な手の場合、エラーをクリアしてHumanStrategyに通知
-    set({ error: null });
-    const strategy = engine.getStrategyMap().get(currentPlayer.id.value);
-    if (strategy instanceof HumanStrategy) {
-      strategy.submitPlay(cardsToPlay);
-      set({ selectedCards: [] });
+      // 成功したらエラーをクリアして選択解除
+      set({ error: null, selectedCards: [] });
+    } catch (error) {
+      // エラーが発生した場合はエラーメッセージを表示
+      set({ error: (error as Error).message });
     }
   },
 
@@ -254,21 +247,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    // パスできるか RuleEngine で検証
-    const ruleEngine = engine.getRuleEngine();
-    const canPassResult = ruleEngine.canPass(gameState.field);
+    try {
+      // GameEngine.executePass() を呼び出す（同期的）
+      engine.executePass(currentPlayer.id.value);
 
-    if (!canPassResult.valid) {
-      set({ error: canPassResult.reason || 'パスできません' });
-      return;
-    }
-
-    // パス可能な場合、エラーをクリアしてHumanStrategyに通知
-    set({ error: null });
-    const strategy = engine.getStrategyMap().get(currentPlayer.id.value);
-    if (strategy instanceof HumanStrategy) {
-      strategy.submitPass();
-      set({ selectedCards: [] });
+      // 成功したらエラーをクリアして選択解除
+      set({ error: null, selectedCards: [] });
+    } catch (error) {
+      // エラーが発生した場合はエラーメッセージを表示
+      set({ error: (error as Error).message });
     }
   },
 
@@ -467,11 +454,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
-  reset: () => {
+  /**
+   * CPUのターンを実行する
+   * CPUStrategy を使って判断し、executePlay または executePass を呼び出す
+   */
+  executeCPUTurn: () => {
     const { engine } = get();
-    if (engine) {
-      engine.stop();
+    if (!engine) return;
+
+    const gameState = engine.getState();
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+
+    // CPUプレイヤーでない場合は何もしない
+    if (currentPlayer.type === PlayerType.HUMAN) {
+      return;
     }
+
+    if (currentPlayer.isFinished) {
+      return;
+    }
+
+    // CPU戦略を取得
+    const strategy = engine.getStrategyMap().get(currentPlayer.id.value);
+    if (!strategy) {
+      console.error(`Strategy not found for CPU player ${currentPlayer.id.value}`);
+      return;
+    }
+
+    // 戦略に基づいて行動決定（同期的）
+    const decision = strategy.decidePlay(currentPlayer, gameState.field, gameState);
+
+    try {
+      if (decision.type === 'PLAY' && decision.cards) {
+        engine.executePlay(currentPlayer.id.value, decision.cards);
+      } else {
+        engine.executePass(currentPlayer.id.value);
+      }
+    } catch (error) {
+      // 無効なプレイの場合はパス
+      console.error(`CPU play failed, passing instead:`, error);
+      try {
+        engine.executePass(currentPlayer.id.value);
+      } catch (passError) {
+        console.error(`CPU pass also failed:`, passError);
+      }
+    }
+  },
+
+  reset: () => {
     set({
       engine: null,
       gameState: null,

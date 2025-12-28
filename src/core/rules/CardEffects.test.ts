@@ -54,7 +54,7 @@ describe('Card Effects Tests', () => {
       // まず5を出して場にカードを置く
       const card5 = CardFactory.create(Suit.HEART, '5');
       humanPlayer.hand.add([card5]);
-      playPhase['handlePlay'](state, humanPlayer, [card5]);
+      playPhase.handlePlaySync(state, humanPlayer, [card5]);
 
       // 場にカードがあることを確認
       expect(state.field.isEmpty()).toBe(false);
@@ -64,7 +64,7 @@ describe('Card Effects Tests', () => {
       humanPlayer.hand.add([card8]);
 
       // 8を出す
-      playPhase['handlePlay'](state, humanPlayer, [card8]);
+      playPhase.handlePlaySync(state, humanPlayer, [card8]);
 
       // 場がクリアされているはず
       expect(state.field.isEmpty()).toBe(true);
@@ -88,7 +88,7 @@ describe('Card Effects Tests', () => {
       const playPhase = new PlayPhase(new Map(), ruleEngine, eventBus);
 
       // 8を出す
-      playPhase['handlePlay'](state, humanPlayer, [card8]);
+      playPhase.handlePlaySync(state, humanPlayer, [card8]);
 
       // 8を出したプレイヤーが手番を維持する
       expect(state.currentPlayerIndex).toBe(initialPlayerIndex);
@@ -113,7 +113,7 @@ describe('Card Effects Tests', () => {
       const playPhase = new PlayPhase(new Map(), ruleEngine, eventBus);
 
       // 9のペアを出す
-      playPhase['handlePlay'](state, humanPlayer, [card9_1, card9_2]);
+      playPhase.handlePlaySync(state, humanPlayer, [card9_1, card9_2]);
 
       // 場がクリアされているはず
       expect(state.field.isEmpty()).toBe(true);
@@ -139,7 +139,7 @@ describe('Card Effects Tests', () => {
       const playPhase = new PlayPhase(new Map(), ruleEngine, eventBus);
 
       // 救急車を出す
-      playPhase['handlePlay'](state, humanPlayer, [card9_1, card9_2]);
+      playPhase.handlePlaySync(state, humanPlayer, [card9_1, card9_2]);
 
       // 救急車を出したプレイヤーが手番を維持する
       expect(state.currentPlayerIndex).toBe(initialPlayerIndex);
@@ -164,7 +164,7 @@ describe('Card Effects Tests', () => {
       const playPhase = new PlayPhase(new Map(), ruleEngine, eventBus);
 
       // 6のペアを出す
-      playPhase['handlePlay'](state, humanPlayer, [card6_1, card6_2]);
+      playPhase.handlePlaySync(state, humanPlayer, [card6_1, card6_2]);
 
       // 場がクリアされているはず
       expect(state.field.isEmpty()).toBe(true);
@@ -189,7 +189,7 @@ describe('Card Effects Tests', () => {
       const playPhase = new PlayPhase(new Map(), ruleEngine, eventBus);
 
       // ろくろ首を出す
-      playPhase['handlePlay'](state, humanPlayer, [card6_1, card6_2]);
+      playPhase.handlePlaySync(state, humanPlayer, [card6_1, card6_2]);
 
       // ろくろ首を出したプレイヤーが手番を維持する
       expect(state.currentPlayerIndex).toBe(initialPlayerIndex);
@@ -214,7 +214,7 @@ describe('Card Effects Tests', () => {
       // まず5を出して場にカードを置く
       const card5 = CardFactory.create(Suit.HEART, '5');
       humanPlayer.hand.add([card5]);
-      playPhase['handlePlay'](state, humanPlayer, [card5]);
+      playPhase.handlePlaySync(state, humanPlayer, [card5]);
 
       // 場にカードがあることを確認
       expect(state.field.isEmpty()).toBe(false);
@@ -222,7 +222,7 @@ describe('Card Effects Tests', () => {
       // 8を出す
       const card8 = CardFactory.create(Suit.SPADE, '8');
       humanPlayer.hand.add([card8]);
-      playPhase['handlePlay'](state, humanPlayer, [card8]);
+      playPhase.handlePlaySync(state, humanPlayer, [card8]);
 
       // ISSUE: 8を出した時点で場がクリアされ、8切りフラグもリセットされてしまう
       // 実装を修正後は以下のようにすべき：
@@ -253,7 +253,7 @@ describe('Card Effects Tests', () => {
       // スペードを出す
       const cardSpade1 = CardFactory.create(Suit.SPADE, '5');
       humanPlayer.hand.add([cardSpade1]);
-      playPhase['handlePlay'](state, humanPlayer, [cardSpade1]);
+      playPhase.handlePlaySync(state, humanPlayer, [cardSpade1]);
 
       // まだ縛りは発動していない
       expect(state.suitLock).toBeNull();
@@ -261,7 +261,7 @@ describe('Card Effects Tests', () => {
       // もう一度スペードを出す
       const cardSpade2 = CardFactory.create(Suit.SPADE, '6');
       humanPlayer.hand.add([cardSpade2]);
-      playPhase['handlePlay'](state, humanPlayer, [cardSpade2]);
+      playPhase.handlePlaySync(state, humanPlayer, [cardSpade2]);
 
       // 縛りが発動しているはず
       expect(state.suitLock).toBe('SPADE');
@@ -289,7 +289,7 @@ describe('Card Effects Tests', () => {
       const card4 = CardFactory.create(Suit.SPADE, '4');
       const card5 = CardFactory.create(Suit.SPADE, '5');
       humanPlayer.hand.add([card3, card4, card5]);
-      playPhase['handlePlay'](state, humanPlayer, [card3, card4, card5]);
+      playPhase.handlePlaySync(state, humanPlayer, [card3, card4, card5]);
 
       // まだ数字しばりは発動していない
       expect(state.numberLock).toBe(false);
@@ -299,7 +299,7 @@ describe('Card Effects Tests', () => {
       const card5h = CardFactory.create(Suit.HEART, '5');
       const card6h = CardFactory.create(Suit.HEART, '6');
       humanPlayer.hand.add([card4h, card5h, card6h]);
-      playPhase['handlePlay'](state, humanPlayer, [card4h, card5h, card6h]);
+      playPhase.handlePlaySync(state, humanPlayer, [card4h, card5h, card6h]);
 
       // 数字しばりが発動しているはず
       expect(state.numberLock).toBe(true);
@@ -322,7 +322,7 @@ describe('Card Effects Tests', () => {
       // 5を出す
       const card5 = CardFactory.create(Suit.SPADE, '5');
       humanPlayer.hand.add([card5]);
-      playPhase['handlePlay'](state, humanPlayer, [card5]);
+      playPhase.handlePlaySync(state, humanPlayer, [card5]);
 
       // 2人スキップされているはず（通常の進行 + 5スキップの1人分）
       const expectedIndex = (initialPlayerIndex + 2) % state.players.length;
@@ -348,7 +348,7 @@ describe('Card Effects Tests', () => {
       // 9を出す
       const card9 = CardFactory.create(Suit.SPADE, '9');
       humanPlayer.hand.add([card9]);
-      playPhase['handlePlay'](state, humanPlayer, [card9]);
+      playPhase.handlePlaySync(state, humanPlayer, [card9]);
 
       // リバースされているはず
       expect(state.isReversed).toBe(true);
@@ -372,7 +372,7 @@ describe('Card Effects Tests', () => {
       const card3_3 = CardFactory.create(Suit.DIAMOND, '3');
       const card3_4 = CardFactory.create(Suit.CLUB, '3');
       humanPlayer.hand.add([card3_1, card3_2, card3_3, card3_4]);
-      playPhase['handlePlay'](state, humanPlayer, [card3_1, card3_2, card3_3, card3_4]);
+      playPhase.handlePlaySync(state, humanPlayer, [card3_1, card3_2, card3_3, card3_4]);
 
       // 革命が発動しているはず
       expect(state.isRevolution).toBe(true);
@@ -397,7 +397,7 @@ describe('Card Effects Tests', () => {
       const cardS5 = CardFactory.create(Suit.SPADE, '5');
       const cardS6 = CardFactory.create(Suit.SPADE, '6');
       humanPlayer.hand.add([cardS3, cardS4, cardS5, cardS6]);
-      playPhase['handlePlay'](state, humanPlayer, [cardS3, cardS4, cardS5, cardS6]);
+      playPhase.handlePlaySync(state, humanPlayer, [cardS3, cardS4, cardS5, cardS6]);
 
       // 革命は発動しない（階段では革命は発動しない）
       expect(state.isRevolution).toBe(false);
@@ -423,7 +423,7 @@ describe('Card Effects Tests', () => {
       const card9_2 = CardFactory.create(Suit.HEART, '9');
       const card9_3 = CardFactory.create(Suit.DIAMOND, '9');
       humanPlayer.hand.add([card9_1, card9_2, card9_3]);
-      playPhase['handlePlay'](state, humanPlayer, [card9_1, card9_2, card9_3]);
+      playPhase.handlePlaySync(state, humanPlayer, [card9_1, card9_2, card9_3]);
 
       // 革命が発動しているはず
       expect(state.isRevolution).toBe(true);
@@ -445,7 +445,7 @@ describe('Card Effects Tests', () => {
       const card6_2 = CardFactory.create(Suit.HEART, '6');
       const card6_3 = CardFactory.create(Suit.DIAMOND, '6');
       humanPlayer.hand.add([card6_1, card6_2, card6_3]);
-      playPhase['handlePlay'](state, humanPlayer, [card6_1, card6_2, card6_3]);
+      playPhase.handlePlaySync(state, humanPlayer, [card6_1, card6_2, card6_3]);
 
       // 革命が発動し、オーメンフラグが立っているはず
       expect(state.isRevolution).toBe(true);
@@ -457,7 +457,7 @@ describe('Card Effects Tests', () => {
       const card3_3 = CardFactory.create(Suit.DIAMOND, '3');
       const card3_4 = CardFactory.create(Suit.CLUB, '3');
       humanPlayer.hand.add([card3_1, card3_2, card3_3, card3_4]);
-      playPhase['handlePlay'](state, humanPlayer, [card3_1, card3_2, card3_3, card3_4]);
+      playPhase.handlePlaySync(state, humanPlayer, [card3_1, card3_2, card3_3, card3_4]);
 
       // 革命は発動しない（オーメンが有効）
       expect(state.isRevolution).toBe(true); // 元のまま
@@ -482,7 +482,7 @@ describe('Card Effects Tests', () => {
       const cardJ = CardFactory.create(Suit.SPADE, 'J');
       const card3 = CardFactory.create(Suit.HEART, '3');
       humanPlayer.hand.add([cardJ, card3]);
-      playPhase['handlePlay'](state, humanPlayer, [cardJ]);
+      playPhase.handlePlaySync(state, humanPlayer, [cardJ]);
 
       // 11バックが発動しているはず
       expect(state.isElevenBack).toBe(true);
@@ -551,7 +551,7 @@ describe('Card Effects Tests', () => {
       const card2_3 = CardFactory.create(Suit.DIAMOND, '2');
       const card2_4 = CardFactory.create(Suit.CLUB, '2');
       humanPlayer.hand.add([card2_1, card2_2, card2_3, card2_4]);
-      playPhase['handlePlay'](state, humanPlayer, [card2_1, card2_2, card2_3, card2_4]);
+      playPhase.handlePlaySync(state, humanPlayer, [card2_1, card2_2, card2_3, card2_4]);
 
       // FIXED: 大革命は通常の革命を発動させないため、革命フラグはtrueのまま
       expect(state.isRevolution).toBe(true);
@@ -578,7 +578,7 @@ describe('Card Effects Tests', () => {
       const card2_2 = CardFactory.create(Suit.HEART, '2');
       const card2_3 = CardFactory.create(Suit.DIAMOND, '2');
       humanPlayer.hand.add([card2_1, card2_2, card2_3]);
-      playPhase['handlePlay'](state, humanPlayer, [card2_1, card2_2, card2_3]);
+      playPhase.handlePlaySync(state, humanPlayer, [card2_1, card2_2, card2_3]);
 
       // 3のスリーカードを出す
       const card3_1 = CardFactory.create(Suit.SPADE, '3');
@@ -607,7 +607,7 @@ describe('Card Effects Tests', () => {
       // Jokerを場に置く
       const cardJoker = CardFactory.create(Suit.SPADE, 'JOKER');
       humanPlayer.hand.add([cardJoker]);
-      playPhase['handlePlay'](state, humanPlayer, [cardJoker]);
+      playPhase.handlePlaySync(state, humanPlayer, [cardJoker]);
 
       // スペードの3を出す
       const cardSpade3 = CardFactory.create(Suit.SPADE, '3');
@@ -634,7 +634,7 @@ describe('Card Effects Tests', () => {
       // スペードの5を場に置く
       const cardSpade5 = CardFactory.create(Suit.SPADE, '5');
       humanPlayer.hand.add([cardSpade5]);
-      playPhase['handlePlay'](state, humanPlayer, [cardSpade5]);
+      playPhase.handlePlaySync(state, humanPlayer, [cardSpade5]);
 
       // スペードの4を出す（1つ下）
       const cardSpade4 = CardFactory.create(Suit.SPADE, '4');
