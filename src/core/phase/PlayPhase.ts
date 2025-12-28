@@ -166,28 +166,34 @@ export class PlayPhase implements GamePhase {
       return;
     }
 
+    // 特殊ルール処理（await で待機）
+    // 注意: 手札が空になる前に処理する必要があるルール（Qボンバー）と、
+    //       手札が空でない場合のみ処理するルール（7渡し、10捨て）がある
+
+    // Qボンバーは手札が空になる前に処理（上がり判定の前）
+    // 他のプレイヤーがカードを捨てる処理なので、自分が上がっても実行する
+    if (effects.includes('クイーンボンバー')) {
+      // 出されたQの枚数がターゲット数になる
+      const queenCount = cards.filter(c => c.rank === 'Q').length;
+      await this.handleQueenBomber(gameState, player, queenCount);
+    }
+
     // 手札が空になったら上がり
     if (player.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, player);
+      this.nextPlayer(gameState);
+      return;
     }
 
-    // 特殊ルール処理（await で待機）
-    if (effects.includes('7渡し') && !player.hand.isEmpty()) {
+    // 以下は手札が残っている場合のみ処理
+    if (effects.includes('7渡し')) {
       await this.handleSevenPass(gameState, player);
       this.nextPlayer(gameState);
       return;
     }
 
-    if (effects.includes('10捨て') && !player.hand.isEmpty()) {
+    if (effects.includes('10捨て')) {
       await this.handleTenDiscard(gameState, player);
-      this.nextPlayer(gameState);
-      return;
-    }
-
-    if (effects.includes('クイーンボンバー')) {
-      // 出されたQの枚数がターゲット数になる
-      const queenCount = cards.filter(c => c.rank === 'Q').length;
-      await this.handleQueenBomber(gameState, player, queenCount);
       this.nextPlayer(gameState);
       return;
     }
