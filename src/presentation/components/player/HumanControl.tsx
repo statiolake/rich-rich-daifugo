@@ -171,31 +171,76 @@ export const HumanControl: React.FC = () => {
             )}
           </motion.div>
         ) : isPendingCardSelection ? (
-            <motion.div
-              key="card-selection"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className="flex flex-col items-center gap-4 pointer-events-auto"
-            >
-            {/* 説明テキスト：リード文がある場合のみ表示 */}
-            {cardSelectionPrompt && (
-              <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
-                {cardSelectionPrompt}
-              </div>
-            )}
+            (() => {
+              // パスが有効かチェック
+              const isPassValid = cardSelectionValidator ? cardSelectionValidator.validate([]) : false;
+              // 選択なし = パス
+              const isPassSelected = selectedCards.length === 0;
+              // パスしか有効な手がないかチェック
+              const isOnlyPassValid = isPassValid && validCombinations.length === 0;
+              // 現在の選択が有効か
+              const isCurrentSelectionValid = isPassSelected ? isPassValid : canPlaySelected;
+              // ボタンの文言
+              const buttonText = isPassSelected ? 'パス' : '決定';
+              // invalidな理由を取得
+              const invalidReason = !isCurrentSelectionValid && selectedCards.length > 0
+                ? (cardSelectionValidator ? '選択されたカードの組み合わせは無効です' : '')
+                : (!isCurrentSelectionValid && isPassSelected && !isPassValid ? 'パスできません' : '');
 
-            {/* カード選択の確定ボタン */}
-            {canPlaySelected && (
-              <button
-                onClick={submitCardSelection}
-                className="px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all bg-green-500 hover:bg-green-600 text-white cursor-pointer"
-              >
-                決定
-              </button>
-            )}
-          </motion.div>
+              return (
+                <motion.div
+                  key="card-selection"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  className="flex flex-col items-center gap-4 pointer-events-auto"
+                >
+                  {/* 説明テキスト：リード文がある場合のみ表示 */}
+                  {cardSelectionPrompt && (
+                    <div className="text-white text-lg font-bold bg-blue-600 px-6 py-3 rounded-lg">
+                      {cardSelectionPrompt}
+                    </div>
+                  )}
+
+                  {/* 決定/パスボタン */}
+                  <div className="relative inline-block">
+                    {/* invalid時の理由表示 */}
+                    <AnimatePresence>
+                      {invalidReason && (
+                        <div className="absolute bottom-full left-1/2 mb-3" style={{ transform: 'translateX(-50%)' }}>
+                          <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                            className="bg-red-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-red-300 whitespace-nowrap"
+                          >
+                            {invalidReason}
+                          </motion.div>
+                        </div>
+                      )}
+                    </AnimatePresence>
+
+                    <button
+                      onClick={isCurrentSelectionValid ? submitCardSelection : undefined}
+                      disabled={!isCurrentSelectionValid}
+                      className={`
+                        px-8 py-4 text-xl font-bold rounded-lg shadow-lg transition-all
+                        ${isCurrentSelectionValid
+                          ? isOnlyPassValid
+                            ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse ring-2 ring-red-300 cursor-pointer'
+                            : 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
+                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                        }
+                      `}
+                    >
+                      {buttonText}
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })()
         ) : isHumanTurn ? (
           <motion.div
             key="buttons"
