@@ -1,11 +1,12 @@
 import { Card } from '../card/Card';
+import { ValidationResult } from '../../rules/validators/PlayValidator';
 
 /**
  * カード選択のバリデーター
  * 選択されたカードの組み合わせが有効かどうかを判定
  */
 export interface Validator {
-  validate(cards: Card[]): boolean;
+  validate(cards: Card[]): ValidationResult;
 }
 
 /**

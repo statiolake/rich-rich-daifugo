@@ -368,7 +368,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           }
         }
 
-        if (cardSelectionValidator.validate(combo)) {
+        if (cardSelectionValidator.validate(combo).valid) {
           combinations.push(combo);
         }
       }

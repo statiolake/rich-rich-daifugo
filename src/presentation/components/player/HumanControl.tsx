@@ -57,16 +57,16 @@ export const HumanControl: React.FC = () => {
 
   // カード選択リクエスト時はvalidatorを使用
   const validationResult = isPendingCardSelection
-    ? { valid: cardSelectionValidator ? cardSelectionValidator.validate(selectedCards) : false }
+    ? (cardSelectionValidator ? cardSelectionValidator.validate(selectedCards) : { valid: false })
     : selectedCards.length > 0
     ? ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState)
     : { valid: false };
   const canPlaySelected = validationResult.valid;
 
-  // トリガーエフェクトは実際のプレイ時に発火するため、ここでは空配列
-  const triggerEffects: string[] = [];
+  // 発動するエフェクトを取得
+  const triggerEffects = validationResult.triggeredEffects || [];
 
-  const canPass = ruleEngine.canPass(gameState.field).valid;
+  const canPass = ruleEngine.validate(humanPlayer, [], gameState.field, gameState).valid;
   // パスを目立たせるのは、合法手が一つもないときだけ
   const shouldHighlightPass = validCombinations.length === 0 && canPass;
 
@@ -176,7 +176,8 @@ export const HumanControl: React.FC = () => {
         ) : isPendingCardSelection ? (
             (() => {
               // パスが有効かチェック
-              const isPassValid = cardSelectionValidator ? cardSelectionValidator.validate([]) : false;
+              const passValidationResult = cardSelectionValidator ? cardSelectionValidator.validate([]) : { valid: false };
+              const isPassValid = passValidationResult.valid;
               // 選択なし = パス
               const isPassSelected = selectedCards.length === 0;
               // パスしか有効な手がないかチェック
@@ -185,10 +186,12 @@ export const HumanControl: React.FC = () => {
               const isCurrentSelectionValid = isPassSelected ? isPassValid : canPlaySelected;
               // ボタンの文言
               const buttonText = isPassSelected ? 'パス' : '決定';
-              // invalidな理由を取得
-              const invalidReason = !isCurrentSelectionValid && selectedCards.length > 0
-                ? (cardSelectionValidator ? '選択されたカードの組み合わせは無効です' : '')
-                : (!isCurrentSelectionValid && isPassSelected && !isPassValid ? 'パスできません' : '');
+              // invalidな理由を取得（validationResultから取得）
+              const invalidReason = !isCurrentSelectionValid
+                ? (isPassSelected
+                  ? (passValidationResult.reason || 'パスできません')
+                  : (validationResult.reason || '選択されたカードの組み合わせは無効です'))
+                : '';
 
               return (
                 <motion.div
@@ -322,9 +325,14 @@ export const HumanControl: React.FC = () => {
               </button>
             )}
 
-            {/* カード選択を促すメッセージ */}
-            {!canPlaySelected && !canPass && selectedCards.length === 0 && (
+            {/* カード選択を促すメッセージ、または無効な選択の理由 */}
+            {!canPlaySelected && selectedCards.length === 0 && (
               <div className="text-white text-lg font-bold opacity-75">場に出すカードを選んでください</div>
+            )}
+            {!canPlaySelected && selectedCards.length > 0 && validationResult.reason && (
+              <div className="bg-red-500 text-white px-4 py-2 rounded-md font-bold shadow-lg text-sm border-2 border-red-300 whitespace-nowrap">
+                {validationResult.reason}
+              </div>
             )}
           </motion.div>
         ) : (

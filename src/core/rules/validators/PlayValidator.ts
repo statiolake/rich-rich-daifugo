@@ -9,6 +9,8 @@ import { RuleContext } from '../context/RuleContext';
 export interface ValidationResult {
   valid: boolean;
   reason?: string;
+  /** 発動するエフェクト（validの場合のみ有効） */
+  triggeredEffects?: string[];
 }
 
 /**

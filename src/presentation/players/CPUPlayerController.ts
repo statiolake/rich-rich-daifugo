@@ -33,7 +33,7 @@ export class CPUPlayerController implements PlayerController {
         }
       }
 
-      if (validator.validate(combo)) {
+      if (validator.validate(combo).valid) {
         validCombinations.push(combo);
       }
     }
@@ -44,7 +44,7 @@ export class CPUPlayerController implements PlayerController {
     }
 
     // 通常プレイかどうかチェック（空配列が有効かどうか）
-    const canPass = validator.validate([]);
+    const canPass = validator.validate([]).valid;
 
     if (canPass) {
       // 通常プレイ: パス以外の手がある場合、50%の確率でパス

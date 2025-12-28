@@ -59,10 +59,10 @@ export class PlayPhase implements GamePhase {
     }
 
     // バリデーターを作成
+    // RuleEngine.validate() は空配列でパス判定を行う
     const validator: Validator = {
       validate: (cards: Card[]) => {
-        if (cards.length === 0) return true; // パスは常に有効
-        return this.ruleEngine.validate(currentPlayer, cards, gameState.field, gameState).valid;
+        return this.ruleEngine.validate(currentPlayer, cards, gameState.field, gameState);
       }
     };
 
@@ -80,7 +80,7 @@ export class PlayPhase implements GamePhase {
     return null;
   }
 
-  async exit(gameState: GameState): Promise<void> {
+  async exit(_gameState: GameState): Promise<void> {
     console.log('Play phase ended');
   }
 
@@ -368,7 +368,12 @@ export class PlayPhase implements GamePhase {
 
     // バリデーター: 1枚だけ選択可能
     const validator: Validator = {
-      validate: (cards: Card[]) => cards.length === 1
+      validate: (cards: Card[]) => {
+        if (cards.length === 1) {
+          return { valid: true };
+        }
+        return { valid: false, reason: '1枚選んでください' };
+      }
     };
 
     const cards = await controller.chooseCardsInHand(validator, '7渡し：次のプレイヤーに渡すカードを1枚選んでください');
@@ -418,9 +423,15 @@ export class PlayPhase implements GamePhase {
 
     const validator: Validator = {
       validate: (cards: Card[]) => {
-        if (cards.length !== 1) return false;
+        if (cards.length !== 1) {
+          return { valid: false, reason: '1枚選んでください' };
+        }
         const cardStrength = this.getCardStrength(cards[0].rank, shouldReverse);
-        return shouldReverse ? cardStrength > tenStrength : cardStrength < tenStrength;
+        const isValid = shouldReverse ? cardStrength > tenStrength : cardStrength < tenStrength;
+        if (!isValid) {
+          return { valid: false, reason: '10より弱いカードを選んでください' };
+        }
+        return { valid: true };
       }
     };
 
@@ -468,12 +479,20 @@ export class PlayPhase implements GamePhase {
         validate: (cards: Card[]) => {
           // 捨てるカードがない場合はパス（空配列）のみ有効
           if (requiredCount === 0) {
-            return cards.length === 0;
+            if (cards.length === 0) {
+              return { valid: true };
+            }
+            return { valid: false, reason: '選択できるカードがありません' };
           }
           // 必要枚数を選択していること
-          if (cards.length !== requiredCount) return false;
+          if (cards.length !== requiredCount) {
+            return { valid: false, reason: `${rank}を${requiredCount}枚選んでください` };
+          }
           // すべてのカードが指定ランクであること
-          return cards.every(c => c.rank === rank);
+          if (!cards.every(c => c.rank === rank)) {
+            return { valid: false, reason: `${rank}のカードのみ選択できます` };
+          }
+          return { valid: true };
         }
       };
 

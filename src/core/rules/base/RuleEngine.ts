@@ -26,6 +26,7 @@ export class RuleEngine {
 
   /**
    * プレイの有効性を判定
+   * 空配列を渡すとパスの有効性を判定する
    */
   validate(
     player: Player,
@@ -33,6 +34,14 @@ export class RuleEngine {
     field: Field,
     gameState: GameState
   ): ValidationResult {
+    // 空配列 = パス
+    if (cards.length === 0) {
+      if (field.isEmpty()) {
+        return { valid: false, reason: '場が空の時はパスできません' };
+      }
+      return { valid: true };
+    }
+
     // RuleContext を生成
     const context: RuleContext = {
       isRevolution: gameState.isRevolution,
@@ -44,18 +53,19 @@ export class RuleEngine {
     };
 
     // バリデーション実行
-    return this.validator.validate(player, cards, context);
-  }
+    const result = this.validator.validate(player, cards, context);
 
-  /**
-   * パスが有効かどうかを検証
-   */
-  canPass(field: Field): ValidationResult {
-    // 場が空の場合はパスできない
-    if (field.isEmpty()) {
-      return { valid: false, reason: '場が空の時はパスできません' };
+    // valid な場合、発動するエフェクトを分析
+    if (result.valid) {
+      const play = PlayAnalyzer.analyze(cards);
+      if (play) {
+        const effects = this.effectAnalyzer.analyze(play, gameState);
+        if (effects.length > 0) {
+          result.triggeredEffects = effects;
+        }
+      }
     }
 
-    return { valid: true, reason: '' };
+    return result;
   }
 }
