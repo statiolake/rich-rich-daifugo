@@ -18,7 +18,8 @@ export const UnifiedCardLayer: React.FC = () => {
   // すべてのフックを最初に呼び出す
   // 有効な役をストアから取得
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
-  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length]);
+  const cardSelectionValidator = useGameStore(state => state.cardSelectionValidator);
+  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length, cardSelectionValidator]);
 
   // ゲーム状態から特殊ルールの状態を取得
   const getRuleEngine = useGameStore(state => state.getRuleEngine);

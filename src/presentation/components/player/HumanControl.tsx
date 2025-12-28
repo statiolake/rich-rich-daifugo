@@ -26,7 +26,8 @@ export const HumanControl: React.FC = () => {
   // 有効な手をストアから取得
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
   const getRuleEngine = useGameStore(state => state.getRuleEngine);
-  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length]);
+  const cardSelectionValidatorForMemo = useGameStore(state => state.cardSelectionValidator);
+  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length, cardSelectionValidatorForMemo]);
 
   // すべてのフックを呼び出した後に早期リターンチェック
   if (!gameState || gameState.phase === GamePhaseType.RESULT) return null;
