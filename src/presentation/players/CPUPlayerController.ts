@@ -16,9 +16,6 @@ export class CPUPlayerController implements PlayerController {
   ) {}
 
   async chooseCardsInHand(validator: Validator, _prompt?: string): Promise<Card[]> {
-    // CPU思考時間をシミュレート
-    await new Promise(resolve => setTimeout(resolve, 500));
-
     const handCards = this.player.hand.getCards();
 
     // ビット全探索で validator を満たすすべての組み合わせを列挙
@@ -72,8 +69,6 @@ export class CPUPlayerController implements PlayerController {
   }
 
   async chooseRankForQueenBomber(): Promise<string> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-
     const ranks = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
     return ranks[Math.floor(Math.random() * ranks.length)];
   }
