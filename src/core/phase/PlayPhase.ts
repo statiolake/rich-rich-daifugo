@@ -194,7 +194,9 @@ export class PlayPhase implements GamePhase {
     }
 
     if (effects.includes('クイーンボンバー')) {
-      await this.handleQueenBomber(gameState, player);
+      // 出されたQの枚数がターゲット数になる
+      const queenCount = cards.filter(c => c.rank === 'Q').length;
+      await this.handleQueenBomber(gameState, player, queenCount);
       this.nextPlayer(gameState);
       return;
     }
@@ -438,14 +440,15 @@ export class PlayPhase implements GamePhase {
 
   /**
    * クイーンボンバー処理（非同期）
+   * @param targetCount 出されたQの枚数（＝捨てるべき枚数の上限）
    */
-  private async handleQueenBomber(gameState: GameState, player: Player): Promise<void> {
+  private async handleQueenBomber(gameState: GameState, player: Player, targetCount: number): Promise<void> {
     const controller = this.playerControllers.get(player.id.value);
     if (!controller) throw new Error('Controller not found');
 
     // ランク選択
     const rank = await controller.chooseRankForQueenBomber();
-    console.log(`クイーンボンバー：ランク ${rank} が指定されました`);
+    console.log(`クイーンボンバー：ランク ${rank} が指定されました（ターゲット数: ${targetCount}）`);
 
     // 全プレイヤーがカード選択
     for (const p of gameState.players) {
@@ -454,14 +457,31 @@ export class PlayPhase implements GamePhase {
       const pController = this.playerControllers.get(p.id.value);
       if (!pController) continue;
 
-      // バリデーター: 指定ランクのカードのみ
+      // プレイヤーの手札から指定ランクのカードを取得
+      const rankCardsInHand = p.hand.getCards().filter(c => c.rank === rank);
+
+      // 捨てるべき枚数 = min(手札にある指定ランクの枚数, ターゲット数)
+      const requiredCount = Math.min(rankCardsInHand.length, targetCount);
+
+      // バリデーター: 必要枚数を選択する必要がある（0枚の場合はパスのみ有効）
       const validator: Validator = {
         validate: (cards: Card[]) => {
+          // 捨てるカードがない場合はパス（空配列）のみ有効
+          if (requiredCount === 0) {
+            return cards.length === 0;
+          }
+          // 必要枚数を選択していること
+          if (cards.length !== requiredCount) return false;
+          // すべてのカードが指定ランクであること
           return cards.every(c => c.rank === rank);
         }
       };
 
-      const cards = await pController.chooseCardsInHand(validator, `クイーンボンバー：${rank}を捨ててください`);
+      const prompt = requiredCount === 0
+        ? `クイーンボンバー：${rank}を持っていません（パス）`
+        : `クイーンボンバー：${rank}を${requiredCount}枚捨ててください`;
+
+      const cards = await pController.chooseCardsInHand(validator, prompt);
 
       if (cards.length > 0) {
         p.hand.remove(cards);
