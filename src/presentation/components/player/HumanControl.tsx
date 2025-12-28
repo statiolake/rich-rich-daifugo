@@ -36,7 +36,11 @@ export const HumanControl: React.FC = () => {
   const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length, cardSelectionValidatorForMemo]);
 
   // すべてのフックを呼び出した後に早期リターンチェック
+  // RESULT フェーズでは何も表示しない
   if (!gameState || gameState.phase === GamePhaseType.RESULT) return null;
+
+  // SETUP フェーズ（ゲーム初期化中）は準備中を表示
+  const isGameInitializing = gameState.phase === GamePhaseType.SETUP;
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const humanPlayer = LocalPlayerService.findLocalPlayer(gameState);
@@ -246,7 +250,7 @@ export const HumanControl: React.FC = () => {
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             className="text-center text-white text-lg opacity-75 pointer-events-auto"
           >
-            {currentPlayer.name} のターン...
+            {isGameInitializing ? '準備中...' : `${currentPlayer.name} のターン...`}
           </motion.div>
         )}
       </AnimatePresence>
