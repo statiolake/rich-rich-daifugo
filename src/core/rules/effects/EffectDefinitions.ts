@@ -302,5 +302,31 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'gold',
       duration: 500
     }
+  },
+
+  'マークしばり': {
+    apply: (gameState, context) => {
+      if (context?.suit) {
+        gameState.suitLock = context.suit;
+        console.log(`マークしばりが発動しました！（${context.suit}）`);
+      }
+    },
+    cutIn: {
+      getText: (_, context) => context?.suit ? `マークしばり！（${context.suit}）` : 'マークしばり！',
+      variant: 'blue',
+      duration: 500
+    }
+  },
+
+  '数字しばり': {
+    apply: (gameState) => {
+      gameState.numberLock = true;
+      console.log('数字しばりが発動しました！');
+    },
+    cutIn: {
+      getText: () => '数字しばり！',
+      variant: 'blue',
+      duration: 500
+    }
   }
 };

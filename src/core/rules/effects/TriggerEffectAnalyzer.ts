@@ -28,7 +28,9 @@ export type TriggerEffect =
   | '9リバース'
   | 'スペ3返し'
   | 'ダウンナンバー'
-  | 'ラッキーセブン';
+  | 'ラッキーセブン'
+  | 'マークしばり'
+  | '数字しばり';
 
 /**
  * トリガーエフェクトアナライザー
@@ -148,6 +150,16 @@ export class TriggerEffectAnalyzer {
       effects.push('ラッキーセブン');
     }
 
+    // マークしばり判定（同じマークが2回連続で出されると発動）
+    if (ruleSettings.suitLock && this.triggersSuitLock(play, gameState)) {
+      effects.push('マークしばり');
+    }
+
+    // 数字しばり判定（階段が2回連続で出されると発動）
+    if (ruleSettings.numberLock && this.triggersNumberLock(play, gameState)) {
+      effects.push('数字しばり');
+    }
+
     return effects;
   }
 
@@ -253,5 +265,59 @@ export class TriggerEffectAnalyzer {
 
   private triggersLuckySeven(play: Play): boolean {
     return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '7');
+  }
+
+  /**
+   * マークしばりが発動するかチェック
+   * このプレイを出すと、前回と同じマークが2回連続になるか
+   */
+  private triggersSuitLock(play: Play, gameState: GameState): boolean {
+    // 既に縛りが発動している場合は発動しない
+    if (gameState.suitLock) return false;
+
+    // 場に1枚以上カードがある必要がある
+    const history = gameState.field.getHistory();
+    if (history.length === 0) return false;
+
+    const lastPlayHistory = history[history.length - 1];
+
+    // 前回のプレイがすべて同じマークか確認
+    const prevSuit = lastPlayHistory.play.cards.length > 0 ? lastPlayHistory.play.cards[0].suit : null;
+    if (!prevSuit) return false;
+    const prevAllSameSuit = lastPlayHistory.play.cards.every(c => c.suit === prevSuit);
+    if (!prevAllSameSuit) return false;
+
+    // 今回のプレイがすべて同じマークか確認
+    const currentSuit = play.cards.length > 0 ? play.cards[0].suit : null;
+    if (!currentSuit) return false;
+    const currentAllSameSuit = play.cards.every(c => c.suit === currentSuit);
+    if (!currentAllSameSuit) return false;
+
+    // 同じマークならマークしばり発動
+    return prevSuit === currentSuit;
+  }
+
+  /**
+   * 数字しばりが発動するかチェック
+   * このプレイを出すと、前回と今回で階段が2回連続になるか
+   */
+  private triggersNumberLock(play: Play, gameState: GameState): boolean {
+    // 既に縛りが発動している場合は発動しない
+    if (gameState.numberLock) return false;
+
+    // 場に1枚以上カードがある必要がある
+    const history = gameState.field.getHistory();
+    if (history.length === 0) return false;
+
+    const lastPlayHistory = history[history.length - 1];
+
+    // 前回のプレイが階段か確認
+    const prevIsStair = lastPlayHistory.play.type === PlayType.STAIR;
+    if (!prevIsStair) return false;
+
+    // 今回のプレイが階段か確認
+    const currentIsStair = play.type === PlayType.STAIR;
+
+    return currentIsStair;
   }
 }

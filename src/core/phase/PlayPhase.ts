@@ -1,13 +1,12 @@
 import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { Card } from '../domain/card/Card';
-import { PlayAnalyzer } from '../domain/card/Play';
+import { PlayAnalyzer, Play } from '../domain/card/Play';
 import { Player } from '../domain/player/Player';
 import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { TriggerEffectAnalyzer, TriggerEffect } from '../rules/effects/TriggerEffectAnalyzer';
 import { EffectHandler } from '../rules/effects/EffectHandler';
-import { ConstraintChecker } from './handlers/ConstraintChecker';
 import { GameEndChecker } from './handlers/GameEndChecker';
 import { RankAssignmentService } from './handlers/RankAssignmentService';
 import { PlayerController, Validator } from '../domain/player/PlayerController';
@@ -17,7 +16,6 @@ export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
   private effectAnalyzer: TriggerEffectAnalyzer;
   private effectHandler: EffectHandler;
-  private constraintChecker: ConstraintChecker;
   private gameEndChecker: GameEndChecker;
   private rankAssignmentService: RankAssignmentService;
 
@@ -29,7 +27,6 @@ export class PlayPhase implements GamePhase {
   ) {
     this.effectAnalyzer = new TriggerEffectAnalyzer();
     this.effectHandler = new EffectHandler(eventBus);
-    this.constraintChecker = new ConstraintChecker(eventBus);
     this.gameEndChecker = new GameEndChecker(ruleEngine);
     this.rankAssignmentService = new RankAssignmentService();
   }
@@ -113,16 +110,10 @@ export class PlayPhase implements GamePhase {
       gameState.luckySeven = null;
     }
 
-    // マークしばりチェック
-    this.constraintChecker.updateSuitLock(gameState, play);
-
-    // 数字しばりチェック
-    this.constraintChecker.updateNumberLock(gameState, play);
-
     // エフェクトを適用してカットインを収集
     const cutIns: CutIn[] = [];
     for (const effect of effects) {
-      this.applyEffect(effect, gameState, player);
+      this.applyEffect(effect, gameState, player, play);
 
       // カットイン情報を収集
       const cutInData = this.getCutInData(effect);
@@ -322,8 +313,10 @@ export class PlayPhase implements GamePhase {
    * エフェクトを適用する
    * エフェクトの適用ロジックを一箇所に集約
    */
-  private applyEffect(effect: TriggerEffect, gameState: GameState, player: Player): void {
-    this.effectHandler.apply(effect, gameState, { player });
+  private applyEffect(effect: TriggerEffect, gameState: GameState, player: Player, play?: Play): void {
+    // マークしばりの場合、プレイのスートをコンテキストに含める
+    const suit = play && play.cards.length > 0 ? play.cards[0].suit : undefined;
+    this.effectHandler.apply(effect, gameState, { player, suit });
   }
 
   /**
@@ -354,6 +347,8 @@ export class PlayPhase implements GamePhase {
       'スペ3返し': { effect: 'スペ3返し', variant: 'green' },
       'ダウンナンバー': { effect: 'ダウンナンバー', variant: 'blue' },
       'ラッキーセブン': { effect: 'ラッキーセブン', variant: 'gold' },
+      'マークしばり': { effect: 'マークしばり', variant: 'blue' },
+      '数字しばり': { effect: '数字しばり', variant: 'blue' },
     };
 
     return cutInMap[effect] || null;
