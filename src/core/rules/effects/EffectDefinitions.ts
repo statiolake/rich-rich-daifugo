@@ -42,7 +42,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '砂嵐！',
       variant: 'gold',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -54,7 +54,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '革命発生！' : '革命終了',
       variant: 'red',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -66,7 +66,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '革命発生！' : '革命終了',
       variant: 'red',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -78,7 +78,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (gameState) => gameState.isElevenBack ? '11バック発動！' : '11バック解除',
       variant: 'gold',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -90,7 +90,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (gameState) => gameState.isElevenBack ? '11バック発動！' : '11バック解除',
       variant: 'gold',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -101,7 +101,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '4止め！',
       variant: 'green',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -113,7 +113,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '8切り！',
       variant: 'blue',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -124,7 +124,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '救急車！',
       variant: 'green',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -135,7 +135,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => 'ろくろ首！',
       variant: 'blue',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -147,7 +147,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'エンペラー発動！' : 'エンペラー終了',
       variant: 'gold',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -159,7 +159,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'エンペラー発動！' : 'エンペラー終了',
       variant: 'gold',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -171,7 +171,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'クーデター発生！' : 'クーデター終了',
       variant: 'red',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -183,7 +183,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'クーデター発生！' : 'クーデター終了',
       variant: 'red',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -208,7 +208,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '大革命発生！即勝利！',
       variant: 'gold',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -219,7 +219,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '5スキップ！',
       variant: 'green',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -230,7 +230,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '7渡し！',
       variant: 'blue',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -241,7 +241,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '10捨て！',
       variant: 'red',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -252,7 +252,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => 'クイーンボンバー！',
       variant: 'red',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -264,7 +264,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (gameState) => gameState.isReversed ? '9リバース発動！' : '9リバース解除',
       variant: 'green',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -275,7 +275,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => 'スペ3返し！',
       variant: 'blue',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -286,7 +286,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => 'ダウンナンバー！',
       variant: 'blue',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -300,7 +300,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (_, context) => context?.player ? `${context.player.name} ラッキーセブン！` : 'ラッキーセブン！',
       variant: 'gold',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -314,7 +314,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: (_, context) => context?.suit ? `マークしばり！（${context.suit}）` : 'マークしばり！',
       variant: 'blue',
-      duration: 500
+      duration: 250
     }
   },
 
@@ -326,7 +326,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '数字しばり！',
       variant: 'blue',
-      duration: 500
+      duration: 250
     }
   }
 };
