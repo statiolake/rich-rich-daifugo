@@ -2,6 +2,7 @@ import { GameConfig } from './GameConfig';
 import { GameState, GamePhaseType, createGameState } from '../domain/game/GameState';
 import { GamePhase } from '../phase/GamePhase';
 import { SetupPhase } from '../phase/SetupPhase';
+import { ExchangePhase } from '../phase/ExchangePhase';
 import { PlayPhase } from '../phase/PlayPhase';
 import { ResultPhase } from '../phase/ResultPhase';
 import { RuleEngine } from '../rules/base/RuleEngine';
@@ -46,8 +47,15 @@ export class GameEngine {
       this.presentationRequester
     );
 
+    // ExchangePhaseに必要な依存性を注入
+    const exchangePhase = new ExchangePhase(
+      this.playerControllers,
+      this.presentationRequester
+    );
+
     this.phases = new Map<GamePhaseType, GamePhase>([
       [GamePhaseType.SETUP, new SetupPhase()],
+      [GamePhaseType.EXCHANGE, exchangePhase],
       [GamePhaseType.PLAY, playPhase],
       [GamePhaseType.RESULT, new ResultPhase()],
     ]);
@@ -62,6 +70,9 @@ export class GameEngine {
     // SETUP フェーズ
     await this.currentPhase.enter(this.gameState);
     this.eventEmitter.emit('game:started', { gameState: this.getState() });
+
+    // EXCHANGE フェーズに移行（2ラウンド目以降はカード交換が発生）
+    await this.transitionPhase(GamePhaseType.EXCHANGE);
 
     // PLAY フェーズに移行
     await this.transitionPhase(GamePhaseType.PLAY);

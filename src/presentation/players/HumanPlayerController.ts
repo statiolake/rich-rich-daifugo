@@ -76,4 +76,25 @@ export class HumanPlayerController implements PlayerController {
 
     return result;
   }
+
+  async chooseCardsForExchange(handCards: Card[], exactCount: number, prompt: string): Promise<Card[]> {
+    // 1. コールバックを設定（Promise を作成）
+    const resultPromise = new Promise<Card[]>((resolve) => {
+      this.gameStore.setExchangeSelectionCallback(resolve);
+    });
+
+    // 2. UI を表示
+    this.gameStore.enableExchangeSelection(handCards, exactCount, prompt);
+
+    // 3. ユーザーの選択を待機
+    const result = await resultPromise;
+
+    // 4. UI を非表示
+    this.gameStore.disableExchangeSelection();
+
+    // 5. コールバックを解除
+    this.gameStore.clearExchangeSelectionCallback();
+
+    return result;
+  }
 }

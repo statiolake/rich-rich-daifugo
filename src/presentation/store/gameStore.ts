@@ -47,15 +47,21 @@ interface GameStore {
   cardSelectionCallback: ((cards: Card[]) => void) | null;
   queenBomberRankCallback: ((rank: string) => void) | null;
   discardSelectionCallback: ((cards: Card[]) => void) | null;
+  exchangeSelectionCallback: ((cards: Card[]) => void) | null;
   cardSelectionValidator: Validator | null;
   cardSelectionPrompt: string | null;
   isCardSelectionEnabled: boolean;
   isQueenBomberRankSelectionEnabled: boolean;
   isDiscardSelectionEnabled: boolean;
+  isExchangeSelectionEnabled: boolean;
   discardSelectionPile: Card[];
   discardSelectionMaxCount: number;
   discardSelectionPrompt: string | null;
   selectedDiscardCards: Card[];
+  exchangeSelectionCards: Card[];
+  exchangeSelectionCount: number;
+  exchangeSelectionPrompt: string | null;
+  selectedExchangeCards: Card[];
 
   // Actions
   startGame: (options?: { playerName?: string; autoCPU?: boolean }) => void;
@@ -88,6 +94,12 @@ interface GameStore {
   disableDiscardSelection: () => void;
   toggleDiscardCardSelection: (card: Card) => void;
   submitDiscardSelection: () => void;
+  setExchangeSelectionCallback: (callback: (cards: Card[]) => void) => void;
+  clearExchangeSelectionCallback: () => void;
+  enableExchangeSelection: (handCards: Card[], exactCount: number, prompt: string) => void;
+  disableExchangeSelection: () => void;
+  toggleExchangeCardSelection: (card: Card) => void;
+  submitExchangeSelection: () => void;
 
   // Computed values
   getValidCombinations: () => Card[][];
@@ -106,15 +118,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cardSelectionCallback: null,
   queenBomberRankCallback: null,
   discardSelectionCallback: null,
+  exchangeSelectionCallback: null,
   cardSelectionValidator: null,
   cardSelectionPrompt: null,
   isCardSelectionEnabled: false,
   isQueenBomberRankSelectionEnabled: false,
   isDiscardSelectionEnabled: false,
+  isExchangeSelectionEnabled: false,
   discardSelectionPile: [],
   discardSelectionMaxCount: 0,
   discardSelectionPrompt: null,
   selectedDiscardCards: [],
+  exchangeSelectionCards: [],
+  exchangeSelectionCount: 0,
+  exchangeSelectionPrompt: null,
+  selectedExchangeCards: [],
 
   startGame: (options = {}) => {
     const { playerName = 'あなた', autoCPU = false } = options;
@@ -245,15 +263,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
       cardSelectionCallback: null,
       queenBomberRankCallback: null,
       discardSelectionCallback: null,
+      exchangeSelectionCallback: null,
       cardSelectionValidator: null,
       cardSelectionPrompt: null,
       isCardSelectionEnabled: false,
       isQueenBomberRankSelectionEnabled: false,
       isDiscardSelectionEnabled: false,
+      isExchangeSelectionEnabled: false,
       discardSelectionPile: [],
       discardSelectionMaxCount: 0,
       discardSelectionPrompt: null,
       selectedDiscardCards: [],
+      exchangeSelectionCards: [],
+      exchangeSelectionCount: 0,
+      exchangeSelectionPrompt: null,
+      selectedExchangeCards: [],
     });
   },
 
@@ -437,6 +461,56 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { selectedDiscardCards, discardSelectionCallback } = get();
     if (discardSelectionCallback) {
       discardSelectionCallback(selectedDiscardCards);
+    }
+  },
+
+  setExchangeSelectionCallback: (callback) => {
+    set({ exchangeSelectionCallback: callback });
+  },
+
+  clearExchangeSelectionCallback: () => {
+    set({ exchangeSelectionCallback: null });
+  },
+
+  enableExchangeSelection: (handCards, exactCount, prompt) => {
+    set({
+      isExchangeSelectionEnabled: true,
+      exchangeSelectionCards: handCards,
+      exchangeSelectionCount: exactCount,
+      exchangeSelectionPrompt: prompt,
+      selectedExchangeCards: []
+    });
+  },
+
+  disableExchangeSelection: () => {
+    set({
+      isExchangeSelectionEnabled: false,
+      exchangeSelectionCards: [],
+      exchangeSelectionCount: 0,
+      exchangeSelectionPrompt: null,
+      selectedExchangeCards: []
+    });
+  },
+
+  toggleExchangeCardSelection: (card) => {
+    const { selectedExchangeCards, exchangeSelectionCount } = get();
+    const isSelected = selectedExchangeCards.some(c => c.id === card.id);
+
+    if (isSelected) {
+      set({ selectedExchangeCards: selectedExchangeCards.filter(c => c.id !== card.id) });
+    } else {
+      // 指定枚数を超えない場合のみ追加
+      if (selectedExchangeCards.length < exchangeSelectionCount) {
+        set({ selectedExchangeCards: [...selectedExchangeCards, card] });
+      }
+    }
+  },
+
+  submitExchangeSelection: () => {
+    const { selectedExchangeCards, exchangeSelectionCallback, exchangeSelectionCount } = get();
+    // 指定枚数を満たしている場合のみ送信
+    if (exchangeSelectionCallback && selectedExchangeCards.length === exchangeSelectionCount) {
+      exchangeSelectionCallback(selectedExchangeCards);
     }
   },
 

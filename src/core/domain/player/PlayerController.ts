@@ -47,4 +47,14 @@ export interface PlayerController {
    * @returns 選択されたカードの配列（0枚以上maxCount枚以下）
    */
   chooseCardsFromDiscard(discardPile: Card[], maxCount: number, prompt: string): Promise<Card[]>;
+
+  /**
+   * 交換フェーズ用のカード選択
+   *
+   * @param handCards 手札の配列
+   * @param exactCount 選択する枚数（必ずこの枚数を選択）
+   * @param prompt UIに表示するリード文
+   * @returns 選択されたカードの配列（exactCount枚）
+   */
+  chooseCardsForExchange(handCards: Card[], exactCount: number, prompt: string): Promise<Card[]>;
 }

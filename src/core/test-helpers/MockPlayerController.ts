@@ -62,6 +62,11 @@ export class MockPlayerController implements PlayerController {
     return choice;
   }
 
+  async chooseCardsForExchange(handCards: Card[], exactCount: number, _prompt: string): Promise<Card[]> {
+    // デフォルト: 手札から先頭 exactCount 枚を選択
+    return handCards.slice(0, exactCount);
+  }
+
   /**
    * モックをリセット
    */

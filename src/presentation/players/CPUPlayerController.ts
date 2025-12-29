@@ -88,4 +88,13 @@ export class CPUPlayerController implements PlayerController {
     const count = Math.min(maxCount, sortedCards.length);
     return sortedCards.slice(0, count);
   }
+
+  async chooseCardsForExchange(handCards: Card[], exactCount: number, _prompt: string): Promise<Card[]> {
+    // CPU思考時間をシミュレート
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // CPUは弱いカードを渡す（強いカードを手元に残す）
+    const sortedCards = [...handCards].sort((a, b) => a.strength - b.strength);
+    return sortedCards.slice(0, exactCount);
+  }
 }
