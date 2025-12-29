@@ -24,7 +24,6 @@ export const HumanControl: React.FC = () => {
 
   // 有効な手をストアから取得
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
-  const getRuleEngine = useGameStore(state => state.getRuleEngine);
   const cardSelectionValidatorForMemo = useGameStore(state => state.cardSelectionValidator);
 
   // 特殊ルール選択が必要かを新しいアーキテクチャから取得（フックはすべて早期リターンの前に呼び出す）
@@ -53,21 +52,15 @@ export const HumanControl: React.FC = () => {
   const isPendingCardSelection = isCardSelectionEnabled;
   const isPendingRankSelection = isQueenBomberRankSelectionEnabled;
 
-  // RuleEngine で出せるかを判定
-  const ruleEngine = getRuleEngine();
-
-  // カード選択リクエスト時はvalidatorを使用
-  // 通常のカード選択時はRuleEngineでvalidate（効果プレビュー用にtriggeredEffectsも取得）
+  // カード選択リクエスト時はcardSelectionValidatorを使用
+  // cardSelectionValidatorがない場合（未初期化など）は無効
+  // validatorがtriggeredEffectsを返すかどうかで効果プレビューの表示が決まる
   const validationResult = isPendingCardSelection
-    ? (selectedCards.length > 0
-      ? ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState)
-      : (cardSelectionValidator ? cardSelectionValidator.validate(selectedCards) : { valid: false }))
-    : selectedCards.length > 0
-    ? ruleEngine.validate(humanPlayer, selectedCards, gameState.field, gameState)
+    ? (cardSelectionValidator ? cardSelectionValidator.validate(selectedCards) : { valid: false })
     : { valid: false };
   const canPlaySelected = validationResult.valid;
 
-  // 発動するエフェクトを取得
+  // 発動するエフェクトを取得（validatorが返す場合のみ表示される）
   const triggerEffects = validationResult.triggeredEffects || [];
 
   const needsSelection = isPendingCardSelection || isPendingRankSelection;
