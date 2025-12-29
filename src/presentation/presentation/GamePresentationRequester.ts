@@ -42,6 +42,9 @@ export class GamePresentationRequester implements PresentationRequester {
       'Q解き': 400,
       '6戻し': 400,
       '縛り返し': 400,
+      'キングの行進': 500,
+      'サルベージ': 500,
+      '次期エース': 500,
     };
 
     return durationMap[effect] || 400; // デフォルト400ms

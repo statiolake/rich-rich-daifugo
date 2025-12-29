@@ -1,5 +1,6 @@
 import { Player } from '../player/Player';
 import { Field } from './Field';
+import { Card } from '../card/Card';
 import { RuleSettings, DEFAULT_RULE_SETTINGS } from './RuleSettings';
 
 export enum GamePhaseType {
@@ -13,6 +14,7 @@ export interface GameState {
   players: Player[];
   currentPlayerIndex: number;
   field: Field;
+  discardPile: Card[]; // 捨て札（場が流れたカードを蓄積）
   isRevolution: boolean;
   isElevenBack: boolean;
   isOmenActive: boolean; // オーメン発動後、以降革命が起きない
@@ -33,6 +35,7 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     players,
     currentPlayerIndex: 0,
     field: new Field(),
+    discardPile: [],
     isRevolution: false,
     isElevenBack: false,
     isOmenActive: false,

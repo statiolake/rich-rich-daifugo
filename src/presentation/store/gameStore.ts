@@ -46,10 +46,16 @@ interface GameStore {
   // Promise-based callbacks for HumanPlayerController
   cardSelectionCallback: ((cards: Card[]) => void) | null;
   queenBomberRankCallback: ((rank: string) => void) | null;
+  discardSelectionCallback: ((cards: Card[]) => void) | null;
   cardSelectionValidator: Validator | null;
   cardSelectionPrompt: string | null;
   isCardSelectionEnabled: boolean;
   isQueenBomberRankSelectionEnabled: boolean;
+  isDiscardSelectionEnabled: boolean;
+  discardSelectionPile: Card[];
+  discardSelectionMaxCount: number;
+  discardSelectionPrompt: string | null;
+  selectedDiscardCards: Card[];
 
   // Actions
   startGame: (options?: { playerName?: string; autoCPU?: boolean }) => void;
@@ -76,6 +82,12 @@ interface GameStore {
   showQueenBomberRankSelectionUI: () => void;
   hideQueenBomberRankSelectionUI: () => void;
   submitQueenBomberRank: (rank: string) => void;
+  setDiscardSelectionCallback: (callback: (cards: Card[]) => void) => void;
+  clearDiscardSelectionCallback: () => void;
+  enableDiscardSelection: (discardPile: Card[], maxCount: number, prompt: string) => void;
+  disableDiscardSelection: () => void;
+  toggleDiscardCardSelection: (card: Card) => void;
+  submitDiscardSelection: () => void;
 
   // Computed values
   getValidCombinations: () => Card[][];
@@ -93,10 +105,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cutInResolve: null,
   cardSelectionCallback: null,
   queenBomberRankCallback: null,
+  discardSelectionCallback: null,
   cardSelectionValidator: null,
   cardSelectionPrompt: null,
   isCardSelectionEnabled: false,
   isQueenBomberRankSelectionEnabled: false,
+  isDiscardSelectionEnabled: false,
+  discardSelectionPile: [],
+  discardSelectionMaxCount: 0,
+  discardSelectionPrompt: null,
+  selectedDiscardCards: [],
 
   startGame: (options = {}) => {
     const { playerName = 'あなた', autoCPU = false } = options;
@@ -226,10 +244,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       cutInResolve: null,
       cardSelectionCallback: null,
       queenBomberRankCallback: null,
+      discardSelectionCallback: null,
       cardSelectionValidator: null,
       cardSelectionPrompt: null,
       isCardSelectionEnabled: false,
       isQueenBomberRankSelectionEnabled: false,
+      isDiscardSelectionEnabled: false,
+      discardSelectionPile: [],
+      discardSelectionMaxCount: 0,
+      discardSelectionPrompt: null,
+      selectedDiscardCards: [],
     });
   },
 
@@ -360,6 +384,55 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { queenBomberRankCallback } = get();
     if (queenBomberRankCallback) {
       queenBomberRankCallback(rank);
+    }
+  },
+
+  setDiscardSelectionCallback: (callback) => {
+    set({ discardSelectionCallback: callback });
+  },
+
+  clearDiscardSelectionCallback: () => {
+    set({ discardSelectionCallback: null });
+  },
+
+  enableDiscardSelection: (discardPile, maxCount, prompt) => {
+    set({
+      isDiscardSelectionEnabled: true,
+      discardSelectionPile: discardPile,
+      discardSelectionMaxCount: maxCount,
+      discardSelectionPrompt: prompt,
+      selectedDiscardCards: []
+    });
+  },
+
+  disableDiscardSelection: () => {
+    set({
+      isDiscardSelectionEnabled: false,
+      discardSelectionPile: [],
+      discardSelectionMaxCount: 0,
+      discardSelectionPrompt: null,
+      selectedDiscardCards: []
+    });
+  },
+
+  toggleDiscardCardSelection: (card) => {
+    const { selectedDiscardCards, discardSelectionMaxCount } = get();
+    const isSelected = selectedDiscardCards.some(c => c.id === card.id);
+
+    if (isSelected) {
+      set({ selectedDiscardCards: selectedDiscardCards.filter(c => c.id !== card.id) });
+    } else {
+      // 最大枚数を超えない場合のみ追加
+      if (selectedDiscardCards.length < discardSelectionMaxCount) {
+        set({ selectedDiscardCards: [...selectedDiscardCards, card] });
+      }
+    }
+  },
+
+  submitDiscardSelection: () => {
+    const { selectedDiscardCards, discardSelectionCallback } = get();
+    if (discardSelectionCallback) {
+      discardSelectionCallback(selectedDiscardCards);
     }
   },
 

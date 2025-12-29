@@ -430,5 +430,17 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'blue',
       duration: 250
     }
+  },
+
+  'キングの行進': {
+    apply: () => {
+      // キングの行進は後で別途処理するため、ここではイベント発火のみ
+      console.log('キングの行進が発動しました！');
+    },
+    cutIn: {
+      getText: (_, context) => context?.kingCount ? `キングの行進！（${context.kingCount}枚回収）` : 'キングの行進！',
+      variant: 'gold',
+      duration: 300
+    }
   }
 };

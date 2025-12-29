@@ -32,7 +32,7 @@ export class PlayPhase implements GamePhase {
   }
 
   async enter(gameState: GameState): Promise<void> {
-    this.clearFieldAndResetState(gameState, true);
+    await this.clearFieldAndResetState(gameState, true);
     gameState.isReversed = false; // リバースをリセット
 
     // 初回ラウンドはランダムなプレイヤーから開始
@@ -134,9 +134,20 @@ export class PlayPhase implements GamePhase {
 
     // 場のクリア判定
     let shouldClearField = false;
+    let salvagePlayer: Player | undefined = undefined;
+    let nextAcePlayer: Player | undefined = undefined;
+
     if (gameState.isEightCutPending && !effects.includes('4止め')) {
       shouldClearField = true;
       console.log('8切りが発動します');
+      // 8切りで場が流れる場合、3を含むカードを出したプレイヤーにサルベージ権利
+      if (cards.some(c => c.rank === '3')) {
+        salvagePlayer = player;
+      }
+      // 8切りで場が流れる場合、Aを含むカードを出したプレイヤーに次期エース権利
+      if (cards.some(c => c.rank === 'A')) {
+        nextAcePlayer = player;
+      }
     }
     if (effects.includes('4止め')) {
       console.log('4止めが発動しました！');
@@ -144,11 +155,13 @@ export class PlayPhase implements GamePhase {
     }
     if (effects.includes('救急車') || effects.includes('ろくろ首')) {
       shouldClearField = true;
+      // 救急車・ろくろ首で場が流れる場合はサルベージなし（3が含まれない）
+      // 救急車(9x2)で場が流れる場合も次期エースなし（Aが含まれない）
     }
 
     if (shouldClearField) {
       this.handleLuckySevenVictory(gameState);
-      this.clearFieldAndResetState(gameState);
+      await this.clearFieldAndResetState(gameState, true, salvagePlayer, nextAcePlayer);
     }
 
     const shouldKeepTurn = shouldClearField;
@@ -186,6 +199,13 @@ export class PlayPhase implements GamePhase {
     }
 
     // 以下は手札が残っている場合のみ処理
+
+    // キングの行進（Kを出すと枚数分捨て札から回収）
+    if (effects.includes('キングの行進')) {
+      const kingCount = cards.filter(c => c.rank === 'K').length;
+      await this.handleKingsMarch(gameState, player, kingCount);
+    }
+
     if (effects.includes('7渡し')) {
       await this.handleSevenPass(gameState, player);
       this.nextPlayer(gameState);
@@ -226,8 +246,24 @@ export class PlayPhase implements GamePhase {
         return;
       }
 
+      // 最後に出されたカードに応じて権利を付与
+      let salvagePlayer: Player | undefined = undefined;
+      let nextAcePlayer: Player | undefined = undefined;
+      const lastPlay = gameState.field.getLastPlay();
+      if (lastPlay) {
+        const lastPlayer = gameState.players.find(p => p.id.value === lastPlay.playerId.value);
+        // 3を含む場合、サルベージ権利
+        if (lastPlay.play.cards.some(c => c.rank === '3')) {
+          salvagePlayer = lastPlayer;
+        }
+        // Aを含む場合、次期エース権利
+        if (lastPlay.play.cards.some(c => c.rank === 'A')) {
+          nextAcePlayer = lastPlayer;
+        }
+      }
+
       this.handleLuckySevenVictory(gameState);
-      this.clearFieldAndResetState(gameState);
+      await this.clearFieldAndResetState(gameState, true, salvagePlayer, nextAcePlayer);
     }
 
     this.nextPlayer(gameState);
@@ -269,13 +305,27 @@ export class PlayPhase implements GamePhase {
 
   /**
    * フィールドと状態をリセット
+   * @param salvagePlayer サルベージ権利を持つプレイヤー（3で場が流れた場合）
+   * @param nextAcePlayer 次期エース権利を持つプレイヤー（Aで場が流れた場合）
    */
-  private clearFieldAndResetState(gameState: GameState, resetElevenBack: boolean = true): void {
+  private async clearFieldAndResetState(
+    gameState: GameState,
+    resetElevenBack: boolean = true,
+    salvagePlayer?: Player,
+    nextAcePlayer?: Player
+  ): Promise<void> {
+    // 場のカードを捨て札に移動
+    const history = gameState.field.getHistory();
+    for (const playHistory of history) {
+      gameState.discardPile.push(...playHistory.play.cards);
+    }
+
     gameState.field.clear();
     gameState.passCount = 0;
     gameState.isEightCutPending = false;
     gameState.suitLock = null;
     gameState.numberLock = false;
+    gameState.colorLock = null;
 
     if (resetElevenBack && gameState.isElevenBack) {
       gameState.isElevenBack = false;
@@ -286,6 +336,21 @@ export class PlayPhase implements GamePhase {
     }
 
     console.log('場が流れました');
+
+    // 次期エース処理（Aで場が流れた時に親になる）
+    if (nextAcePlayer && gameState.ruleSettings.nextAce && !nextAcePlayer.isFinished) {
+      const nextAceIndex = gameState.players.findIndex(p => p.id.value === nextAcePlayer.id.value);
+      if (nextAceIndex !== -1) {
+        gameState.currentPlayerIndex = nextAceIndex;
+        console.log(`次期エース：${nextAcePlayer.name} が親になりました`);
+        await this.presentationRequester.requestCutIns([{ effect: '次期エース', variant: 'gold' }]);
+      }
+    }
+
+    // サルベージ処理（3で場が流れた時に捨て札から1枚回収）
+    if (salvagePlayer && gameState.ruleSettings.salvage && gameState.discardPile.length > 0) {
+      await this.handleSalvage(gameState, salvagePlayer);
+    }
   }
 
   /**
@@ -355,6 +420,7 @@ export class PlayPhase implements GamePhase {
       'ラッキーセブン': { effect: 'ラッキーセブン', variant: 'gold' },
       'マークしばり': { effect: 'マークしばり', variant: 'blue' },
       '数字しばり': { effect: '数字しばり', variant: 'blue' },
+      'キングの行進': { effect: 'キングの行進', variant: 'gold' },
     };
 
     return cutInMap[effect] || null;
@@ -524,6 +590,100 @@ export class PlayPhase implements GamePhase {
           this.handlePlayerFinish(gameState, p);
         }
       }
+    }
+  }
+
+  /**
+   * サルベージ処理（非同期）
+   * 3で場が流れた時に捨て札から1枚回収
+   */
+  private async handleSalvage(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
+
+    // 捨て札がなければスキップ
+    if (gameState.discardPile.length === 0) {
+      console.log('捨て札がないためサルベージをスキップ');
+      return;
+    }
+
+    // カットインを表示
+    await this.presentationRequester.requestCutIns([{ effect: 'サルベージ', variant: 'green' }]);
+
+    console.log('サルベージ：1枚まで回収可能');
+
+    // カード選択（最大1枚）
+    const selectedCards = await controller.chooseCardsFromDiscard(
+      gameState.discardPile,
+      1,
+      'サルベージ：捨て札から1枚選んでください'
+    );
+
+    if (selectedCards.length > 0) {
+      const card = selectedCards[0];
+      // 捨て札から削除
+      const index = gameState.discardPile.findIndex(
+        (c: Card) => c.suit === card.suit && c.rank === card.rank
+      );
+      if (index !== -1) {
+        gameState.discardPile.splice(index, 1);
+      }
+
+      // 手札に追加
+      player.hand.add([card]);
+      console.log(`${player.name} が ${card.rank}${card.suit} を回収しました（サルベージ）`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      player.hand.sort(shouldReverse);
+    }
+  }
+
+  /**
+   * キングの行進処理（非同期）
+   * Kを出すと枚数分だけ捨て札から好きなカードを回収
+   * @param kingCount 出されたKの枚数（＝回収できる枚数の上限）
+   */
+  private async handleKingsMarch(gameState: GameState, player: Player, kingCount: number): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
+
+    // 捨て札がなければスキップ
+    if (gameState.discardPile.length === 0) {
+      console.log('捨て札がないためキングの行進をスキップ');
+      return;
+    }
+
+    // 回収できる枚数 = min(捨て札の枚数, Kの枚数)
+    const maxRecovery = Math.min(gameState.discardPile.length, kingCount);
+
+    console.log(`キングの行進：${maxRecovery}枚まで回収可能`);
+
+    // カード選択
+    const selectedCards = await controller.chooseCardsFromDiscard(
+      gameState.discardPile,
+      maxRecovery,
+      `キングの行進：捨て札から${maxRecovery}枚まで選んでください`
+    );
+
+    if (selectedCards.length > 0) {
+      // 捨て札から削除
+      for (const card of selectedCards) {
+        const index = gameState.discardPile.findIndex(
+          (c: Card) => c.suit === card.suit && c.rank === card.rank
+        );
+        if (index !== -1) {
+          gameState.discardPile.splice(index, 1);
+        }
+      }
+
+      // 手札に追加
+      player.hand.add(selectedCards);
+      console.log(`${player.name} が ${selectedCards.map(c => `${c.rank}${c.suit}`).join(', ')} を回収しました`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      player.hand.sort(shouldReverse);
     }
   }
 

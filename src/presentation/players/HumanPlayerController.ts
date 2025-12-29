@@ -55,4 +55,25 @@ export class HumanPlayerController implements PlayerController {
 
     return result;
   }
+
+  async chooseCardsFromDiscard(discardPile: Card[], maxCount: number, prompt: string): Promise<Card[]> {
+    // 1. コールバックを設定（Promise を作成）
+    const resultPromise = new Promise<Card[]>((resolve) => {
+      this.gameStore.setDiscardSelectionCallback(resolve);
+    });
+
+    // 2. UI を表示
+    this.gameStore.enableDiscardSelection(discardPile, maxCount, prompt);
+
+    // 3. ユーザーの選択を待機
+    const result = await resultPromise;
+
+    // 4. UI を非表示
+    this.gameStore.disableDiscardSelection();
+
+    // 5. コールバックを解除
+    this.gameStore.clearDiscardSelectionCallback();
+
+    return result;
+  }
 }

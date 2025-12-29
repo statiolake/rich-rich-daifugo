@@ -17,6 +17,7 @@ describe('TriggerEffectAnalyzer', () => {
       ],
       currentPlayerIndex: 0,
       field: new Field(),
+      discardPile: [],
       phase: GamePhaseType.PLAY,
       isRevolution: false,
       isElevenBack: false,

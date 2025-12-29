@@ -72,4 +72,11 @@ export class CPUPlayerController implements PlayerController {
     const ranks = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
     return ranks[Math.floor(Math.random() * ranks.length)];
   }
+
+  async chooseCardsFromDiscard(discardPile: Card[], maxCount: number, _prompt: string): Promise<Card[]> {
+    // CPUは強いカードを優先して回収（シンプルな戦略）
+    const sortedCards = [...discardPile].sort((a, b) => b.strength - a.strength);
+    const count = Math.min(maxCount, sortedCards.length);
+    return sortedCards.slice(0, count);
+  }
 }

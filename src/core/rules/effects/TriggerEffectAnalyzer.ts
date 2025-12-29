@@ -38,7 +38,8 @@ export type TriggerEffect =
   | '6戻し'
   | 'ナナサン革命'
   | 'ナナサン革命終了'
-  | '色縛り';
+  | '色縛り'
+  | 'キングの行進';
 
 /**
  * トリガーエフェクトアナライザー
@@ -179,6 +180,11 @@ export class TriggerEffectAnalyzer {
     // Q解き判定（縛り中にQを出すと解除）
     if (ruleSettings.queenRelease && this.triggersQueenRelease(play, gameState)) {
       effects.push('Q解き');
+    }
+
+    // キングの行進判定（Kを出すと枚数分捨て札から回収）
+    if (ruleSettings.kingsMarch && this.triggersKingsMarch(play, gameState)) {
+      effects.push('キングの行進');
     }
 
     // 縛り判定
@@ -326,6 +332,13 @@ export class TriggerEffectAnalyzer {
 
   private triggersLuckySeven(play: Play): boolean {
     return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '7');
+  }
+
+  private triggersKingsMarch(play: Play, gameState: GameState): boolean {
+    // Kを含んでいて、捨て札がある場合に発動
+    const hasKing = play.cards.some(card => card.rank === 'K');
+    const hasDiscardPile = gameState.discardPile && gameState.discardPile.length > 0;
+    return hasKing && hasDiscardPile;
   }
 
   /**

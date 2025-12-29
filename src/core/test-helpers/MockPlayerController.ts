@@ -8,8 +8,10 @@ import { Card } from '../domain/card/Card';
 export class MockPlayerController implements PlayerController {
   private cardChoices: Card[][] = [];
   private rankChoices: string[] = [];
+  private discardChoices: Card[][] = [];
   private cardChoiceIndex = 0;
   private rankChoiceIndex = 0;
+  private discardChoiceIndex = 0;
 
   /**
    * 次のカード選択時に返すカードを設定
@@ -23,6 +25,13 @@ export class MockPlayerController implements PlayerController {
    */
   setNextRankChoice(rank: string): void {
     this.rankChoices.push(rank);
+  }
+
+  /**
+   * 次の捨て札選択時に返すカードを設定
+   */
+  setNextDiscardChoice(cards: Card[]): void {
+    this.discardChoices.push(cards);
   }
 
   async chooseCardsInHand(_validator: Validator, _prompt?: string): Promise<Card[]> {
@@ -43,13 +52,25 @@ export class MockPlayerController implements PlayerController {
     return choice;
   }
 
+  async chooseCardsFromDiscard(_discardPile: Card[], _maxCount: number, _prompt: string): Promise<Card[]> {
+    if (this.discardChoiceIndex >= this.discardChoices.length) {
+      // デフォルトは空配列を返す（何も選択しない）
+      return [];
+    }
+    const choice = this.discardChoices[this.discardChoiceIndex];
+    this.discardChoiceIndex++;
+    return choice;
+  }
+
   /**
    * モックをリセット
    */
   reset(): void {
     this.cardChoices = [];
     this.rankChoices = [];
+    this.discardChoices = [];
     this.cardChoiceIndex = 0;
     this.rankChoiceIndex = 0;
+    this.discardChoiceIndex = 0;
   }
 }

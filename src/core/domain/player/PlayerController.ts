@@ -37,4 +37,14 @@ export interface PlayerController {
    * @returns 選択されたランク（'3' ~ 'A', '2'）
    */
   chooseRankForQueenBomber(): Promise<string>;
+
+  /**
+   * 捨て札からカードを選択（サルベージ、キングの行進用）
+   *
+   * @param discardPile 捨て札の配列
+   * @param maxCount 選択可能な最大枚数
+   * @param prompt UIに表示するリード文
+   * @returns 選択されたカードの配列（0枚以上maxCount枚以下）
+   */
+  chooseCardsFromDiscard(discardPile: Card[], maxCount: number, prompt: string): Promise<Card[]>;
 }

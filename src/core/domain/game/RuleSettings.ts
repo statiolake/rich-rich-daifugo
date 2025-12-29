@@ -43,6 +43,13 @@ export interface RuleSettings {
   queenBomber: boolean;        // クイーンボンバー
   downNumber: boolean;         // ダウンナンバー
 
+  // 捨て札回収ルール
+  salvage: boolean;            // サルベージ（3で場が流れた時に捨て札から1枚回収）
+  kingsMarch: boolean;         // キングの行進（Kを出すと枚数分捨て札から回収）
+
+  // 親権ルール
+  nextAce: boolean;            // 次期エース（Aで場が流れた時に親になる）
+
   // ゲーム終了後のルール
   cityFall: boolean;           // 都落ち
   gekokujou: boolean;          // 下剋上
@@ -81,6 +88,9 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   nineReverse: true,
   queenBomber: true,
   downNumber: true,
+  salvage: true,
+  kingsMarch: true,
+  nextAce: true,
   cityFall: true,
   gekokujou: true,
   luckySeven: true,

@@ -75,6 +75,19 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
       ]
     },
     {
+      title: '捨て札回収ルール',
+      rules: [
+        { key: 'salvage', label: 'サルベージ', description: '3で場が流れると捨て札から1枚回収' },
+        { key: 'kingsMarch', label: 'キングの行進', description: 'Kを出すと枚数分捨て札から回収' },
+      ]
+    },
+    {
+      title: '親権ルール',
+      rules: [
+        { key: 'nextAce', label: '次期エース', description: 'Aで場が流れた時に親になる' },
+      ]
+    },
+    {
       title: 'ゲーム終了後のルール',
       rules: [
         { key: 'cityFall', label: '都落ち', description: '大富豪が勝たないと大貧民に' },
