@@ -9,6 +9,7 @@ import { GameEventEmitter } from '../domain/events/GameEventEmitter';
 import { createPlayer } from '../domain/player/Player';
 import { PlayerController } from '../domain/player/PlayerController';
 import { PresentationRequester } from '../domain/presentation/PresentationRequester';
+import { RankAssignmentService } from '../phase/handlers/RankAssignmentService';
 
 export class GameEngine {
   private gameState: GameState;
@@ -72,6 +73,15 @@ export class GameEngine {
       // フェーズ遷移チェック
       const remainingPlayers = this.gameState.players.filter(p => !p.isFinished).length;
       if (remainingPlayers <= 1) {
+        // 最後のプレイヤーにランクを割り当て
+        const lastPlayer = this.gameState.players.find(p => !p.isFinished);
+        if (lastPlayer) {
+          const finishedCount = this.gameState.players.filter(p => p.isFinished).length;
+          lastPlayer.isFinished = true;
+          lastPlayer.finishPosition = finishedCount + 1;
+          const rankService = new RankAssignmentService();
+          rankService.assignRank(this.gameState, lastPlayer);
+        }
         await this.transitionPhase(GamePhaseType.RESULT);
       }
 
