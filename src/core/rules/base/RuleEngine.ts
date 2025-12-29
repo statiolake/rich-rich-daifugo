@@ -46,6 +46,7 @@ export class RuleEngine {
     const context: RuleContext = {
       isRevolution: gameState.isRevolution,
       isElevenBack: gameState.isElevenBack,
+      isTwoBack: gameState.isTwoBack,
       field: field,
       suitLock: gameState.suitLock,
       numberLock: gameState.numberLock,

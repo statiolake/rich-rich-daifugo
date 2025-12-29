@@ -158,6 +158,30 @@ export class PlayPhase implements GamePhase {
       // 救急車・ろくろ首で場が流れる場合はサルベージなし（3が含まれない）
       // 救急車(9x2)で場が流れる場合も次期エースなし（Aが含まれない）
     }
+    // 暗殺で場が流れる（2に対して3、革命中は逆）
+    if (effects.includes('暗殺')) {
+      shouldClearField = true;
+      console.log('暗殺が発動します');
+      if (cards.some(c => c.rank === '3')) {
+        salvagePlayer = player;
+      }
+    }
+    // 33返しで場が流れる（ジョーカー1枚に対して3x3）
+    if (effects.includes('33返し')) {
+      shouldClearField = true;
+      console.log('33返しが発動します');
+      salvagePlayer = player;
+    }
+    // スペ2返しで場が流れる（革命中ジョーカーに対してスペード2）
+    if (effects.includes('スペ2返し')) {
+      shouldClearField = true;
+      console.log('スペ2返しが発動します');
+    }
+    // 5切り/6切り/7切り（革命中に場が流れる）
+    if (effects.includes('5切り') || effects.includes('6切り') || effects.includes('7切り')) {
+      shouldClearField = true;
+      console.log('革命中の切りが発動します');
+    }
 
     if (shouldClearField) {
       this.handleLuckySevenVictory(gameState);
@@ -204,6 +228,11 @@ export class PlayPhase implements GamePhase {
     if (effects.includes('キングの行進')) {
       const kingCount = cards.filter(c => c.rank === 'K').length;
       await this.handleKingsMarch(gameState, player, kingCount);
+    }
+
+    // ゾンビ（3x3で捨て札から任意カードを次のプレイヤーに渡す）
+    if (effects.includes('ゾンビ')) {
+      await this.handleZombie(gameState, player);
     }
 
     if (effects.includes('7渡し')) {
@@ -326,6 +355,7 @@ export class PlayPhase implements GamePhase {
     gameState.suitLock = null;
     gameState.numberLock = false;
     gameState.colorLock = null;
+    gameState.isTwoBack = false; // 2バックをリセット
 
     if (resetElevenBack && gameState.isElevenBack) {
       gameState.isElevenBack = false;
@@ -396,12 +426,19 @@ export class PlayPhase implements GamePhase {
   private getCutInData(effect: TriggerEffect): CutIn | null {
     const cutInMap: Partial<Record<TriggerEffect, CutIn>> = {
       '砂嵐': { effect: '砂嵐', variant: 'red' },
+      '33返し': { effect: '33返し', variant: 'gold' },
+      '暗殺': { effect: '暗殺', variant: 'red' },
       '革命': { effect: '革命', variant: 'red' },
       '革命終了': { effect: '革命終了', variant: 'blue' },
+      '階段革命': { effect: '階段革命', variant: 'red' },
+      '階段革命終了': { effect: '階段革命終了', variant: 'blue' },
       'イレブンバック': { effect: 'イレブンバック', variant: 'blue' },
       'イレブンバック解除': { effect: 'イレブンバック解除', variant: 'blue' },
       '4止め': { effect: '4止め', variant: 'blue' },
       '8切り': { effect: '8切り', variant: 'green' },
+      '5切り': { effect: '5切り', variant: 'green' },
+      '6切り': { effect: '6切り', variant: 'green' },
+      '7切り': { effect: '7切り', variant: 'green' },
       '救急車': { effect: '救急車', variant: 'red' },
       'ろくろ首': { effect: 'ろくろ首', variant: 'red' },
       'エンペラー': { effect: 'エンペラー', variant: 'gold' },
@@ -410,17 +447,26 @@ export class PlayPhase implements GamePhase {
       'クーデター終了': { effect: 'クーデター終了', variant: 'blue' },
       'オーメン': { effect: 'オーメン', variant: 'yellow' },
       '大革命＋即勝利': { effect: '大革命＋即勝利', variant: 'gold' },
+      'ジョーカー革命': { effect: 'ジョーカー革命', variant: 'gold' },
+      'ジョーカー革命終了': { effect: 'ジョーカー革命終了', variant: 'blue' },
       '5スキップ': { effect: '5スキップ', variant: 'blue' },
       '7渡し': { effect: '7渡し', variant: 'blue' },
       '10捨て': { effect: '10捨て', variant: 'red' },
       'クイーンボンバー': { effect: 'クイーンボンバー', variant: 'red' },
       '9リバース': { effect: '9リバース', variant: 'blue' },
+      'Qリバース': { effect: 'Qリバース', variant: 'blue' },
+      'Kリバース': { effect: 'Kリバース', variant: 'blue' },
       'スペ3返し': { effect: 'スペ3返し', variant: 'green' },
+      'スペ2返し': { effect: 'スペ2返し', variant: 'green' },
       'ダウンナンバー': { effect: 'ダウンナンバー', variant: 'blue' },
       'ラッキーセブン': { effect: 'ラッキーセブン', variant: 'gold' },
       'マークしばり': { effect: 'マークしばり', variant: 'blue' },
       '数字しばり': { effect: '数字しばり', variant: 'blue' },
       'キングの行進': { effect: 'キングの行進', variant: 'gold' },
+      'ナナサン革命': { effect: 'ナナサン革命', variant: 'red' },
+      'ナナサン革命終了': { effect: 'ナナサン革命終了', variant: 'blue' },
+      '2バック': { effect: '2バック', variant: 'blue' },
+      'ゾンビ': { effect: 'ゾンビ', variant: 'green' },
     };
 
     return cutInMap[effect] || null;
@@ -657,6 +703,67 @@ export class PlayPhase implements GamePhase {
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
       player.hand.sort(shouldReverse);
+    }
+  }
+
+  /**
+   * ゾンビ処理（非同期）
+   * 3x3で捨て札から任意カードを選び、次のプレイヤーに渡す
+   */
+  private async handleZombie(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
+
+    // 捨て札がなければスキップ
+    if (gameState.discardPile.length === 0) {
+      console.log('捨て札がないためゾンビをスキップ');
+      return;
+    }
+
+    // 次のプレイヤーを探す
+    const direction = gameState.isReversed ? -1 : 1;
+    const nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+    let nextPlayer = gameState.players[nextIndex];
+
+    let searchIndex = nextIndex;
+    let attempts = 0;
+    while (nextPlayer.isFinished && attempts < gameState.players.length) {
+      searchIndex = (searchIndex + direction + gameState.players.length) % gameState.players.length;
+      nextPlayer = gameState.players[searchIndex];
+      attempts++;
+    }
+
+    if (nextPlayer.isFinished) {
+      console.log('次のプレイヤーがいないためゾンビをスキップ');
+      return;
+    }
+
+    console.log(`ゾンビ：${nextPlayer.name} にカードを渡します`);
+
+    // カード選択（1枚）
+    const selectedCards = await controller.chooseCardsFromDiscard(
+      gameState.discardPile,
+      1,
+      `ゾンビ：捨て札から1枚選んで${nextPlayer.name}に渡してください`
+    );
+
+    if (selectedCards.length > 0) {
+      const card = selectedCards[0];
+      // 捨て札から削除
+      const index = gameState.discardPile.findIndex(
+        (c: Card) => c.suit === card.suit && c.rank === card.rank
+      );
+      if (index !== -1) {
+        gameState.discardPile.splice(index, 1);
+      }
+
+      // 次のプレイヤーの手札に追加
+      nextPlayer.hand.add([card]);
+      console.log(`${player.name} が ${card.rank}${card.suit} を ${nextPlayer.name} に渡しました（ゾンビ）`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      nextPlayer.hand.sort(shouldReverse);
     }
   }
 

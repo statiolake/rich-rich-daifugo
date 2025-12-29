@@ -17,8 +17,12 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
       title: '場をクリアするルール',
       rules: [
         { key: 'eightCut', label: '8切り', description: '8を出すと場が流れる' },
+        { key: 'fiveCut', label: '5切り', description: '革命中に5を出すと場が流れる' },
+        { key: 'sixCut', label: '6切り', description: '革命中に6を出すと場が流れる' },
+        { key: 'sevenCut', label: '7切り', description: '革命中に7を出すと場が流れる' },
         { key: 'ambulance', label: '救急車', description: '9x2で場が流れる' },
         { key: 'rokurokubi', label: 'ろくろ首', description: '6x2で場が流れる' },
+        { key: 'assassination', label: '暗殺', description: '2に対して3を出すと場が流れる（革命中は逆）' },
       ]
     },
     {
@@ -30,6 +34,7 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
         { key: 'coup', label: 'クーデター', description: '9x3で革命' },
         { key: 'greatRevolution', label: '大革命', description: '2x4で革命＋即勝利' },
         { key: 'omen', label: 'オーメン', description: '6x3で革命＋以後革命なし' },
+        { key: 'jokerRevolution', label: 'ジョーカー革命', description: 'ジョーカー2枚同時で革命' },
       ]
     },
     {
@@ -42,7 +47,9 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
       title: 'カード強度ルール',
       rules: [
         { key: 'sandstorm', label: '砂嵐', description: '3x3が何にでも勝つ' },
+        { key: 'tripleThreeReturn', label: '33返し', description: '3x3がジョーカー1枚を切れる' },
         { key: 'spadeThreeReturn', label: 'スぺ3返し', description: 'スペードの3がJokerに勝つ' },
+        { key: 'spadeTwoReturn', label: 'スペ2返し', description: '革命中ジョーカーに対してスペード2で流せる' },
         { key: 'stairs', label: '階段', description: '同じマークの連番' },
       ]
     },
@@ -65,6 +72,8 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
         { key: 'sevenPass', label: '7渡し', description: '7でカードを次のプレイヤーに渡す' },
         { key: 'tenDiscard', label: '10捨て', description: '10でカードを捨てる' },
         { key: 'nineReverse', label: '9リバース', description: '9でターン順を逆転' },
+        { key: 'queenReverse', label: 'Qリバース', description: 'Qでターン順を逆転' },
+        { key: 'kingReverse', label: 'Kリバース', description: 'Kでターン順を逆転' },
       ]
     },
     {
@@ -72,6 +81,8 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
       rules: [
         { key: 'queenBomber', label: 'クイーンボンバー', description: 'Qで全員がカードを捨てる' },
         { key: 'downNumber', label: 'ダウンナンバー', description: '同じマークで1つ下を出せる' },
+        { key: 'twoBack', label: '2バック', description: '2を出すと場が流れるまで強さ逆転' },
+        { key: 'zombie', label: 'ゾンビ', description: '3x3で捨て札から次のプレイヤーに渡す' },
       ]
     },
     {

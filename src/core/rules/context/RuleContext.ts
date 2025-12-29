@@ -9,6 +9,7 @@ export interface RuleContext {
   // ゲーム状態
   isRevolution: boolean;
   isElevenBack: boolean;
+  isTwoBack: boolean; // 2バック状態（2を出すと場が流れるまで強さ逆転）
 
   // 場の状態
   field: Field;

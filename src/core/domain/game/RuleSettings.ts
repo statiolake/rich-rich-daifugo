@@ -5,6 +5,9 @@
 export interface RuleSettings {
   // 場をクリアするルール
   eightCut: boolean;           // 8切り
+  fiveCut: boolean;            // 5切り（革命中に5を出すと場が流れる）
+  sixCut: boolean;             // 6切り（革命中に6を出すと場が流れる）
+  sevenCut: boolean;           // 7切り（革命中に7を出すと場が流れる）
   ambulance: boolean;          // 救急車（9x2）
   rokurokubi: boolean;         // ろくろ首（6x2）
 
@@ -15,13 +18,17 @@ export interface RuleSettings {
   coup: boolean;               // クーデター（9x3）
   greatRevolution: boolean;    // 大革命（2x4で即勝利）
   omen: boolean;               // オーメン（6x3で革命＋以後革命なし）
+  jokerRevolution: boolean;    // ジョーカー革命（ジョーカー2枚同時で革命）
 
   // 特殊勝利条件
   forbiddenFinish: boolean;    // 禁止上がり（J/2/8/Jokerで上がれない）
 
   // カード強度ルール
   sandstorm: boolean;          // 砂嵐（3x3が何にでも勝つ）
+  tripleThreeReturn: boolean;  // 33返し（3x3がジョーカー1枚を切れる）
+  assassination: boolean;      // 暗殺（2に対して3を出すと場を流せる、革命中は逆）
   spadeThreeReturn: boolean;   // スぺ3返し（スペードの3がJokerに勝つ）
+  spadeTwoReturn: boolean;     // スペ2返し（革命中ジョーカーに対してスペード2で流せる）
   stairs: boolean;             // 階段（同じマークの連番）
 
   // フィールド効果
@@ -38,10 +45,14 @@ export interface RuleSettings {
   sevenPass: boolean;          // 7渡し
   tenDiscard: boolean;         // 10捨て
   nineReverse: boolean;        // 9リバース
+  queenReverse: boolean;       // Qリバース（Qを出すと席順が逆転）
+  kingReverse: boolean;        // Kリバース（Kを出すと席順が逆転）
 
   // 特殊効果
   queenBomber: boolean;        // クイーンボンバー
   downNumber: boolean;         // ダウンナンバー
+  twoBack: boolean;            // 2バック（2を出すと場が流れるまで強さ逆転）
+  zombie: boolean;             // ゾンビ（3x3で捨て札から任意カードを次のプレイヤーに渡す）
 
   // 捨て札回収ルール
   salvage: boolean;            // サルベージ（3で場が流れた時に捨て札から1枚回収）
@@ -63,6 +74,9 @@ export interface RuleSettings {
  */
 export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   eightCut: true,
+  fiveCut: true,
+  sixCut: true,
+  sevenCut: true,
   ambulance: true,
   rokurokubi: true,
   stairRevolution: true,
@@ -71,9 +85,13 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   coup: true,
   greatRevolution: true,
   omen: true,
+  jokerRevolution: true,
   forbiddenFinish: true,
   sandstorm: true,
+  tripleThreeReturn: true,
+  assassination: true,
   spadeThreeReturn: true,
+  spadeTwoReturn: true,
   stairs: true,
   fourStop: true,
   suitLock: true,
@@ -86,8 +104,12 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   sevenPass: true,
   tenDiscard: true,
   nineReverse: true,
+  queenReverse: true,
+  kingReverse: true,
   queenBomber: true,
   downNumber: true,
+  twoBack: true,
+  zombie: true,
   salvage: true,
   kingsMarch: true,
   nextAce: true,

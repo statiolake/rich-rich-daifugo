@@ -211,8 +211,9 @@ export class PlayValidator {
       return { valid: true, reason: 'スぺ3返し' };
     }
 
-    // XORロジック: 革命と11バックのどちらか一方だけがtrueなら強さ判定が反転
-    const shouldReverse = context.isRevolution !== context.isElevenBack;
+    // 強さ反転ロジック: 革命、11バック、2バックが奇数個trueなら反転
+    // XOR演算を連鎖させて、trueの数が奇数かどうかを判定
+    const shouldReverse = context.isRevolution !== context.isElevenBack !== context.isTwoBack;
 
     // PlayAnalyzer.canFollow で強さをチェック
     if (!PlayAnalyzer.canFollow(fieldPlay, currentPlay, shouldReverse)) {

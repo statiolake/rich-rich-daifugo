@@ -442,5 +442,146 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'gold',
       duration: 300
     }
+  },
+
+  '33返し': {
+    apply: () => {
+      console.log('33返しが発動しました！');
+    },
+    cutIn: {
+      getText: () => '33返し！',
+      variant: 'gold',
+      duration: 250
+    }
+  },
+
+  '暗殺': {
+    apply: () => {
+      console.log('暗殺が発動しました！');
+    },
+    cutIn: {
+      getText: () => '暗殺！',
+      variant: 'red',
+      duration: 250
+    }
+  },
+
+  '5切り': {
+    apply: (gameState) => {
+      console.log('5切りが発動しました！');
+      gameState.isEightCutPending = true;
+    },
+    cutIn: {
+      getText: () => '5切り！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '6切り': {
+    apply: (gameState) => {
+      console.log('6切りが発動しました！');
+      gameState.isEightCutPending = true;
+    },
+    cutIn: {
+      getText: () => '6切り！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '7切り': {
+    apply: (gameState) => {
+      console.log('7切りが発動しました！');
+      gameState.isEightCutPending = true;
+    },
+    cutIn: {
+      getText: () => '7切り！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  'ジョーカー革命': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`ジョーカー革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? 'ジョーカー革命！' : 'ジョーカー革命終了',
+      variant: 'gold',
+      duration: 250
+    }
+  },
+
+  'ジョーカー革命終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`ジョーカー革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? 'ジョーカー革命！' : 'ジョーカー革命終了',
+      variant: 'gold',
+      duration: 250
+    }
+  },
+
+  'Qリバース': {
+    apply: (gameState) => {
+      gameState.isReversed = !gameState.isReversed;
+      console.log(`Qリバースが発動しました！ isReversed: ${gameState.isReversed}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isReversed ? 'Qリバース発動！' : 'Qリバース解除',
+      variant: 'green',
+      duration: 250
+    }
+  },
+
+  'Kリバース': {
+    apply: (gameState) => {
+      gameState.isReversed = !gameState.isReversed;
+      console.log(`Kリバースが発動しました！ isReversed: ${gameState.isReversed}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isReversed ? 'Kリバース発動！' : 'Kリバース解除',
+      variant: 'green',
+      duration: 250
+    }
+  },
+
+  'スペ2返し': {
+    apply: () => {
+      console.log('スペ2返しが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'スペ2返し！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '2バック': {
+    apply: (gameState) => {
+      gameState.isTwoBack = !gameState.isTwoBack;
+      console.log(`2バックが発動しました！ isTwoBack: ${gameState.isTwoBack}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isTwoBack ? '2バック発動！' : '2バック解除',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  'ゾンビ': {
+    apply: () => {
+      // ゾンビは後で別途処理するため、ここではイベント発火のみ
+      console.log('ゾンビが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'ゾンビ！',
+      variant: 'green',
+      duration: 250
+    }
   }
 };

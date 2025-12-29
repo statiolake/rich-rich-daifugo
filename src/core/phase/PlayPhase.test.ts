@@ -166,12 +166,17 @@ describe('PlayPhase - 11バック機能', () => {
       controller1.setNextCardChoice([kingCard]);
       playerControllers.set('p1', controller1);
 
-      await playPhase.update(gameState);
-
-      // Player2がパス（3ではKに勝てない）
+      // Player2はパス
       const controller2 = new MockPlayerController();
       controller2.setNextCardChoice([]); // パス
       playerControllers.set('p2', controller2);
+
+      // Player3も設定
+      const controller3 = new MockPlayerController();
+      controller3.setNextCardChoice([]); // パス
+      playerControllers.set('p3', controller3);
+
+      await playPhase.update(gameState);
 
       const initialPassCount = gameState.passCount;
       await playPhase.update(gameState);

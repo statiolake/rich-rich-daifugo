@@ -7,6 +7,8 @@ import { Suit } from '../../domain/card/Card';
  */
 export type TriggerEffect =
   | '砂嵐'
+  | '33返し'
+  | '暗殺'
   | '革命'
   | '革命終了'
   | '階段革命'
@@ -15,6 +17,9 @@ export type TriggerEffect =
   | 'イレブンバック解除'
   | '4止め'
   | '8切り'
+  | '5切り'
+  | '6切り'
+  | '7切り'
   | '救急車'
   | 'ろくろ首'
   | 'エンペラー'
@@ -23,12 +28,17 @@ export type TriggerEffect =
   | 'クーデター終了'
   | 'オーメン'
   | '大革命＋即勝利'
+  | 'ジョーカー革命'
+  | 'ジョーカー革命終了'
   | '5スキップ'
   | '7渡し'
   | '10捨て'
   | 'クイーンボンバー'
   | '9リバース'
+  | 'Qリバース'
+  | 'Kリバース'
   | 'スペ3返し'
+  | 'スペ2返し'
   | 'ダウンナンバー'
   | 'ラッキーセブン'
   | 'マークしばり'
@@ -39,7 +49,9 @@ export type TriggerEffect =
   | 'ナナサン革命'
   | 'ナナサン革命終了'
   | '色縛り'
-  | 'キングの行進';
+  | 'キングの行進'
+  | '2バック'
+  | 'ゾンビ';
 
 /**
  * トリガーエフェクトアナライザー
@@ -61,6 +73,16 @@ export class TriggerEffectAnalyzer {
     // 砂嵐判定（3x3が何にでも勝つ）
     if (ruleSettings.sandstorm && this.triggersSandstorm(play)) {
       effects.push('砂嵐');
+    }
+
+    // 33返し判定（3x3がジョーカー1枚を切れる）
+    if (ruleSettings.tripleThreeReturn && this.triggersTripleThreeReturn(play, gameState)) {
+      effects.push('33返し');
+    }
+
+    // 暗殺判定（2に対して3を出す、革命中は逆）
+    if (ruleSettings.assassination && this.triggersAssassination(play, gameState)) {
+      effects.push('暗殺');
     }
 
     // 革命判定 - 大革命が優先、通常革命・階段革命はその次
@@ -87,6 +109,12 @@ export class TriggerEffectAnalyzer {
         if (isNanasanRevolution) {
           effects.push(gameState.isRevolution ? 'ナナサン革命終了' : 'ナナサン革命');
         }
+
+        // ジョーカー革命（ジョーカー2枚同時で革命）
+        const isJokerRevolution = ruleSettings.jokerRevolution && this.triggersJokerRevolution(play);
+        if (isJokerRevolution) {
+          effects.push(gameState.isRevolution ? 'ジョーカー革命終了' : 'ジョーカー革命');
+        }
       }
     }
 
@@ -108,6 +136,21 @@ export class TriggerEffectAnalyzer {
     // 8切り判定（場をクリアする）
     if (ruleSettings.eightCut && this.triggersEightCut(play)) {
       effects.push('8切り');
+    }
+
+    // 5切り判定（革命中に5を出すと場が流れる）
+    if (ruleSettings.fiveCut && this.triggersFiveCut(play, gameState)) {
+      effects.push('5切り');
+    }
+
+    // 6切り判定（革命中に6を出すと場が流れる）
+    if (ruleSettings.sixCut && this.triggersSixCut(play, gameState)) {
+      effects.push('6切り');
+    }
+
+    // 7切り判定（革命中に7を出すと場が流れる）
+    if (ruleSettings.sevenCut && this.triggersSevenCut(play, gameState)) {
+      effects.push('7切り');
     }
 
     // 救急車判定（9x2で場をクリア）
@@ -162,9 +205,24 @@ export class TriggerEffectAnalyzer {
       effects.push('9リバース');
     }
 
+    // Qリバース判定
+    if (ruleSettings.queenReverse && this.triggersQueenReverse(play)) {
+      effects.push('Qリバース');
+    }
+
+    // Kリバース判定
+    if (ruleSettings.kingReverse && this.triggersKingReverse(play)) {
+      effects.push('Kリバース');
+    }
+
     // スペ3返し判定
     if (ruleSettings.spadeThreeReturn && this.triggersSpadeThreeReturn(play, gameState)) {
       effects.push('スペ3返し');
+    }
+
+    // スペ2返し判定（革命中ジョーカーに対してスペード2で流せる）
+    if (ruleSettings.spadeTwoReturn && this.triggersSpadeTwoReturn(play, gameState)) {
+      effects.push('スペ2返し');
     }
 
     // ダウンナンバー判定
@@ -210,6 +268,16 @@ export class TriggerEffectAnalyzer {
     // 色縛り判定（同じ色が2回連続で出されると発動）
     if (triggeredColorLock) {
       effects.push('色縛り');
+    }
+
+    // 2バック判定（2を出すと場が流れるまで強さ逆転）
+    if (ruleSettings.twoBack && this.triggersTwoBack(play)) {
+      effects.push('2バック');
+    }
+
+    // ゾンビ判定（3x3で捨て札から任意カードを次のプレイヤーに渡す）
+    if (ruleSettings.zombie && this.triggersZombie(play, gameState)) {
+      effects.push('ゾンビ');
     }
 
     return effects;
@@ -444,5 +512,129 @@ export class TriggerEffectAnalyzer {
 
     // 同じ色なら色縛り発動
     return prevColor === currentColor;
+  }
+
+  // ========== 新規追加のトリガー判定メソッド ==========
+
+  /**
+   * 33返し判定（3x3がジョーカー1枚を切れる）
+   * 砂嵐とは別に、場にジョーカー1枚がある場合のみ発動
+   */
+  private triggersTripleThreeReturn(play: Play, gameState: GameState): boolean {
+    // 3x3でなければ発動しない
+    if (play.type !== PlayType.TRIPLE || !play.cards.every(card => card.rank === '3')) {
+      return false;
+    }
+    // 場にジョーカー1枚がある場合のみ発動
+    if (gameState.field.isEmpty()) return false;
+    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (!fieldPlayHistory) return false;
+    return fieldPlayHistory.play.type === PlayType.SINGLE &&
+           fieldPlayHistory.play.cards[0].rank === 'JOKER';
+  }
+
+  /**
+   * 暗殺判定（2に対して3を出す、革命中は逆）
+   * 通常時: 2に対して3を出すと場を流せる
+   * 革命中: 3に対して2を出すと場を流せる
+   */
+  private triggersAssassination(play: Play, gameState: GameState): boolean {
+    if (play.type !== PlayType.SINGLE) return false;
+    if (gameState.field.isEmpty()) return false;
+
+    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (!fieldPlayHistory || fieldPlayHistory.play.type !== PlayType.SINGLE) return false;
+
+    const playRank = play.cards[0].rank;
+    const fieldRank = fieldPlayHistory.play.cards[0].rank;
+
+    // 通常時: 2に対して3を出す
+    // 革命中: 3に対して2を出す
+    if (gameState.isRevolution) {
+      return fieldRank === '3' && playRank === '2';
+    } else {
+      return fieldRank === '2' && playRank === '3';
+    }
+  }
+
+  /**
+   * ジョーカー革命判定（ジョーカー2枚同時で革命）
+   */
+  private triggersJokerRevolution(play: Play): boolean {
+    return play.type === PlayType.PAIR &&
+           play.cards.every(card => card.rank === 'JOKER');
+  }
+
+  /**
+   * 5切り判定（革命中に5を出すと場が流れる）
+   */
+  private triggersFiveCut(play: Play, gameState: GameState): boolean {
+    if (!gameState.isRevolution) return false;
+    return play.cards.some(card => card.rank === '5');
+  }
+
+  /**
+   * 6切り判定（革命中に6を出すと場が流れる）
+   */
+  private triggersSixCut(play: Play, gameState: GameState): boolean {
+    if (!gameState.isRevolution) return false;
+    return play.cards.some(card => card.rank === '6');
+  }
+
+  /**
+   * 7切り判定（革命中に7を出すと場が流れる）
+   */
+  private triggersSevenCut(play: Play, gameState: GameState): boolean {
+    if (!gameState.isRevolution) return false;
+    return play.cards.some(card => card.rank === '7');
+  }
+
+  /**
+   * Qリバース判定（Qを出すと席順が逆転）
+   */
+  private triggersQueenReverse(play: Play): boolean {
+    return play.cards.some(card => card.rank === 'Q');
+  }
+
+  /**
+   * Kリバース判定（Kを出すと席順が逆転）
+   */
+  private triggersKingReverse(play: Play): boolean {
+    return play.cards.some(card => card.rank === 'K');
+  }
+
+  /**
+   * スペ2返し判定（革命中ジョーカーに対してスペード2で流せる）
+   */
+  private triggersSpadeTwoReturn(play: Play, gameState: GameState): boolean {
+    // 革命中でなければ発動しない
+    if (!gameState.isRevolution) return false;
+    // スペードの2でなければ発動しない
+    if (play.type !== PlayType.SINGLE) return false;
+    if (play.cards[0].suit !== Suit.SPADE || play.cards[0].rank !== '2') return false;
+    // 場にジョーカーがある場合のみ発動
+    if (gameState.field.isEmpty()) return false;
+    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (!fieldPlayHistory) return false;
+    return fieldPlayHistory.play.cards.some(card => card.rank === 'JOKER');
+  }
+
+  /**
+   * 2バック判定（2を出すと場が流れるまで強さ逆転）
+   */
+  private triggersTwoBack(play: Play): boolean {
+    return play.cards.some(card => card.rank === '2');
+  }
+
+  /**
+   * ゾンビ判定（3x3で捨て札から任意カードを次のプレイヤーに渡す）
+   */
+  private triggersZombie(play: Play, gameState: GameState): boolean {
+    // 3x3でなければ発動しない
+    if (play.type !== PlayType.TRIPLE || !play.cards.every(card => card.rank === '3')) {
+      return false;
+    }
+    // 捨て札がある場合のみ発動
+    return gameState.discardPile && gameState.discardPile.length > 0;
   }
 }

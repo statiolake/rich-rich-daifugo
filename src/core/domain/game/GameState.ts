@@ -23,6 +23,7 @@ export interface GameState {
   numberLock: boolean; // 数字しばり（階段の縛り）
   colorLock: 'red' | 'black' | null; // 色縛り（赤:ハート/ダイヤ、黒:スペード/クラブ）
   isReversed: boolean; // ターン順が逆転しているか（9リバース）
+  isTwoBack: boolean; // 2バック状態（2を出すと場が流れるまで強さ逆転）
   luckySeven: { playerId: string } | null; // ラッキーセブン（7x3を出したプレイヤー、無敗なら勝利）
   passCount: number;
   round: number;
@@ -44,6 +45,7 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     numberLock: false,
     colorLock: null,
     isReversed: false,
+    isTwoBack: false,
     luckySeven: null,
     passCount: 0,
     round: 1,
