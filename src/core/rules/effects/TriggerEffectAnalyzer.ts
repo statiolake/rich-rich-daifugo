@@ -51,7 +51,10 @@ export type TriggerEffect =
   | '色縛り'
   | 'キングの行進'
   | '2バック'
-  | 'ゾンビ';
+  | 'ゾンビ'
+  | 'サタン'
+  | '栗拾い'
+  | '銀河鉄道999';
 
 /**
  * トリガーエフェクトアナライザー
@@ -278,6 +281,21 @@ export class TriggerEffectAnalyzer {
     // ゾンビ判定（3x3で捨て札から任意カードを次のプレイヤーに渡す）
     if (ruleSettings.zombie && this.triggersZombie(play, gameState)) {
       effects.push('ゾンビ');
+    }
+
+    // サタン判定（6x3で捨て札から任意カード1枚を回収）
+    if (ruleSettings.satan && this.triggersSatan(play)) {
+      effects.push('サタン');
+    }
+
+    // 栗拾い判定（9を出すと枚数分だけ捨て札から回収）
+    if (ruleSettings.chestnutPicking && this.triggersChestnutPicking(play)) {
+      effects.push('栗拾い');
+    }
+
+    // 銀河鉄道999判定（9x3で手札2枚を捨て、捨て札から2枚引く）
+    if (ruleSettings.galaxyExpress999 && this.triggersGalaxyExpress999(play)) {
+      effects.push('銀河鉄道999');
     }
 
     return effects;
@@ -636,5 +654,26 @@ export class TriggerEffectAnalyzer {
     }
     // 捨て札がある場合のみ発動
     return gameState.discardPile && gameState.discardPile.length > 0;
+  }
+
+  /**
+   * サタン判定（6x3で捨て札から任意カード1枚を回収）
+   */
+  private triggersSatan(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '6');
+  }
+
+  /**
+   * 栗拾い判定（9を出すと枚数分だけ捨て札から回収）
+   */
+  private triggersChestnutPicking(play: Play): boolean {
+    return play.cards.some(card => card.rank === '9');
+  }
+
+  /**
+   * 銀河鉄道999判定（9x3で手札2枚を捨て、捨て札から2枚引く）
+   */
+  private triggersGalaxyExpress999(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '9');
   }
 }

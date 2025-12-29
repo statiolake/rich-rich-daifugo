@@ -57,6 +57,9 @@ export interface RuleSettings {
   // 捨て札回収ルール
   salvage: boolean;            // サルベージ（3で場が流れた時に捨て札から1枚回収）
   kingsMarch: boolean;         // キングの行進（Kを出すと枚数分捨て札から回収）
+  satan: boolean;              // サタン（6x3で捨て札から任意カード1枚を回収）
+  chestnutPicking: boolean;    // 栗拾い（9を出すと枚数分だけ捨て札から回収）
+  galaxyExpress999: boolean;   // 銀河鉄道999（9x3で手札2枚を捨て、捨て札から2枚引く）
 
   // 親権ルール
   nextAce: boolean;            // 次期エース（Aで場が流れた時に親になる）
@@ -112,6 +115,9 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   zombie: true,
   salvage: true,
   kingsMarch: true,
+  satan: true,
+  chestnutPicking: true,
+  galaxyExpress999: true,
   nextAce: true,
   cityFall: true,
   gekokujou: true,

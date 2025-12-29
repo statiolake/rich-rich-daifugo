@@ -235,6 +235,22 @@ export class PlayPhase implements GamePhase {
       await this.handleZombie(gameState, player);
     }
 
+    // サタン（6x3で捨て札から任意カード1枚を回収）
+    if (effects.includes('サタン')) {
+      await this.handleSatan(gameState, player);
+    }
+
+    // 栗拾い（9を出すと枚数分だけ捨て札から回収）
+    if (effects.includes('栗拾い')) {
+      const nineCount = cards.filter(c => c.rank === '9').length;
+      await this.handleChestnutPicking(gameState, player, nineCount);
+    }
+
+    // 銀河鉄道999（9x3で手札2枚を捨て、捨て札から2枚引く）
+    if (effects.includes('銀河鉄道999')) {
+      await this.handleGalaxyExpress999(gameState, player);
+    }
+
     if (effects.includes('7渡し')) {
       await this.handleSevenPass(gameState, player);
       this.nextPlayer(gameState);
@@ -467,6 +483,9 @@ export class PlayPhase implements GamePhase {
       'ナナサン革命終了': { effect: 'ナナサン革命終了', variant: 'blue' },
       '2バック': { effect: '2バック', variant: 'blue' },
       'ゾンビ': { effect: 'ゾンビ', variant: 'green' },
+      'サタン': { effect: 'サタン', variant: 'red' },
+      '栗拾い': { effect: '栗拾い', variant: 'green' },
+      '銀河鉄道999': { effect: '銀河鉄道999', variant: 'gold' },
     };
 
     return cutInMap[effect] || null;
@@ -764,6 +783,163 @@ export class PlayPhase implements GamePhase {
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
       nextPlayer.hand.sort(shouldReverse);
+    }
+  }
+
+  /**
+   * サタン処理（非同期）
+   * 6x3で捨て札から任意カード1枚を回収
+   */
+  private async handleSatan(gameState: GameState, player: Player): Promise<void> {
+    if (gameState.discardPile.length === 0) {
+      console.log('捨て札がないためサタンをスキップ');
+      return;
+    }
+
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('コントローラーがないためサタンをスキップ');
+      return;
+    }
+
+    console.log(`サタン：${player.name} が捨て札から1枚回収します`);
+
+    const selectedCards = await controller.chooseCardsFromDiscard(
+      gameState.discardPile,
+      1,
+      'サタン：捨て札から1枚選んで回収してください'
+    );
+
+    if (selectedCards.length > 0) {
+      const card = selectedCards[0];
+      // 捨て札から削除
+      const index = gameState.discardPile.findIndex(
+        (c: Card) => c.suit === card.suit && c.rank === card.rank
+      );
+      if (index !== -1) {
+        gameState.discardPile.splice(index, 1);
+      }
+
+      // プレイヤーの手札に追加
+      player.hand.add([card]);
+      console.log(`${player.name} が ${card.rank}${card.suit} を回収しました（サタン）`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      player.hand.sort(shouldReverse);
+    }
+  }
+
+  /**
+   * 栗拾い処理（非同期）
+   * 9を出すと枚数分だけ捨て札から回収
+   */
+  private async handleChestnutPicking(gameState: GameState, player: Player, count: number): Promise<void> {
+    if (gameState.discardPile.length === 0) {
+      console.log('捨て札がないため栗拾いをスキップ');
+      return;
+    }
+
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('コントローラーがないため栗拾いをスキップ');
+      return;
+    }
+
+    const maxCount = Math.min(count, gameState.discardPile.length);
+    console.log(`栗拾い：${player.name} が捨て札から${maxCount}枚回収します`);
+
+    const selectedCards = await controller.chooseCardsFromDiscard(
+      gameState.discardPile,
+      maxCount,
+      `栗拾い：捨て札から${maxCount}枚まで選んで回収してください`
+    );
+
+    if (selectedCards.length > 0) {
+      for (const card of selectedCards) {
+        // 捨て札から削除
+        const index = gameState.discardPile.findIndex(
+          (c: Card) => c.suit === card.suit && c.rank === card.rank
+        );
+        if (index !== -1) {
+          gameState.discardPile.splice(index, 1);
+        }
+      }
+
+      // プレイヤーの手札に追加
+      player.hand.add(selectedCards);
+      console.log(`${player.name} が ${selectedCards.map(c => `${c.rank}${c.suit}`).join(', ')} を回収しました（栗拾い）`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      player.hand.sort(shouldReverse);
+    }
+  }
+
+  /**
+   * 銀河鉄道999処理（非同期）
+   * 9x3で手札2枚を捨て、捨て札から2枚引く
+   */
+  private async handleGalaxyExpress999(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('コントローラーがないため銀河鉄道999をスキップ');
+      return;
+    }
+
+    // 手札から2枚捨てる（手札が2枚未満の場合はスキップ）
+    const handCards = player.hand.getCards();
+    if (handCards.length < 2) {
+      console.log('手札が2枚未満のため銀河鉄道999をスキップ');
+      return;
+    }
+
+    console.log(`銀河鉄道999：${player.name} が手札から2枚捨てて、捨て札から2枚引きます`);
+
+    // 捨てるカードを選択
+    const discardValidator = {
+      validate: (cards: Card[]) => ({ valid: cards.length === 2, reason: cards.length !== 2 ? '2枚選んでください' : undefined })
+    };
+
+    const cardsToDiscard = await controller.chooseCardsInHand(
+      discardValidator,
+      '銀河鉄道999：捨てる2枚を選んでください'
+    );
+
+    if (cardsToDiscard.length === 2) {
+      // 手札から削除して捨て札に追加
+      player.hand.remove(cardsToDiscard);
+      gameState.discardPile.push(...cardsToDiscard);
+      console.log(`${player.name} が ${cardsToDiscard.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
+    }
+
+    // 捨て札から2枚引く
+    if (gameState.discardPile.length >= 2) {
+      const cardsToDraw = await controller.chooseCardsFromDiscard(
+        gameState.discardPile,
+        2,
+        '銀河鉄道999：捨て札から2枚選んで引いてください'
+      );
+
+      if (cardsToDraw.length > 0) {
+        for (const card of cardsToDraw) {
+          const index = gameState.discardPile.findIndex(
+            (c: Card) => c.suit === card.suit && c.rank === card.rank
+          );
+          if (index !== -1) {
+            gameState.discardPile.splice(index, 1);
+          }
+        }
+
+        player.hand.add(cardsToDraw);
+        console.log(`${player.name} が ${cardsToDraw.map(c => `${c.rank}${c.suit}`).join(', ')} を引きました`);
+
+        // ソート
+        const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+        player.hand.sort(shouldReverse);
+      }
+    } else {
+      console.log('捨て札が2枚未満のため、引くことができません');
     }
   }
 

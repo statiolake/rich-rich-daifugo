@@ -592,7 +592,8 @@ describe('TriggerEffectAnalyzer', () => {
 
       expect(effects).toContain('救急車');
       expect(effects).toContain('9リバース');
-      expect(effects).toHaveLength(2);
+      expect(effects).toContain('栗拾い'); // 9を出すと栗拾いも発動
+      expect(effects).toHaveLength(3);
     });
 
     it('9x3でクーデターと9リバースが同時に発動', () => {
@@ -614,7 +615,9 @@ describe('TriggerEffectAnalyzer', () => {
 
       expect(effects).toContain('クーデター');
       expect(effects).toContain('9リバース');
-      expect(effects).toHaveLength(2);
+      expect(effects).toContain('栗拾い'); // 9を出すと栗拾いも発動
+      expect(effects).toContain('銀河鉄道999'); // 9x3で銀河鉄道999も発動
+      expect(effects).toHaveLength(4);
     });
   });
 });

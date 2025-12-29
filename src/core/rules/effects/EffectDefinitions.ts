@@ -583,5 +583,41 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'green',
       duration: 250
     }
+  },
+
+  'サタン': {
+    apply: () => {
+      // サタンは後で別途処理するため、ここではイベント発火のみ
+      console.log('サタンが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'サタン！',
+      variant: 'red',
+      duration: 250
+    }
+  },
+
+  '栗拾い': {
+    apply: () => {
+      // 栗拾いは後で別途処理するため、ここではイベント発火のみ
+      console.log('栗拾いが発動しました！');
+    },
+    cutIn: {
+      getText: (_, context) => context?.nineCount ? `栗拾い！（${context.nineCount}枚回収）` : '栗拾い！',
+      variant: 'green',
+      duration: 250
+    }
+  },
+
+  '銀河鉄道999': {
+    apply: () => {
+      // 銀河鉄道999は後で別途処理するため、ここではイベント発火のみ
+      console.log('銀河鉄道999が発動しました！');
+    },
+    cutIn: {
+      getText: () => '銀河鉄道999！',
+      variant: 'gold',
+      duration: 300
+    }
   }
 };
