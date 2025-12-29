@@ -60,35 +60,8 @@ export const GameBoard: React.FC = () => {
     );
   }
 
-  // ゲーム終了時の結果画面
-  if (gameState.phase === GamePhaseType.RESULT) {
-    return (
-      <div className="w-full h-screen bg-gradient-to-br from-green-800 to-green-600 flex items-center justify-center overflow-hidden">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold text-white mb-8">ゲーム結果</h1>
-          <div className="text-2xl text-white mb-8 max-h-64 overflow-y-auto">
-            {gameState.players
-              .filter(p => p.rank !== null)
-              .sort((a, b) => {
-                if (a.finishPosition === null || b.finishPosition === null) return 0;
-                return a.finishPosition - b.finishPosition;
-              })
-              .map((player, idx) => (
-                <div key={player.id.value} className="mb-4">
-                  <span className="font-bold text-yellow-300">{idx + 1}位</span>: {player.name} ({player.rank ? getRankName(player.rank) : ''})
-                </div>
-              ))}
-          </div>
-          <button
-            onClick={() => reset()}
-            className="px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-lg shadow-lg transition-colors"
-          >
-            タイトルに戻る
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // ゲーム終了時はオーバーレイで結果を表示（ゲーム画面は背景に残る）
+  const isGameResult = gameState.phase === GamePhaseType.RESULT;
 
   // プレイヤーの配置位置を計算（4人用の円形配置）
   const calculatePosition = (index: number, total: number): { x: number; y: number } => {
@@ -141,6 +114,53 @@ export const GameBoard: React.FC = () => {
         cutIns={activeCutIns}
         onComplete={removeCutIn}
       />
+
+      {/* ゲーム結果オーバーレイ */}
+      {isGameResult && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100]">
+          <div className="bg-gradient-to-br from-gray-900/95 to-gray-800/95 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-yellow-500/30">
+            <h1 className="text-4xl font-bold text-white text-center mb-6">ゲーム結果</h1>
+            <div className="text-xl text-white mb-8 space-y-3">
+              {gameState.players
+                .filter(p => p.rank !== null)
+                .sort((a, b) => {
+                  if (a.finishPosition === null || b.finishPosition === null) return 0;
+                  return a.finishPosition - b.finishPosition;
+                })
+                .map((player, idx) => {
+                  const isFirst = idx === 0;
+                  const isLast = idx === gameState.players.filter(p => p.rank !== null).length - 1;
+                  return (
+                    <div
+                      key={player.id.value}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        isFirst
+                          ? 'bg-yellow-500/30 border border-yellow-400'
+                          : isLast
+                          ? 'bg-gray-600/30'
+                          : 'bg-white/10'
+                      }`}
+                    >
+                      <span className={`font-bold ${isFirst ? 'text-yellow-300' : 'text-white/80'}`}>
+                        {idx + 1}位
+                      </span>
+                      <span className="text-white font-medium">{player.name}</span>
+                      <span className={`text-sm ${isFirst ? 'text-yellow-200' : 'text-white/60'}`}>
+                        {player.rank ? getRankName(player.rank) : ''}
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+            <button
+              onClick={() => reset()}
+              className="w-full px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-lg shadow-lg transition-colors"
+            >
+              タイトルに戻る
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

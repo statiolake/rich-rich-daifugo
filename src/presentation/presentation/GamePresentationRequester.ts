@@ -58,14 +58,22 @@ export class GamePresentationRequester implements PresentationRequester {
   }
 
   async requestCutIns(cutIns: CutIn[]): Promise<void> {
-    // すべてのカットインをキューに追加
-    for (const cutIn of cutIns) {
-      await this.gameStore.enqueueCutIn({
-        id: `${cutIn.effect}-${Date.now()}`,
+    console.log('[DEBUG] requestCutIns called with:', cutIns.map(c => c.effect));
+
+    if (cutIns.length === 0) return;
+
+    // すべてのカットインを同時にキューに追加
+    // enqueueCutInは各カットインが完了するまで待機するPromiseを返すので、
+    // Promise.allで全部のカットインが完了するまで待機する
+    const promises = cutIns.map((cutIn, index) =>
+      this.gameStore.enqueueCutIn({
+        id: `${cutIn.effect}-${Date.now()}-${index}`,
         text: this.getText(cutIn.effect),
         variant: cutIn.variant,
         duration: this.getDuration(cutIn.effect),
-      });
-    }
+      })
+    );
+
+    await Promise.all(promises);
   }
 }

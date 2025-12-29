@@ -121,37 +121,35 @@ export const HumanControl: React.FC = () => {
             </div>
 
             {/* 全ランクのボタンを表示 */}
-            {(
-              <div className="flex flex-nowrap justify-center gap-2 overflow-x-auto max-w-full px-4">
-                {(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as Rank[]).map((rank) => {
-                  // 仮のカード（スートは?を表現するためSPADEを使用）
-                  const card = CardFactory.create(Suit.SPADE, rank);
-                  const isSelected = selectedCards.length > 0 && selectedCards[0].rank === rank;
+            <div className="flex flex-wrap justify-center gap-2 max-w-full px-4">
+              {(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'] as Rank[]).map((rank) => {
+                // 仮のカード（スートは?を表現するためSPADEを使用）
+                const card = CardFactory.create(Suit.SPADE, rank);
+                const isSelected = selectedCards.length > 0 && selectedCards[0].rank === rank;
 
-                  return (
-                    <button
-                      key={rank}
-                      onClick={() => {
-                        // 他のカードを選択解除してから選択
-                        useGameStore.setState({ selectedCards: [card] });
-                      }}
-                      className={`
-                        px-6 py-4 text-xl font-bold rounded-lg shadow-lg transition-all cursor-pointer
-                        ${isSelected
-                          ? 'bg-yellow-500 text-black ring-4 ring-yellow-300 scale-110'
-                          : 'bg-white text-gray-800 hover:bg-gray-200'
-                        }
-                      `}
-                    >
-                      <div className="flex flex-col items-center">
-                        <div className="text-2xl">{rank}</div>
-                        <div className="text-sm text-gray-500">?</div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                return (
+                  <button
+                    key={rank}
+                    onClick={() => {
+                      // 他のカードを選択解除してから選択
+                      useGameStore.setState({ selectedCards: [card] });
+                    }}
+                    className={`
+                      px-4 py-3 text-lg font-bold rounded-lg shadow-lg transition-all cursor-pointer
+                      ${isSelected
+                        ? 'bg-yellow-500 text-black ring-4 ring-yellow-300 z-10'
+                        : 'bg-white text-gray-800 hover:bg-gray-200'
+                      }
+                    `}
+                  >
+                    <div className="flex flex-col items-center">
+                      <div className="text-xl">{rank}</div>
+                      <div className="text-xs text-gray-500">?</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
 
             {/* ランク選択の確定ボタン */}
             {selectedCards.length === 1 && (

@@ -264,7 +264,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         onComplete: resolve,
       };
       set(state => ({ cutInQueue: [...state.cutInQueue, cutInWithCallback] }));
-      get().processQueue();
+      // 次のイベントループでprocessQueueを呼ぶことで、
+      // 同時に追加されたカットインが全部キューに入ってからバッチ処理される
+      setTimeout(() => get().processQueue(), 0);
     });
   },
 
@@ -299,7 +301,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    const batchSize = Math.min(cutInQueue.length, 4);
+    // 最大3つ同時表示
+    const batchSize = Math.min(cutInQueue.length, 3);
     const batch = cutInQueue.slice(0, batchSize);
     const rest = cutInQueue.slice(batchSize);
 
@@ -309,9 +312,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return `${spacing * (index + 1)}%`;
     };
 
+    // 50msディレイで順次表示
     const cutInsWithDelay = batch.map((cutIn, index) => ({
       ...cutIn,
-      delay: index * 100,
+      delay: index * 50,
       verticalPosition: calculateVerticalPosition(index, batchSize)
     }));
 
