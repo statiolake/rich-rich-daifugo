@@ -16,6 +16,11 @@ export class GamePresentationRequester implements PresentationRequester {
   private getDuration(effect: string): number {
     const durationMap: Record<string, number> = {
       '革命': 500,
+      '革命終了': 500,
+      '階段革命': 500,
+      '階段革命終了': 500,
+      'ナナサン革命': 500,
+      'ナナサン革命終了': 500,
       '大革命': 750,
       '大革命＋即勝利': 1000,
       '11バック': 400,
@@ -32,6 +37,10 @@ export class GamePresentationRequester implements PresentationRequester {
       'ラッキーセブン': 750,
       'マークしばり': 400,
       '数字しばり': 400,
+      '激縛り': 400,
+      '色縛り': 400,
+      'Q解き': 400,
+      '6戻し': 400,
       '縛り返し': 400,
     };
 

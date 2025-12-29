@@ -24,6 +24,8 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
     {
       title: '革命バリエーション',
       rules: [
+        { key: 'stairRevolution', label: '階段革命', description: '4枚以上の階段で革命' },
+        { key: 'nanasanRevolution', label: 'ナナサン革命', description: '7x3で革命' },
         { key: 'emperor', label: 'エンペラー', description: '4種マーク連番で革命' },
         { key: 'coup', label: 'クーデター', description: '9x3で革命' },
         { key: 'greatRevolution', label: '大革命', description: '2x4で革命＋即勝利' },
@@ -50,6 +52,10 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
         { key: 'fourStop', label: '4止め', description: '4x2で8切りを止める' },
         { key: 'suitLock', label: 'マークしばり', description: '同じマークで縛り' },
         { key: 'numberLock', label: '数字しばり', description: '連続する数字で縛り' },
+        { key: 'strictLock', label: '激縛り', description: 'マーク+数字両方が同時に縛り' },
+        { key: 'colorLock', label: '色縛り', description: '同じ色（赤/黒）が連続で縛り' },
+        { key: 'queenRelease', label: 'Q解き', description: '縛り中にQを出すと縛り解除' },
+        { key: 'sixReturn', label: '6戻し', description: '11バック中に6を出すと解除' },
       ]
     },
     {

@@ -70,6 +70,30 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     }
   },
 
+  '階段革命': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`階段革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '階段革命！' : '階段革命終了',
+      variant: 'red',
+      duration: 250
+    }
+  },
+
+  '階段革命終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`階段革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '階段革命！' : '階段革命終了',
+      variant: 'red',
+      duration: 250
+    }
+  },
+
   'イレブンバック': {
     apply: (gameState) => {
       gameState.isElevenBack = !gameState.isElevenBack;
@@ -325,6 +349,84 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     },
     cutIn: {
       getText: () => '数字しばり！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '激縛り': {
+    apply: (gameState, context) => {
+      if (context?.suit) {
+        gameState.suitLock = context.suit;
+      }
+      gameState.numberLock = true;
+      console.log(`激縛りが発動しました！（${context?.suit || ''}＋連番）`);
+    },
+    cutIn: {
+      getText: (_, context) => context?.suit ? `激縛り！（${context.suit}＋連番）` : '激縛り！',
+      variant: 'red',
+      duration: 300
+    }
+  },
+
+  'Q解き': {
+    apply: (gameState) => {
+      gameState.suitLock = null;
+      gameState.numberLock = false;
+      console.log('Q解きが発動しました！縛りが解除されました');
+    },
+    cutIn: {
+      getText: () => 'Q解き！縛り解除',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  '6戻し': {
+    apply: (gameState) => {
+      gameState.isElevenBack = false;
+      console.log('6戻しが発動しました！11バックが解除されました');
+    },
+    cutIn: {
+      getText: () => '6戻し！11バック解除',
+      variant: 'green',
+      duration: 300
+    }
+  },
+
+  'ナナサン革命': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`ナナサン革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? 'ナナサン革命！' : 'ナナサン革命終了',
+      variant: 'red',
+      duration: 250
+    }
+  },
+
+  'ナナサン革命終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`ナナサン革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? 'ナナサン革命！' : 'ナナサン革命終了',
+      variant: 'red',
+      duration: 250
+    }
+  },
+
+  '色縛り': {
+    apply: (gameState, context) => {
+      if (context?.color) {
+        gameState.colorLock = context.color;
+        console.log(`色縛りが発動しました！（${context.color === 'red' ? '赤' : '黒'}）`);
+      }
+    },
+    cutIn: {
+      getText: (_, context) => context?.color ? `色縛り！（${context.color === 'red' ? '赤' : '黒'}）` : '色縛り！',
       variant: 'blue',
       duration: 250
     }

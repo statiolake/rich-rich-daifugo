@@ -19,6 +19,7 @@ export interface GameState {
   isEightCutPending: boolean; // 8切りが発動予定（4止めで止められる可能性がある）
   suitLock: string | null; // マークしばり（例: 'SPADE', 'HEART', 'DIAMOND', 'CLUB'）
   numberLock: boolean; // 数字しばり（階段の縛り）
+  colorLock: 'red' | 'black' | null; // 色縛り（赤:ハート/ダイヤ、黒:スペード/クラブ）
   isReversed: boolean; // ターン順が逆転しているか（9リバース）
   luckySeven: { playerId: string } | null; // ラッキーセブン（7x3を出したプレイヤー、無敗なら勝利）
   passCount: number;
@@ -38,6 +39,7 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     isEightCutPending: false,
     suitLock: null,
     numberLock: false,
+    colorLock: null,
     isReversed: false,
     luckySeven: null,
     passCount: 0,

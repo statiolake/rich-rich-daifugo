@@ -9,6 +9,8 @@ export interface RuleSettings {
   rokurokubi: boolean;         // ろくろ首（6x2）
 
   // 革命バリエーション
+  stairRevolution: boolean;    // 階段革命（4枚以上の階段で革命）
+  nanasanRevolution: boolean;  // ナナサン革命（7x3で革命）
   emperor: boolean;            // エンペラー（4種マーク連番）
   coup: boolean;               // クーデター（9x3）
   greatRevolution: boolean;    // 大革命（2x4で即勝利）
@@ -26,6 +28,10 @@ export interface RuleSettings {
   fourStop: boolean;           // 4止め（4x2で8切りを止める）
   suitLock: boolean;           // マークしばり
   numberLock: boolean;         // 数字しばり
+  strictLock: boolean;         // 激縛り（完縛り）- マーク+数字両方で縛り
+  colorLock: boolean;          // 色縛り（同じ色が連続で赤/黒縛り）
+  queenRelease: boolean;       // Q解き（縛り中にQを出すと解除）
+  sixReturn: boolean;          // 6戻し（11バック中に6を出すと解除）
 
   // ターン操作
   fiveSkip: boolean;           // 5スキップ
@@ -52,6 +58,8 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   eightCut: true,
   ambulance: true,
   rokurokubi: true,
+  stairRevolution: true,
+  nanasanRevolution: true,
   emperor: true,
   coup: true,
   greatRevolution: true,
@@ -63,6 +71,10 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   fourStop: true,
   suitLock: true,
   numberLock: true,
+  strictLock: true,
+  colorLock: true,
+  queenRelease: true,
+  sixReturn: true,
   fiveSkip: true,
   sevenPass: true,
   tenDiscard: true,

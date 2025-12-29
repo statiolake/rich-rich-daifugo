@@ -9,6 +9,8 @@ export type TriggerEffect =
   | '砂嵐'
   | '革命'
   | '革命終了'
+  | '階段革命'
+  | '階段革命終了'
   | 'イレブンバック'
   | 'イレブンバック解除'
   | '4止め'
@@ -30,7 +32,13 @@ export type TriggerEffect =
   | 'ダウンナンバー'
   | 'ラッキーセブン'
   | 'マークしばり'
-  | '数字しばり';
+  | '数字しばり'
+  | '激縛り'
+  | 'Q解き'
+  | '6戻し'
+  | 'ナナサン革命'
+  | 'ナナサン革命終了'
+  | '色縛り';
 
 /**
  * トリガーエフェクトアナライザー
@@ -54,16 +62,29 @@ export class TriggerEffectAnalyzer {
       effects.push('砂嵐');
     }
 
-    // 革命判定 - 大革命が優先、通常革命はその次
+    // 革命判定 - 大革命が優先、通常革命・階段革命はその次
     if (!gameState.isOmenActive) {
       const isGreatRevolution = ruleSettings.greatRevolution && this.triggersGreatRevolution(play);
 
       if (isGreatRevolution) {
         effects.push('大革命＋即勝利');
       } else {
-        const isBasicRevolution = this.triggersBasicRevolution(play);
-        if (isBasicRevolution) {
+        // 4枚同数の革命
+        const isQuadRevolution = this.triggersQuadRevolution(play);
+        if (isQuadRevolution) {
           effects.push(gameState.isRevolution ? '革命終了' : '革命');
+        }
+
+        // 階段革命（4枚以上の階段）
+        const isStairRevolution = ruleSettings.stairRevolution && this.triggersStairRevolution(play);
+        if (isStairRevolution) {
+          effects.push(gameState.isRevolution ? '階段革命終了' : '階段革命');
+        }
+
+        // ナナサン革命（7x3で革命）
+        const isNanasanRevolution = ruleSettings.nanasanRevolution && this.triggersNanasanRevolution(play);
+        if (isNanasanRevolution) {
+          effects.push(gameState.isRevolution ? 'ナナサン革命終了' : 'ナナサン革命');
         }
       }
     }
@@ -71,6 +92,11 @@ export class TriggerEffectAnalyzer {
     // イレブンバック判定（Jが含まれている）
     if (this.triggersElevenBack(play)) {
       effects.push(gameState.isElevenBack ? 'イレブンバック解除' : 'イレブンバック');
+    }
+
+    // 6戻し判定（11バック中に6を出すと解除）
+    if (ruleSettings.sixReturn && this.triggersSixReturn(play, gameState)) {
+      effects.push('6戻し');
     }
 
     // 4止め判定（8切りを止める）
@@ -150,14 +176,34 @@ export class TriggerEffectAnalyzer {
       effects.push('ラッキーセブン');
     }
 
-    // マークしばり判定（同じマークが2回連続で出されると発動）
-    if (ruleSettings.suitLock && this.triggersSuitLock(play, gameState)) {
-      effects.push('マークしばり');
+    // Q解き判定（縛り中にQを出すと解除）
+    if (ruleSettings.queenRelease && this.triggersQueenRelease(play, gameState)) {
+      effects.push('Q解き');
     }
 
-    // 数字しばり判定（階段が2回連続で出されると発動）
-    if (ruleSettings.numberLock && this.triggersNumberLock(play, gameState)) {
-      effects.push('数字しばり');
+    // 縛り判定
+    const triggeredSuitLock = ruleSettings.suitLock && this.triggersSuitLock(play, gameState);
+    const triggeredNumberLock = ruleSettings.numberLock && this.triggersNumberLock(play, gameState);
+    const triggeredColorLock = ruleSettings.colorLock && this.triggersColorLock(play, gameState);
+
+    // 激縛り判定（マーク縛りと数字縛りが同時に発動する）
+    if (ruleSettings.strictLock && triggeredSuitLock && triggeredNumberLock) {
+      effects.push('激縛り');
+    } else {
+      // マークしばり判定（同じマークが2回連続で出されると発動）
+      if (triggeredSuitLock) {
+        effects.push('マークしばり');
+      }
+
+      // 数字しばり判定（階段が2回連続で出されると発動）
+      if (triggeredNumberLock) {
+        effects.push('数字しばり');
+      }
+    }
+
+    // 色縛り判定（同じ色が2回連続で出されると発動）
+    if (triggeredColorLock) {
+      effects.push('色縛り');
     }
 
     return effects;
@@ -201,18 +247,19 @@ export class TriggerEffectAnalyzer {
     return play.type === PlayType.QUAD && play.cards.every(card => card.rank === '2');
   }
 
-  private triggersBasicRevolution(play: Play): boolean {
+  private triggersQuadRevolution(play: Play): boolean {
     // 4枚の同じ数字（QUAD）
-    if (play.type === PlayType.QUAD) {
-      return true;
-    }
+    return play.type === PlayType.QUAD;
+  }
 
-    // 5枚以上の階段（STAIR）
-    if (play.type === PlayType.STAIR && play.cards.length >= 5) {
-      return true;
-    }
+  private triggersStairRevolution(play: Play): boolean {
+    // 4枚以上の階段（STAIR）
+    return play.type === PlayType.STAIR && play.cards.length >= 4;
+  }
 
-    return false;
+  private triggersNanasanRevolution(play: Play): boolean {
+    // 7を3枚出すと革命
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '7');
   }
 
   private triggersFourStop(play: Play): boolean {
@@ -237,6 +284,20 @@ export class TriggerEffectAnalyzer {
 
   private triggersQueenBomber(play: Play): boolean {
     return play.cards.some(card => card.rank === 'Q');
+  }
+
+  private triggersQueenRelease(play: Play, gameState: GameState): boolean {
+    // 縛り中でなければ発動しない
+    if (!gameState.suitLock && !gameState.numberLock) return false;
+    // Qを含んでいれば発動
+    return play.cards.some(card => card.rank === 'Q');
+  }
+
+  private triggersSixReturn(play: Play, gameState: GameState): boolean {
+    // 11バック中でなければ発動しない
+    if (!gameState.isElevenBack) return false;
+    // 6を含んでいれば発動
+    return play.cards.some(card => card.rank === '6');
   }
 
   private triggersSpadeThreeReturn(play: Play, gameState: GameState): boolean {
@@ -327,5 +388,48 @@ export class TriggerEffectAnalyzer {
     const currentIsStair = play.type === PlayType.STAIR;
 
     return currentIsStair;
+  }
+
+  /**
+   * スートから色を取得
+   */
+  private getSuitColor(suit: Suit): 'red' | 'black' | null {
+    if (suit === Suit.HEART || suit === Suit.DIAMOND) return 'red';
+    if (suit === Suit.SPADE || suit === Suit.CLUB) return 'black';
+    return null;
+  }
+
+  /**
+   * 色縛りが発動するかチェック
+   * このプレイを出すと、前回と同じ色が2回連続になるか
+   *
+   * 注意: この関数は field.addPlay() の前に呼ばれる。
+   * 今回のプレイは play 引数で渡され、前回のプレイは history[length - 1] で取得する。
+   */
+  private triggersColorLock(play: Play, gameState: GameState): boolean {
+    // 既に色縛りが発動している場合は発動しない
+    if (gameState.colorLock) return false;
+
+    // 場に1枚以上の履歴が必要（前回のプレイ）
+    const history = gameState.field.getHistory();
+    if (history.length === 0) return false;
+
+    // 前回のプレイ
+    const prevPlayHistory = history[history.length - 1];
+
+    // 前回のプレイがすべて同じ色か確認
+    const prevColor = prevPlayHistory.play.cards.length > 0 ? this.getSuitColor(prevPlayHistory.play.cards[0].suit) : null;
+    if (!prevColor) return false;
+    const prevAllSameColor = prevPlayHistory.play.cards.every(c => this.getSuitColor(c.suit) === prevColor);
+    if (!prevAllSameColor) return false;
+
+    // 今回のプレイがすべて同じ色か確認
+    const currentColor = play.cards.length > 0 ? this.getSuitColor(play.cards[0].suit) : null;
+    if (!currentColor) return false;
+    const currentAllSameColor = play.cards.every(c => this.getSuitColor(c.suit) === currentColor);
+    if (!currentAllSameColor) return false;
+
+    // 同じ色なら色縛り発動
+    return prevColor === currentColor;
   }
 }
