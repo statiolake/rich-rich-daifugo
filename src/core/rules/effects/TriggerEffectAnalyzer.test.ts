@@ -32,6 +32,8 @@ describe('TriggerEffectAnalyzer', () => {
       isOmenActive: false,
       luckySeven: null,
       round: 1,
+      previousDaifugoId: null,
+      previousDaihinminId: null,
       ...overrides,
     };
   }

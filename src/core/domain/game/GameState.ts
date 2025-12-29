@@ -29,6 +29,8 @@ export interface GameState {
   round: number;
   phase: GamePhaseType;
   ruleSettings: RuleSettings;
+  previousDaifugoId: string | null; // 前ラウンドの大富豪のプレイヤーID（都落ち用）
+  previousDaihinminId: string | null; // 前ラウンドの大貧民のプレイヤーID（下剋上用）
 }
 
 export function createGameState(players: Player[], ruleSettings: RuleSettings = DEFAULT_RULE_SETTINGS): GameState {
@@ -51,5 +53,7 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     round: 1,
     phase: GamePhaseType.SETUP,
     ruleSettings,
+    previousDaifugoId: null,
+    previousDaihinminId: null,
   };
 }
