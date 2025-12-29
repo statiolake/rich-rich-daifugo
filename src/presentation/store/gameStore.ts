@@ -52,7 +52,7 @@ interface GameStore {
   isQueenBomberRankSelectionEnabled: boolean;
 
   // Actions
-  startGame: (playerName?: string) => void;
+  startGame: (options?: { playerName?: string; autoCPU?: boolean }) => void;
   toggleCardSelection: (card: Card) => void;
   clearSelection: () => void;
   clearError: () => void;
@@ -98,7 +98,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isCardSelectionEnabled: false,
   isQueenBomberRankSelectionEnabled: false,
 
-  startGame: (playerName = 'あなた') => {
+  startGame: (options = {}) => {
+    const { playerName = 'あなた', autoCPU = false } = options;
     try {
       const eventBus = new EventBus();
 
@@ -106,7 +107,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const ruleSettings = useRuleSettingsStore.getState().settings;
 
       // GameConfigFactory を使用してゲーム設定を生成
-      const config = GameConfigFactory.createStandardGame(4, 1, playerName, ruleSettings);
+      // autoCPUがtrueなら人間プレイヤー0人（全員CPU）
+      const humanPlayerCount = autoCPU ? 0 : 1;
+      const config = GameConfigFactory.createStandardGame(4, humanPlayerCount, playerName, ruleSettings);
 
       // PresentationRequester を作成
       const presentationRequester = new GamePresentationRequester(get());

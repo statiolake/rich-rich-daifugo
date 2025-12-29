@@ -10,6 +10,7 @@ import { RuleSettingsPanel } from '../settings/RuleSettingsPanel';
 
 export const GameBoard: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [autoCPU, setAutoCPU] = useState(false);
   const gameState = useGameStore(state => state.gameState);
   const startGame = useGameStore(state => state.startGame);
   const reset = useGameStore(state => state.reset);
@@ -24,8 +25,18 @@ export const GameBoard: React.FC = () => {
             <h1 className="text-6xl font-bold text-white mb-8">大富豪</h1>
             <p className="text-xl text-white/80 mb-8">Rich Rich Daifugo</p>
             <div className="flex flex-col gap-4">
+              {/* 自動CPU切り替え */}
+              <label className="flex items-center justify-center gap-3 text-white cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoCPU}
+                  onChange={(e) => setAutoCPU(e.target.checked)}
+                  className="w-5 h-5 accent-yellow-500"
+                />
+                <span className="text-lg">全員CPUで観戦する</span>
+              </label>
               <button
-                onClick={() => startGame()}
+                onClick={() => startGame({ autoCPU })}
                 className="px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-lg shadow-lg transition-colors"
               >
                 ゲーム開始
@@ -69,13 +80,10 @@ export const GameBoard: React.FC = () => {
               ))}
           </div>
           <button
-            onClick={() => {
-              reset();
-              startGame();
-            }}
+            onClick={() => reset()}
             className="px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-lg shadow-lg transition-colors"
           >
-            もう一度プレイ
+            タイトルに戻る
           </button>
         </div>
       </div>
