@@ -21,6 +21,7 @@ describe('TriggerEffectAnalyzer', () => {
       phase: GamePhaseType.PLAY,
       isRevolution: false,
       isElevenBack: false,
+      elevenBackDuration: 0,
       ruleSettings: { ...DEFAULT_RULE_SETTINGS },
       passCount: 0,
       isEightCutPending: false,
@@ -29,6 +30,7 @@ describe('TriggerEffectAnalyzer', () => {
       colorLock: null,
       isReversed: false,
       isTwoBack: false,
+      isDamianActive: false,
       isOmenActive: false,
       luckySeven: null,
       round: 1,
@@ -593,7 +595,9 @@ describe('TriggerEffectAnalyzer', () => {
       expect(effects).toContain('救急車');
       expect(effects).toContain('9リバース');
       expect(effects).toContain('栗拾い'); // 9を出すと栗拾いも発動
-      expect(effects).toHaveLength(3);
+      expect(effects).toContain('9クイック'); // 9を出すと9クイックも発動
+      expect(effects).toContain('9戻し'); // 9を出すと9戻しも発動
+      expect(effects).toHaveLength(5);
     });
 
     it('9x3でクーデターと9リバースが同時に発動', () => {
@@ -617,7 +621,9 @@ describe('TriggerEffectAnalyzer', () => {
       expect(effects).toContain('9リバース');
       expect(effects).toContain('栗拾い'); // 9を出すと栗拾いも発動
       expect(effects).toContain('銀河鉄道999'); // 9x3で銀河鉄道999も発動
-      expect(effects).toHaveLength(4);
+      expect(effects).toContain('9クイック'); // 9を出すと9クイックも発動
+      expect(effects).toContain('9戻し'); // 9を出すと9戻しも発動
+      expect(effects).toHaveLength(6);
     });
   });
 });

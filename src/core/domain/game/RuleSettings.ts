@@ -42,9 +42,14 @@ export interface RuleSettings {
 
   // ターン操作
   fiveSkip: boolean;           // 5スキップ
+  freemason: boolean;          // フリーメイソン（6を1枚出すと次のプレイヤーをスキップ）
+  tenSkip: boolean;            // 10飛び（10を出すと次のプレイヤーをスキップ）
   sevenPass: boolean;          // 7渡し
+  sevenAttach: boolean;        // 7付け（7を出すと枚数分のカードを追加で捨てる）
+  nineReturn: boolean;         // 9戻し（9を出すと枚数分のカードを直前のプレイヤーに渡す）
   tenDiscard: boolean;         // 10捨て
   nineReverse: boolean;        // 9リバース
+  nineQuick: boolean;          // 9クイック（9を出すと続けてもう1回出せる）
   queenReverse: boolean;       // Qリバース（Qを出すと席順が逆転）
   kingReverse: boolean;        // Kリバース（Kを出すと席順が逆転）
 
@@ -53,6 +58,8 @@ export interface RuleSettings {
   downNumber: boolean;         // ダウンナンバー
   twoBack: boolean;            // 2バック（2を出すと場が流れるまで強さ逆転）
   zombie: boolean;             // ゾンビ（3x3で捨て札から任意カードを次のプレイヤーに渡す）
+  enhancedJBack: boolean;      // 強化Jバック（Jx3で11バックが2回場が流れるまで持続）
+  damian: boolean;             // ダミアン（6x3で場が流れるまでパスした人は敗北）
 
   // 捨て札回収ルール
   salvage: boolean;            // サルベージ（3で場が流れた時に捨て札から1枚回収）
@@ -60,6 +67,7 @@ export interface RuleSettings {
   satan: boolean;              // サタン（6x3で捨て札から任意カード1枚を回収）
   chestnutPicking: boolean;    // 栗拾い（9を出すと枚数分だけ捨て札から回収）
   galaxyExpress999: boolean;   // 銀河鉄道999（9x3で手札2枚を捨て、捨て札から2枚引く）
+  blackSeven: boolean;         // 黒7（スペード7またはクラブ7を出すと、枚数分だけ捨て山からランダムにカードを引く）
 
   // 親権ルール
   nextAce: boolean;            // 次期エース（Aで場が流れた時に親になる）
@@ -104,20 +112,28 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   queenRelease: true,
   sixReturn: true,
   fiveSkip: true,
+  freemason: true,
+  tenSkip: true,
   sevenPass: true,
+  sevenAttach: true,
+  nineReturn: true,
   tenDiscard: true,
   nineReverse: true,
+  nineQuick: true,
   queenReverse: true,
   kingReverse: true,
   queenBomber: true,
   downNumber: true,
   twoBack: true,
   zombie: true,
+  enhancedJBack: true,
+  damian: true,
   salvage: true,
   kingsMarch: true,
   satan: true,
   chestnutPicking: true,
   galaxyExpress999: true,
+  blackSeven: true,
   nextAce: true,
   cityFall: true,
   gekokujou: true,

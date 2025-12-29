@@ -31,7 +31,10 @@ export type TriggerEffect =
   | 'ジョーカー革命'
   | 'ジョーカー革命終了'
   | '5スキップ'
+  | 'フリーメイソン'
+  | '10飛び'
   | '7渡し'
+  | '7付け'
   | '10捨て'
   | 'クイーンボンバー'
   | '9リバース'
@@ -54,7 +57,12 @@ export type TriggerEffect =
   | 'ゾンビ'
   | 'サタン'
   | '栗拾い'
-  | '銀河鉄道999';
+  | '銀河鉄道999'
+  | '黒7'
+  | '9クイック'
+  | '9戻し'
+  | '強化Jバック'
+  | 'ダミアン';
 
 /**
  * トリガーエフェクトアナライザー
@@ -126,6 +134,11 @@ export class TriggerEffectAnalyzer {
       effects.push(gameState.isElevenBack ? 'イレブンバック解除' : 'イレブンバック');
     }
 
+    // 強化Jバック判定（Jx3で11バックが2回場が流れるまで持続）
+    if (ruleSettings.enhancedJBack && this.triggersEnhancedJBack(play)) {
+      effects.push('強化Jバック');
+    }
+
     // 6戻し判定（11バック中に6を出すと解除）
     if (ruleSettings.sixReturn && this.triggersSixReturn(play, gameState)) {
       effects.push('6戻し');
@@ -188,9 +201,29 @@ export class TriggerEffectAnalyzer {
       effects.push('5スキップ');
     }
 
+    // フリーメイソン判定（6を1枚出すと次のプレイヤーをスキップ）
+    if (ruleSettings.freemason && this.triggersFreemason(play)) {
+      effects.push('フリーメイソン');
+    }
+
+    // 10飛び判定
+    if (ruleSettings.tenSkip && this.triggersTenSkip(play)) {
+      effects.push('10飛び');
+    }
+
     // 7渡し判定
     if (ruleSettings.sevenPass && this.triggersSevenPass(play)) {
       effects.push('7渡し');
+    }
+
+    // 7付け判定
+    if (ruleSettings.sevenAttach && this.triggersSevenAttach(play)) {
+      effects.push('7付け');
+    }
+
+    // 9戻し判定（9を出すと枚数分のカードを直前のプレイヤーに渡す）
+    if (ruleSettings.nineReturn && this.triggersNineReturn(play)) {
+      effects.push('9戻し');
     }
 
     // 10捨て判定
@@ -206,6 +239,11 @@ export class TriggerEffectAnalyzer {
     // 9リバース判定
     if (ruleSettings.nineReverse && this.triggersNineReverse(play)) {
       effects.push('9リバース');
+    }
+
+    // 9クイック判定（9を出すと続けてもう1回出せる）
+    if (ruleSettings.nineQuick && this.triggersNineQuick(play)) {
+      effects.push('9クイック');
     }
 
     // Qリバース判定
@@ -288,6 +326,11 @@ export class TriggerEffectAnalyzer {
       effects.push('サタン');
     }
 
+    // ダミアン判定（6x3で場が流れるまでパスした人は敗北）
+    if (ruleSettings.damian && this.triggersDamian(play)) {
+      effects.push('ダミアン');
+    }
+
     // 栗拾い判定（9を出すと枚数分だけ捨て札から回収）
     if (ruleSettings.chestnutPicking && this.triggersChestnutPicking(play)) {
       effects.push('栗拾い');
@@ -296,6 +339,11 @@ export class TriggerEffectAnalyzer {
     // 銀河鉄道999判定（9x3で手札2枚を捨て、捨て札から2枚引く）
     if (ruleSettings.galaxyExpress999 && this.triggersGalaxyExpress999(play)) {
       effects.push('銀河鉄道999');
+    }
+
+    // 黒7判定（スペード7またはクラブ7を出すと、枚数分だけ捨て山からランダムにカードを引く）
+    if (ruleSettings.blackSeven && this.triggersBlackSeven(play, gameState)) {
+      effects.push('黒7');
     }
 
     return effects;
@@ -362,12 +410,33 @@ export class TriggerEffectAnalyzer {
     return play.cards.some(card => card.rank === '5');
   }
 
+  private triggersFreemason(play: Play): boolean {
+    // 6を含むプレイで発動
+    return play.cards.some(card => card.rank === '6');
+  }
+
+  private triggersTenSkip(play: Play): boolean {
+    return play.cards.some(card => card.rank === '10');
+  }
+
   private triggersNineReverse(play: Play): boolean {
+    return play.cards.some(card => card.rank === '9');
+  }
+
+  private triggersNineQuick(play: Play): boolean {
     return play.cards.some(card => card.rank === '9');
   }
 
   private triggersSevenPass(play: Play): boolean {
     return play.cards.some(card => card.rank === '7');
+  }
+
+  private triggersSevenAttach(play: Play): boolean {
+    return play.cards.some(card => card.rank === '7');
+  }
+
+  private triggersNineReturn(play: Play): boolean {
+    return play.cards.some(card => card.rank === '9');
   }
 
   private triggersTenDiscard(play: Play): boolean {
@@ -664,6 +733,13 @@ export class TriggerEffectAnalyzer {
   }
 
   /**
+   * ダミアン判定（6x3で場が流れるまでパスした人は敗北）
+   */
+  private triggersDamian(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '6');
+  }
+
+  /**
    * 栗拾い判定（9を出すと枚数分だけ捨て札から回収）
    */
   private triggersChestnutPicking(play: Play): boolean {
@@ -675,5 +751,25 @@ export class TriggerEffectAnalyzer {
    */
   private triggersGalaxyExpress999(play: Play): boolean {
     return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '9');
+  }
+
+  /**
+   * 黒7判定（スペード7またはクラブ7を出すと、枚数分だけ捨て山からランダムにカードを引く）
+   */
+  private triggersBlackSeven(play: Play, gameState: GameState): boolean {
+    // スペード7またはクラブ7が含まれているか確認
+    const hasBlackSeven = play.cards.some(
+      card => card.rank === '7' && (card.suit === Suit.SPADE || card.suit === Suit.CLUB)
+    );
+    // 捨て札がある場合のみ発動
+    const hasDiscardPile = gameState.discardPile && gameState.discardPile.length > 0;
+    return hasBlackSeven && hasDiscardPile;
+  }
+
+  /**
+   * 強化Jバック判定（Jx3で11バックが2回場が流れるまで持続）
+   */
+  private triggersEnhancedJBack(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === 'J');
   }
 }

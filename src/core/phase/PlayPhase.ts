@@ -1,6 +1,6 @@
 import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
-import { Card } from '../domain/card/Card';
+import { Card, Suit } from '../domain/card/Card';
 import { PlayAnalyzer, Play } from '../domain/card/Play';
 import { Player } from '../domain/player/Player';
 import { RuleEngine } from '../rules/base/RuleEngine';
@@ -188,7 +188,9 @@ export class PlayPhase implements GamePhase {
       await this.clearFieldAndResetState(gameState, true, salvagePlayer, nextAcePlayer);
     }
 
-    const shouldKeepTurn = shouldClearField;
+    // 9クイック: 9を出すと続けてもう1回出せる（ターンを維持）
+    const shouldKeepTurnForNineQuick = effects.includes('9クイック');
+    const shouldKeepTurn = shouldClearField || shouldKeepTurnForNineQuick;
 
     // 大革命の即勝利処理
     if (effects.includes('大革命＋即勝利')) {
@@ -251,8 +253,24 @@ export class PlayPhase implements GamePhase {
       await this.handleGalaxyExpress999(gameState, player);
     }
 
+    // 黒7（スペード7またはクラブ7を出すと、枚数分だけ捨て山からランダムにカードを引く）
+    if (effects.includes('黒7')) {
+      const blackSevenCount = cards.filter(
+        c => c.rank === '7' && (c.suit === Suit.SPADE || c.suit === Suit.CLUB)
+      ).length;
+      await this.handleBlackSeven(gameState, player, blackSevenCount);
+    }
+
     if (effects.includes('7渡し')) {
       await this.handleSevenPass(gameState, player);
+      this.nextPlayer(gameState);
+      return;
+    }
+
+    // 9戻し（9を出すと枚数分のカードを直前のプレイヤーに渡す）
+    if (effects.includes('9戻し')) {
+      const nineCount = cards.filter(c => c.rank === '9').length;
+      await this.handleNineReturn(gameState, player, nineCount);
       this.nextPlayer(gameState);
       return;
     }
@@ -263,8 +281,16 @@ export class PlayPhase implements GamePhase {
       return;
     }
 
-    // 5スキップ判定
-    const shouldSkipNext = effects.includes('5スキップ');
+    // 7付け（7を出すと枚数分のカードを追加で捨てる）
+    if (effects.includes('7付け')) {
+      const sevenCount = cards.filter(c => c.rank === '7').length;
+      await this.handleSevenAttach(gameState, player, sevenCount);
+      this.nextPlayer(gameState);
+      return;
+    }
+
+    // 5スキップ・フリーメイソン・10飛び判定
+    const shouldSkipNext = effects.includes('5スキップ') || effects.includes('フリーメイソン') || effects.includes('10飛び');
 
     // 次プレイヤーへ
     if (!shouldKeepTurn) {
@@ -278,6 +304,14 @@ export class PlayPhase implements GamePhase {
 
   private async handlePass(gameState: GameState, player: Player): Promise<void> {
     console.log(`${player.name} passed`);
+
+    // ダミアン発動中はパスしたプレイヤーが敗北
+    if (gameState.isDamianActive) {
+      console.log(`ダミアン発動中！${player.name} はパスしたため敗北`);
+      this.handlePlayerDefeat(gameState, player);
+      this.nextPlayer(gameState);
+      return;
+    }
 
     gameState.passCount++;
 
@@ -322,6 +356,22 @@ export class PlayPhase implements GamePhase {
     console.log(`${player.name} finished in position ${player.finishPosition}`);
 
     // ランクを割り当て
+    this.rankAssignmentService.assignRank(gameState, player);
+  }
+
+  /**
+   * ダミアンによる敗北処理
+   * パスしたプレイヤーを最下位で敗北させる
+   */
+  private handlePlayerDefeat(gameState: GameState, player: Player): void {
+    // 残っているアクティブプレイヤーの最後の順位を割り当て
+    const lastPosition = gameState.players.length;
+    player.isFinished = true;
+    player.finishPosition = lastPosition;
+
+    console.log(`${player.name} はダミアンにより敗北（順位: ${player.finishPosition}）`);
+
+    // ランクを割り当て（大貧民として）
     this.rankAssignmentService.assignRank(gameState, player);
   }
 
@@ -372,13 +422,28 @@ export class PlayPhase implements GamePhase {
     gameState.numberLock = false;
     gameState.colorLock = null;
     gameState.isTwoBack = false; // 2バックをリセット
+    gameState.isDamianActive = false; // ダミアンをリセット
 
     if (resetElevenBack && gameState.isElevenBack) {
-      gameState.isElevenBack = false;
-      console.log('11バックがリセットされました');
-
-      const shouldReverseStrength = this.getShouldReverseStrength(gameState);
-      gameState.players.forEach(p => p.hand.sort(shouldReverseStrength));
+      // 強化Jバック中の場合はelevenBackDurationをデクリメント
+      if (gameState.elevenBackDuration > 0) {
+        gameState.elevenBackDuration--;
+        console.log(`強化Jバック: 残り${gameState.elevenBackDuration}回`);
+        // まだ持続回数が残っている場合はリセットしない
+        if (gameState.elevenBackDuration > 0) {
+          console.log('11バックは強化Jバックにより持続中');
+        } else {
+          gameState.isElevenBack = false;
+          console.log('強化Jバックが終了しました');
+          const shouldReverseStrength = this.getShouldReverseStrength(gameState);
+          gameState.players.forEach(p => p.hand.sort(shouldReverseStrength));
+        }
+      } else {
+        gameState.isElevenBack = false;
+        console.log('11バックがリセットされました');
+        const shouldReverseStrength = this.getShouldReverseStrength(gameState);
+        gameState.players.forEach(p => p.hand.sort(shouldReverseStrength));
+      }
     }
 
     console.log('場が流れました');
@@ -466,7 +531,10 @@ export class PlayPhase implements GamePhase {
       'ジョーカー革命': { effect: 'ジョーカー革命', variant: 'gold' },
       'ジョーカー革命終了': { effect: 'ジョーカー革命終了', variant: 'blue' },
       '5スキップ': { effect: '5スキップ', variant: 'blue' },
+      'フリーメイソン': { effect: 'フリーメイソン', variant: 'green' },
+      '10飛び': { effect: '10飛び', variant: 'green' },
       '7渡し': { effect: '7渡し', variant: 'blue' },
+      '7付け': { effect: '7付け', variant: 'blue' },
       '10捨て': { effect: '10捨て', variant: 'red' },
       'クイーンボンバー': { effect: 'クイーンボンバー', variant: 'red' },
       '9リバース': { effect: '9リバース', variant: 'blue' },
@@ -486,6 +554,11 @@ export class PlayPhase implements GamePhase {
       'サタン': { effect: 'サタン', variant: 'red' },
       '栗拾い': { effect: '栗拾い', variant: 'green' },
       '銀河鉄道999': { effect: '銀河鉄道999', variant: 'gold' },
+      '黒7': { effect: '黒7', variant: 'blue' },
+      '9クイック': { effect: '9クイック', variant: 'green' },
+      '9戻し': { effect: '9戻し', variant: 'blue' },
+      '強化Jバック': { effect: '強化Jバック', variant: 'gold' },
+      'ダミアン': { effect: 'ダミアン', variant: 'red' },
     };
 
     return cutInMap[effect] || null;
@@ -536,6 +609,111 @@ export class PlayPhase implements GamePhase {
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
       nextPlayer.hand.sort(shouldReverse);
     }
+
+    if (player.hand.isEmpty()) {
+      this.handlePlayerFinish(gameState, player);
+    }
+  }
+
+  /**
+   * 7付け処理（非同期）
+   * 7を出すと、出した7の枚数分のカードを手札から追加で捨てる
+   * @param sevenCount 出された7の枚数（＝捨てる枚数）
+   */
+  private async handleSevenAttach(gameState: GameState, player: Player, sevenCount: number): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
+
+    // 手札が足りない場合は持っている枚数まで
+    const handCards = player.hand.getCards();
+    const maxDiscard = Math.min(sevenCount, handCards.length);
+
+    // 捨てられるカードがない場合はスキップ
+    if (maxDiscard === 0) {
+      console.log(`${player.name} は手札がないためスキップ`);
+      return;
+    }
+
+    const validator: Validator = {
+      validate: (cards: Card[]) => {
+        if (cards.length !== maxDiscard) {
+          return { valid: false, reason: `${maxDiscard}枚選んでください` };
+        }
+        return { valid: true };
+      }
+    };
+
+    const cards = await controller.chooseCardsInHand(validator, `7付け：${maxDiscard}枚捨ててください`);
+    if (cards.length !== maxDiscard) {
+      throw new Error(`Must select exactly ${maxDiscard} cards for seven attach`);
+    }
+
+    player.hand.remove(cards);
+    gameState.discardPile.push(...cards);
+    console.log(`${player.name} が ${cards.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました（7付け）`);
+
+    if (player.hand.isEmpty()) {
+      this.handlePlayerFinish(gameState, player);
+    }
+  }
+
+  /**
+   * 9戻し処理（非同期）
+   * 9を出すと、出した9の枚数分のカードを直前のプレイヤーに渡す
+   * @param nineCount 出された9の枚数（＝渡す枚数）
+   */
+  private async handleNineReturn(gameState: GameState, player: Player, nineCount: number): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
+
+    // 直前のプレイヤーを探す
+    const direction = gameState.isReversed ? -1 : 1;
+    const prevDirection = -direction;
+    const prevIndex = (gameState.currentPlayerIndex + prevDirection + gameState.players.length) % gameState.players.length;
+    let prevPlayer = gameState.players[prevIndex];
+
+    let searchIndex = prevIndex;
+    let attempts = 0;
+    while (prevPlayer.isFinished && attempts < gameState.players.length) {
+      searchIndex = (searchIndex + prevDirection + gameState.players.length) % gameState.players.length;
+      prevPlayer = gameState.players[searchIndex];
+      attempts++;
+    }
+
+    if (prevPlayer.isFinished) {
+      console.log('直前のプレイヤーがいないため9戻しをスキップ');
+      return;
+    }
+
+    // 手札が足りない場合は持っている枚数まで
+    const handCards = player.hand.getCards();
+    const maxPass = Math.min(nineCount, handCards.length);
+
+    if (maxPass === 0) {
+      console.log(`${player.name} は手札がないためスキップ`);
+      return;
+    }
+
+    const validator: Validator = {
+      validate: (cards: Card[]) => {
+        if (cards.length === maxPass) {
+          return { valid: true };
+        }
+        return { valid: false, reason: `${maxPass}枚選んでください` };
+      }
+    };
+
+    const cards = await controller.chooseCardsInHand(validator, `9戻し：${prevPlayer.name}に渡すカードを${maxPass}枚選んでください`);
+    if (cards.length !== maxPass) {
+      throw new Error(`Must select exactly ${maxPass} cards for nine return`);
+    }
+
+    player.hand.remove(cards);
+    prevPlayer.hand.add(cards);
+    console.log(`${player.name} が ${prevPlayer.name} に ${cards.map(c => `${c.rank}${c.suit}`).join(', ')} を渡しました（9戻し）`);
+
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    prevPlayer.hand.sort(shouldReverse);
 
     if (player.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, player);
@@ -940,6 +1118,44 @@ export class PlayPhase implements GamePhase {
       }
     } else {
       console.log('捨て札が2枚未満のため、引くことができません');
+    }
+  }
+
+  /**
+   * 黒7処理（非同期）
+   * スペード7またはクラブ7を出すと、枚数分だけ捨て山からランダムにカードを引く
+   * @param blackSevenCount 出された黒7の枚数（＝引く枚数）
+   */
+  private async handleBlackSeven(gameState: GameState, player: Player, blackSevenCount: number): Promise<void> {
+    if (gameState.discardPile.length === 0) {
+      console.log('捨て札がないため黒7をスキップ');
+      return;
+    }
+
+    // 引ける枚数 = min(捨て札の枚数, 黒7の枚数)
+    const drawCount = Math.min(gameState.discardPile.length, blackSevenCount);
+
+    console.log(`黒7：${player.name} が捨て札から${drawCount}枚ランダムに引きます`);
+
+    // 捨て札からランダムに選択
+    const drawnCards: Card[] = [];
+    for (let i = 0; i < drawCount; i++) {
+      if (gameState.discardPile.length === 0) break;
+
+      // ランダムなインデックスを選択
+      const randomIndex = Math.floor(Math.random() * gameState.discardPile.length);
+      const card = gameState.discardPile.splice(randomIndex, 1)[0];
+      drawnCards.push(card);
+    }
+
+    if (drawnCards.length > 0) {
+      // プレイヤーの手札に追加
+      player.hand.add(drawnCards);
+      console.log(`${player.name} が ${drawnCards.map(c => `${c.rank}${c.suit}`).join(', ')} を引きました（黒7）`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      player.hand.sort(shouldReverse);
     }
   }
 

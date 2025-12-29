@@ -247,12 +247,34 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     }
   },
 
+  '10飛び': {
+    apply: () => {
+      console.log('10飛びが発動しました！');
+    },
+    cutIn: {
+      getText: () => '10飛び！',
+      variant: 'green',
+      duration: 250
+    }
+  },
+
   '7渡し': {
     apply: () => {
       // 7渡しは後で別途処理するため、ここではイベント発火のみ
     },
     cutIn: {
       getText: () => '7渡し！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '7付け': {
+    apply: () => {
+      // 7付けは後で別途処理するため、ここではイベント発火のみ
+    },
+    cutIn: {
+      getText: () => '7付け！',
       variant: 'blue',
       duration: 250
     }
@@ -617,6 +639,78 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     cutIn: {
       getText: () => '銀河鉄道999！',
       variant: 'gold',
+      duration: 300
+    }
+  },
+
+  '黒7': {
+    apply: () => {
+      // 黒7は後で別途処理するため、ここではイベント発火のみ
+      console.log('黒7が発動しました！');
+    },
+    cutIn: {
+      getText: (_, context) => context?.blackSevenCount ? `黒7！（${context.blackSevenCount}枚回収）` : '黒7！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '9クイック': {
+    apply: () => {
+      // 9クイックは後で別途処理するため、ここではイベント発火のみ
+      console.log('9クイックが発動しました！');
+    },
+    cutIn: {
+      getText: () => '9クイック！',
+      variant: 'green',
+      duration: 250
+    }
+  },
+
+  '9戻し': {
+    apply: () => {
+      // 9戻しは後で別途処理するため、ここではイベント発火のみ
+      console.log('9戻しが発動しました！');
+    },
+    cutIn: {
+      getText: (_, context) => context?.nineCount ? `9戻し！（${context.nineCount}枚）` : '9戻し！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '強化Jバック': {
+    apply: (gameState) => {
+      gameState.isElevenBack = true;
+      gameState.elevenBackDuration = 2;
+      console.log('強化Jバックが発動しました！11バックが2回場が流れるまで持続');
+    },
+    cutIn: {
+      getText: () => '強化Jバック！（2回持続）',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  'フリーメイソン': {
+    apply: () => {
+      console.log('フリーメイソンが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'フリーメイソン！',
+      variant: 'green',
+      duration: 250
+    }
+  },
+
+  'ダミアン': {
+    apply: (gameState) => {
+      gameState.isDamianActive = true;
+      console.log('ダミアンが発動しました！パスした人は敗北します');
+    },
+    cutIn: {
+      getText: () => 'ダミアン！パスしたら敗北',
+      variant: 'red',
       duration: 300
     }
   }

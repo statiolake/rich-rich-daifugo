@@ -129,7 +129,11 @@ describe('CardEffects - 特殊カードの効果', () => {
       playerControllers.set('p1', controller1);
       playerControllers.set('p2', controller2);
 
-      const gameState = createGameState([player1, player2]);
+      const gameState = createGameState([player1, player2], {
+        ...DEFAULT_RULE_SETTINGS,
+        freemason: false,  // フリーメイソンを無効化（このテストは革命のみテスト）
+        sixCut: false,     // 6切りを無効化（革命中のカットを防ぐ）
+      });
       gameState.phase = GamePhaseType.PLAY;
       gameState.currentPlayerIndex = 0;
 
@@ -222,6 +226,9 @@ describe('CardEffects - 特殊カードの効果', () => {
       const gameState = createGameState([player1, player2, player3], {
         ...DEFAULT_RULE_SETTINGS,
         nineReverse: true,
+        nineQuick: false,  // 9クイックを無効化（このテストは9リバースのみテスト）
+        nineReturn: false, // 9戻しを無効化（このテストは9リバースのみテスト）
+        chestnutPicking: false, // 栗拾いを無効化（このテストは9リバースのみテスト）
       });
       gameState.phase = GamePhaseType.PLAY;
       gameState.currentPlayerIndex = 0;

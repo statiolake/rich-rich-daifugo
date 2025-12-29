@@ -17,6 +17,7 @@ export interface GameState {
   discardPile: Card[]; // 捨て札（場が流れたカードを蓄積）
   isRevolution: boolean;
   isElevenBack: boolean;
+  elevenBackDuration: number; // 強化Jバック時の残り場流れ回数（通常0、強化Jバック時は2）
   isOmenActive: boolean; // オーメン発動後、以降革命が起きない
   isEightCutPending: boolean; // 8切りが発動予定（4止めで止められる可能性がある）
   suitLock: string | null; // マークしばり（例: 'SPADE', 'HEART', 'DIAMOND', 'CLUB'）
@@ -24,6 +25,7 @@ export interface GameState {
   colorLock: 'red' | 'black' | null; // 色縛り（赤:ハート/ダイヤ、黒:スペード/クラブ）
   isReversed: boolean; // ターン順が逆転しているか（9リバース）
   isTwoBack: boolean; // 2バック状態（2を出すと場が流れるまで強さ逆転）
+  isDamianActive: boolean; // ダミアン状態（6x3を出すと場が流れるまでパスした人は敗北）
   luckySeven: { playerId: string } | null; // ラッキーセブン（7x3を出したプレイヤー、無敗なら勝利）
   passCount: number;
   round: number;
@@ -41,6 +43,7 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     discardPile: [],
     isRevolution: false,
     isElevenBack: false,
+    elevenBackDuration: 0,
     isOmenActive: false,
     isEightCutPending: false,
     suitLock: null,
@@ -48,6 +51,7 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     colorLock: null,
     isReversed: false,
     isTwoBack: false,
+    isDamianActive: false,
     luckySeven: null,
     passCount: 0,
     round: 1,
