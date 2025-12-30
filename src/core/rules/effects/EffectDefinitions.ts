@@ -1159,5 +1159,92 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'red',
       duration: 500
     }
+  },
+
+  'Aじゃないか': {
+    apply: () => {
+      // Aじゃないかは後で別途処理するため、ここではイベント発火のみ
+      console.log('Aじゃないかが発動しました！ゲーム終了、全員平民に');
+    },
+    cutIn: {
+      getText: () => 'Aじゃないか！全員平民',
+      variant: 'gold',
+      duration: 500
+    }
+  },
+
+  '十字軍': {
+    apply: (gameState) => {
+      // 十字軍は革命も発動する
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`十字軍が発動しました！革命発動 isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '十字軍！革命発生＋全ジョーカー奪取' : '十字軍！革命終了＋全ジョーカー奪取',
+      variant: 'gold',
+      duration: 400
+    }
+  },
+
+  'オークション': {
+    apply: () => {
+      // オークションは後で別途処理するため、ここではイベント発火のみ
+      console.log('オークションが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'オークション！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  '矢切の渡し': {
+    apply: (gameState) => {
+      // 矢切の渡しは8切り効果も発動する
+      gameState.isEightCutPending = true;
+      console.log('矢切の渡しが発動しました！任意プレイヤーにカードを渡せます');
+    },
+    cutIn: {
+      getText: () => '矢切の渡し！',
+      variant: 'blue',
+      duration: 300
+    }
+  },
+
+  '8切り返し': {
+    apply: () => {
+      // 8切り返しで親が変わる（カウンターしたプレイヤーが親になる）
+      // 注意: isEightCutPending は維持される（8を出したので8切りが発動する）
+      console.log('8切り返しが発動しました！カウンターしたプレイヤーが親になります');
+    },
+    cutIn: {
+      getText: () => '8切り返し！',
+      variant: 'green',
+      duration: 300
+    }
+  },
+
+  '10返し': {
+    apply: () => {
+      // 10返しは後で別途処理するため、ここではイベント発火のみ
+      console.log('10返しが発動しました！8切りが無効化されます');
+    },
+    cutIn: {
+      getText: () => '10返し！',
+      variant: 'blue',
+      duration: 300
+    }
+  },
+
+  '強化8切り': {
+    apply: (gameState) => {
+      gameState.isEightCutPending = true;
+      console.log('強化8切りが発動しました！場のカードをゲームから完全除外します');
+    },
+    cutIn: {
+      getText: () => '強化8切り！',
+      variant: 'red',
+      duration: 300
+    }
   }
 };

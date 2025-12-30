@@ -22,6 +22,7 @@ export interface RuleContext {
   parityRestriction: 'even' | 'odd' | null; // 偶数/奇数制限
   isDoubleDigitSealActive: boolean; // 2桁封じ状態（J〜Kが出せなくなる）
   hotMilkRestriction: 'warm' | null; // ホットミルク制限（warm: ダイヤ/ハートのみ）
+  partialLockSuits: string[] | null; // 片縛り（複数枚で一部スートが一致した時のロックスート）
 
   // ルール設定
   ruleSettings: RuleSettings;

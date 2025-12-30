@@ -44,6 +44,8 @@ describe('TriggerEffectAnalyzer', () => {
       round: 1,
       previousDaifugoId: null,
       previousDaihinminId: null,
+      partialLockSuits: null,
+      excludedCards: [],
       ...overrides,
     };
   }
@@ -580,6 +582,149 @@ describe('TriggerEffectAnalyzer', () => {
       const effects = analyzer.analyze(play, gameState);
 
       expect(effects).not.toContain('数字しばり');
+    });
+  });
+
+  describe('10返し', () => {
+    it('8切りPending時に同スートの10を出すと10返しが発動', () => {
+      const cards = [CardFactory.create(Suit.SPADE, '10')];
+      const play = PlayAnalyzer.analyze(cards)!;
+
+      // 場に8を置く
+      const field = new Field();
+      const eightPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, '8')])!;
+      field.addPlay(eightPlay, { value: 'player1' } as any);
+
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, tenCounter: true },
+        field,
+        isEightCutPending: true,
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).toContain('10返し');
+    });
+
+    it('8切りPending時でも異なるスートの10では10返しが発動しない', () => {
+      const cards = [CardFactory.create(Suit.HEART, '10')];
+      const play = PlayAnalyzer.analyze(cards)!;
+
+      // 場にスペードの8を置く
+      const field = new Field();
+      const eightPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, '8')])!;
+      field.addPlay(eightPlay, { value: 'player1' } as any);
+
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, tenCounter: true },
+        field,
+        isEightCutPending: true,
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('10返し');
+    });
+
+    it('8切りPendingでない時は10返しが発動しない', () => {
+      const cards = [CardFactory.create(Suit.SPADE, '10')];
+      const play = PlayAnalyzer.analyze(cards)!;
+
+      // 場に8を置く
+      const field = new Field();
+      const eightPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, '8')])!;
+      field.addPlay(eightPlay, { value: 'player1' } as any);
+
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, tenCounter: true },
+        field,
+        isEightCutPending: false, // 8切りPendingでない
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('10返し');
+    });
+
+    it('tenCounterルールがOFFの場合は発動しない', () => {
+      const cards = [CardFactory.create(Suit.SPADE, '10')];
+      const play = PlayAnalyzer.analyze(cards)!;
+
+      // 場に8を置く
+      const field = new Field();
+      const eightPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, '8')])!;
+      field.addPlay(eightPlay, { value: 'player1' } as any);
+
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, tenCounter: false },
+        field,
+        isEightCutPending: true,
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('10返し');
+    });
+  });
+
+  describe('強化8切り', () => {
+    it('8x3で強化8切りが発動', () => {
+      const cards = [
+        CardFactory.create(Suit.SPADE, '8'),
+        CardFactory.create(Suit.HEART, '8'),
+        CardFactory.create(Suit.DIAMOND, '8'),
+      ];
+      const play = PlayAnalyzer.analyze(cards)!;
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, enhancedEightCut: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).toContain('強化8切り');
+    });
+
+    it('8x2では強化8切りが発動しない', () => {
+      const cards = [
+        CardFactory.create(Suit.SPADE, '8'),
+        CardFactory.create(Suit.HEART, '8'),
+      ];
+      const play = PlayAnalyzer.analyze(cards)!;
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, enhancedEightCut: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('強化8切り');
+    });
+
+    it('8x1では強化8切りが発動しない', () => {
+      const cards = [CardFactory.create(Suit.SPADE, '8')];
+      const play = PlayAnalyzer.analyze(cards)!;
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, enhancedEightCut: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('強化8切り');
+    });
+
+    it('enhancedEightCutルールがOFFの場合は発動しない', () => {
+      const cards = [
+        CardFactory.create(Suit.SPADE, '8'),
+        CardFactory.create(Suit.HEART, '8'),
+        CardFactory.create(Suit.DIAMOND, '8'),
+      ];
+      const play = PlayAnalyzer.analyze(cards)!;
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, enhancedEightCut: false },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('強化8切り');
     });
   });
 

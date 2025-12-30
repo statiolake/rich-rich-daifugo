@@ -100,7 +100,14 @@ export type TriggerEffect =
   | '6もらい'
   | '9もらい'
   | '終焉のカウントダウン'
-  | 'テレフォース';
+  | 'テレフォース'
+  | 'Aじゃないか'
+  | '十字軍'
+  | 'オークション'
+  | '矢切の渡し'
+  | '8切り返し'
+  | '10返し'
+  | '強化8切り';
 
 /**
  * トリガーエフェクトアナライザー
@@ -567,6 +574,42 @@ export class TriggerEffectAnalyzer {
     // テレフォース判定（4x1を出すと7ターン後に全員敗北）
     if (ruleSettings.teleforce && this.triggersTeleforce(play)) {
       effects.push('テレフォース');
+    }
+
+    // Aじゃないか判定（Ax4でゲーム終了、全員平民に）
+    if (ruleSettings.aceJanaiKa && this.triggersAceJanaiKa(play)) {
+      effects.push('Aじゃないか');
+    }
+
+    // 矢切の渡し判定（8を出すと8切り＋任意プレイヤーにカードを渡せる）
+    if (ruleSettings.yagiriNoWatashi && this.triggersYagiriNoWatashi(play)) {
+      effects.push('矢切の渡し');
+    }
+
+    // 8切り返し判定（8切り発生時に8を重ねて自分の番に）
+    // 注意: 8切り返しは8切りが発動予定の場合に発動する
+    if (ruleSettings.eightCounter && this.triggersEightCounter(play, gameState)) {
+      effects.push('8切り返し');
+    }
+
+    // 十字軍判定（10x4で革命＋ジョーカー保持者から全ジョーカーを奪う）
+    if (ruleSettings.crusade && this.triggersCrusade(play)) {
+      effects.push('十字軍');
+    }
+
+    // オークション判定（10x3でジョーカー所持者から1枚ジョーカーを奪う）
+    if (ruleSettings.auction && this.triggersAuction(play)) {
+      effects.push('オークション');
+    }
+
+    // 10返し判定（8切り発生時、同スートの10を出すと8切り無効化）
+    if (ruleSettings.tenCounter && this.triggersTenCounter(play, gameState)) {
+      effects.push('10返し');
+    }
+
+    // 強化8切り判定（8x3で場のカードをゲームから完全除外）
+    if (ruleSettings.enhancedEightCut && this.triggersEnhancedEightCut(play)) {
+      effects.push('強化8切り');
     }
 
     return effects;
@@ -1338,5 +1381,82 @@ export class TriggerEffectAnalyzer {
   private triggersTeleforce(play: Play): boolean {
     if (play.type !== PlayType.SINGLE) return false;
     return play.cards[0].rank === '4';
+  }
+
+  /**
+   * Aじゃないか判定（Ax4でゲーム終了、全員平民に）
+   * 条件: QUADで全てA
+   */
+  private triggersAceJanaiKa(play: Play): boolean {
+    return play.type === PlayType.QUAD && play.cards.every(card => card.rank === 'A');
+  }
+
+  /**
+   * 矢切の渡し判定（8を出すと8切り＋任意プレイヤーにカードを渡せる）
+   * 条件: 8を含むプレイ
+   */
+  private triggersYagiriNoWatashi(play: Play): boolean {
+    return play.cards.some(card => card.rank === '8');
+  }
+
+  /**
+   * 8切り返し判定（8切り発生時に8を重ねて自分の番に）
+   * 条件: 8切りが発動予定で、8を含むプレイ
+   * 注意: これは8切りが既に発動予定の場合に発動する（連続で8を出す場合）
+   */
+  private triggersEightCounter(play: Play, gameState: GameState): boolean {
+    // 8切りが発動予定でなければ発動しない
+    if (!gameState.isEightCutPending) return false;
+    // 8を含んでいれば発動
+    return play.cards.some(card => card.rank === '8');
+  }
+
+  /**
+   * 十字軍判定（10x4で革命＋ジョーカー保持者から全ジョーカーを奪う）
+   * 条件: QUADで全て10
+   */
+  private triggersCrusade(play: Play): boolean {
+    return play.type === PlayType.QUAD && play.cards.every(card => card.rank === '10');
+  }
+
+  /**
+   * オークション判定（10x3でジョーカー所持者から1枚ジョーカーを奪う）
+   * 条件: TRIPLEで全て10
+   */
+  private triggersAuction(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '10');
+  }
+
+  /**
+   * 10返し判定（8切り発生時、同スートの10を出すと8切り無効化）
+   * 条件: 8切りが発動予定で、場に出されている8と同じスートの10を出す
+   */
+  private triggersTenCounter(play: Play, gameState: GameState): boolean {
+    // 8切りが発動予定でなければ発動しない
+    if (!gameState.isEightCutPending) return false;
+
+    // 場にあるカード（直前のプレイ）を取得
+    const lastPlayHistory = gameState.field.getLastPlay();
+    if (!lastPlayHistory) return false;
+
+    // 場に8があるか確認し、8のスートを取得
+    const eightCards = lastPlayHistory.play.cards.filter(c => c.rank === '8');
+    if (eightCards.length === 0) return false;
+
+    // 出されたカードに10が含まれているか確認
+    const tenCards = play.cards.filter(c => c.rank === '10');
+    if (tenCards.length === 0) return false;
+
+    // 10のスートが8のスートと一致するか確認
+    const eightSuits = eightCards.map(c => c.suit);
+    return tenCards.some(tenCard => eightSuits.includes(tenCard.suit));
+  }
+
+  /**
+   * 強化8切り判定（8x3で場のカードをゲームから完全除外）
+   * 条件: TRIPLEで全て8
+   */
+  private triggersEnhancedEightCut(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '8');
   }
 }

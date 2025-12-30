@@ -151,6 +151,22 @@ export interface RuleSettings {
   // カウントダウン系ルール
   endCountdown: boolean;       // 終焉のカウントダウン（大貧民が4x1を出すとカウントダウン開始、0でパスした人が敗北）
   teleforce: boolean;          // テレフォース（4x1を出すと7ターン後に全員敗北、残り手札で順位決定）
+
+  // ゲーム終了ルール
+  aceJanaiKa: boolean;         // Aじゃないか（Ax4でゲーム終了、全員平民に）
+
+  // 片縛りルール
+  partialLock: boolean;        // 片縛り（複数枚で一部スートが一致すると、そのスートを含む組み合わせのみ出せる）
+
+  // 10系ルール（ジョーカー関連）
+  crusade: boolean;            // 十字軍（10x4で革命＋ジョーカー保持者から全ジョーカーを奪う）
+  auction: boolean;            // オークション（10x3でジョーカー所持者から1枚ジョーカーを奪う）
+
+  // 8切り関連ルール
+  yagiriNoWatashi: boolean;    // 矢切の渡し（8を出すと8切り＋任意プレイヤーにカードを渡せる）
+  eightCounter: boolean;       // 8切り返し（8切り発生時に他プレイヤーが8を重ねて自分の番に）
+  tenCounter: boolean;         // 10返し（8切り発生時、同スートの10を出すと8切り無効化）
+  enhancedEightCut: boolean;   // 強化8切り（8x3で場のカードをゲームから完全除外）
 }
 
 /**
@@ -255,4 +271,12 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   nineClaim: false,
   endCountdown: false,
   teleforce: false,
+  aceJanaiKa: false,
+  partialLock: false,
+  crusade: false,
+  auction: false,
+  yagiriNoWatashi: false,
+  eightCounter: false,
+  tenCounter: false,
+  enhancedEightCut: false,
 };

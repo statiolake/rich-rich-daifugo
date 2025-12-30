@@ -150,7 +150,7 @@ export class PlayPhase implements GamePhase {
     let salvagePlayer: Player | undefined = undefined;
     let nextAcePlayer: Player | undefined = undefined;
 
-    if (gameState.isEightCutPending && !effects.includes('4止め') && !effects.includes('7カウンター')) {
+    if (gameState.isEightCutPending && !effects.includes('4止め') && !effects.includes('7カウンター') && !effects.includes('10返し')) {
       shouldClearField = true;
       console.log('8切りが発動します');
       // 8切りで場が流れる場合、3を含むカードを出したプレイヤーにサルベージ権利
@@ -170,6 +170,18 @@ export class PlayPhase implements GamePhase {
     if (effects.includes('7カウンター')) {
       console.log('7カウンターが発動しました！8切りがキャンセルされます');
       gameState.isEightCutPending = false;
+    }
+    // 10返し: 8切り発生時に同スートの10を出すと8切りをキャンセル
+    if (effects.includes('10返し')) {
+      console.log('10返しが発動しました！8切りがキャンセルされます');
+      gameState.isEightCutPending = false;
+    }
+    // 8切り返し: 8切り発生時に8を重ねて自分の番に
+    // 注意: 8切り返しは8切りをキャンセルせず、カウンターしたプレイヤーが親になる
+    let eightCounterPlayer: Player | undefined = undefined;
+    if (effects.includes('8切り返し')) {
+      console.log('8切り返しが発動しました！カウンターしたプレイヤーが親になります');
+      eightCounterPlayer = player;
     }
     if (effects.includes('救急車') || effects.includes('ろくろ首')) {
       shouldClearField = true;
@@ -213,7 +225,18 @@ export class PlayPhase implements GamePhase {
 
     if (shouldClearField) {
       this.handleLuckySevenVictory(gameState);
-      await this.clearFieldAndResetState(gameState, true, salvagePlayer, nextAcePlayer);
+      // 強化8切り: 8x3で場のカードをゲームから完全除外
+      const excludeCards = effects.includes('強化8切り');
+      await this.clearFieldAndResetState(gameState, true, salvagePlayer, nextAcePlayer, excludeCards);
+
+      // 8切り返し: カウンターしたプレイヤーが親になる
+      if (eightCounterPlayer && !eightCounterPlayer.isFinished) {
+        const eightCounterIndex = gameState.players.findIndex(p => p.id.value === eightCounterPlayer!.id.value);
+        if (eightCounterIndex !== -1) {
+          gameState.currentPlayerIndex = eightCounterIndex;
+          console.log(`8切り返し：${eightCounterPlayer.name} が親になりました`);
+        }
+      }
     }
 
     // 9クイック: 9を出すと続けてもう1回出せる（ターンを維持）
@@ -326,6 +349,30 @@ export class PlayPhase implements GamePhase {
     if (effects.includes('テレフォース')) {
       await this.handleTeleforce(gameState);
     }
+
+    // Aじゃないか（Ax4でゲーム終了、全員平民に）
+    if (effects.includes('Aじゃないか')) {
+      this.handleAceJanaiKa(gameState);
+      return; // ゲーム終了なのでここで終了
+    }
+
+    // 十字軍（10x4で革命＋ジョーカー保持者から全ジョーカーを奪う）
+    if (effects.includes('十字軍')) {
+      await this.handleCrusade(gameState, player);
+    }
+
+    // オークション（10x3でジョーカー所持者から1枚ジョーカーを奪う）
+    if (effects.includes('オークション')) {
+      await this.handleAuction(gameState, player);
+    }
+
+    // 矢切の渡し（8を出すと8切り＋任意プレイヤーにカードを渡せる）
+    if (effects.includes('矢切の渡し')) {
+      await this.handleYagiriNoWatashi(gameState, player);
+    }
+
+    // 片縛りの発動判定と適用
+    this.checkAndApplyPartialLock(gameState, play);
 
     // 手札が空になったら上がり
     if (player.hand.isEmpty()) {
@@ -593,17 +640,25 @@ export class PlayPhase implements GamePhase {
    * フィールドと状態をリセット
    * @param salvagePlayer サルベージ権利を持つプレイヤー（3で場が流れた場合）
    * @param nextAcePlayer 次期エース権利を持つプレイヤー（Aで場が流れた場合）
+   * @param excludeCards 強化8切り時にカードを完全除外するか（捨て札にも行かない）
    */
   private async clearFieldAndResetState(
     gameState: GameState,
     resetElevenBack: boolean = true,
     salvagePlayer?: Player,
-    nextAcePlayer?: Player
+    nextAcePlayer?: Player,
+    excludeCards: boolean = false
   ): Promise<void> {
-    // 場のカードを捨て札に移動
+    // 場のカードを捨て札または除外リストに移動
     const history = gameState.field.getHistory();
     for (const playHistory of history) {
-      gameState.discardPile.push(...playHistory.play.cards);
+      if (excludeCards) {
+        // 強化8切り: カードをゲームから完全除外
+        gameState.excludedCards.push(...playHistory.play.cards);
+        console.log(`強化8切り: ${playHistory.play.cards.map(c => `${c.rank}${c.suit}`).join(', ')} をゲームから除外`);
+      } else {
+        gameState.discardPile.push(...playHistory.play.cards);
+      }
     }
 
     gameState.field.clear();
@@ -619,6 +674,7 @@ export class PlayPhase implements GamePhase {
     gameState.isDoubleDigitSealActive = false; // 2桁封じをリセット
     gameState.hotMilkRestriction = null; // ホットミルクをリセット
     gameState.isArthurActive = false; // アーサーをリセット
+    gameState.partialLockSuits = null; // 片縛りをリセット
 
     if (resetElevenBack && gameState.isElevenBack) {
       // 強化Jバック中の場合はelevenBackDurationをデクリメント
@@ -800,6 +856,10 @@ export class PlayPhase implements GamePhase {
       '9もらい': { effect: '9もらい', variant: 'green' },
       '終焉のカウントダウン': { effect: '終焉のカウントダウン', variant: 'red' },
       'テレフォース': { effect: 'テレフォース', variant: 'red' },
+      '10返し': { effect: '10返し', variant: 'blue' },
+      '強化8切り': { effect: '強化8切り', variant: 'red' },
+      '矢切の渡し': { effect: '矢切の渡し', variant: 'blue' },
+      '8切り返し': { effect: '8切り返し', variant: 'green' },
     };
 
     return cutInMap[effect] || null;
@@ -2621,6 +2681,204 @@ export class PlayPhase implements GamePhase {
       player.finishPosition = finishedCount + i + 1;
       console.log(`テレフォース終了：${player.name} は ${player.finishPosition}位（手札${player.hand.size()}枚）`);
       this.rankAssignmentService.assignRank(gameState, player);
+    }
+  }
+
+  /**
+   * Aじゃないか処理
+   * Ax4を出すとゲーム終了、全員平民に
+   */
+  private handleAceJanaiKa(gameState: GameState): void {
+    console.log('Aじゃないかが発動！ゲーム終了、全員平民に');
+
+    // 全員のランクを平民（HEIMIN）に設定
+    for (const player of gameState.players) {
+      player.rank = PlayerRank.HEIMIN;
+      player.isFinished = true;
+      // 順位は設定しない（全員平民なので順位の概念がない）
+      player.finishPosition = null;
+    }
+
+    // ゲームフェーズをRESULTに変更（次のupdate時に終了処理される）
+    gameState.phase = GamePhaseType.RESULT;
+  }
+
+  /**
+   * 十字軍処理
+   * 10x4で革命＋ジョーカー保持者から全ジョーカーを奪う
+   */
+  private async handleCrusade(gameState: GameState, player: Player): Promise<void> {
+    console.log(`十字軍発動！${player.name} が全員からジョーカーを奪います`);
+
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+
+    for (const targetPlayer of gameState.players) {
+      // 自分と上がったプレイヤーはスキップ
+      if (targetPlayer.id.value === player.id.value || targetPlayer.isFinished) continue;
+
+      // ジョーカーを全て奪う
+      const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
+      if (jokers.length > 0) {
+        targetPlayer.hand.remove(jokers);
+        player.hand.add(jokers);
+        console.log(`十字軍：${player.name} が ${targetPlayer.name} から ${jokers.length}枚のジョーカーを奪いました`);
+
+        if (targetPlayer.hand.isEmpty()) {
+          this.handlePlayerFinish(gameState, targetPlayer);
+        }
+      }
+    }
+
+    // ソート
+    player.hand.sort(shouldReverse);
+  }
+
+  /**
+   * オークション処理
+   * 10x3でジョーカー所持者から1枚ジョーカーを奪う
+   */
+  private async handleAuction(gameState: GameState, player: Player): Promise<void> {
+    console.log(`オークション発動！${player.name} がジョーカー所持者から1枚奪います`);
+
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+
+    // ジョーカーを持っているプレイヤーを探す
+    for (const targetPlayer of gameState.players) {
+      // 自分と上がったプレイヤーはスキップ
+      if (targetPlayer.id.value === player.id.value || targetPlayer.isFinished) continue;
+
+      // ジョーカーを1枚奪う
+      const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
+      if (jokers.length > 0) {
+        const jokerToSteal = [jokers[0]];
+        targetPlayer.hand.remove(jokerToSteal);
+        player.hand.add(jokerToSteal);
+        console.log(`オークション：${player.name} が ${targetPlayer.name} からジョーカーを1枚奪いました`);
+
+        if (targetPlayer.hand.isEmpty()) {
+          this.handlePlayerFinish(gameState, targetPlayer);
+        }
+
+        // 1枚だけ奪うのでここで終了
+        break;
+      }
+    }
+
+    // ソート
+    player.hand.sort(shouldReverse);
+  }
+
+  /**
+   * 片縛りの発動判定と適用
+   * 複数枚で一部スートが一致すると、そのスートを含む組み合わせのみ出せる
+   */
+  private checkAndApplyPartialLock(gameState: GameState, play: Play): void {
+    // ルールがOFFなら何もしない
+    if (!gameState.ruleSettings.partialLock) return;
+
+    // 既に片縛りが発動している場合は何もしない
+    if (gameState.partialLockSuits) return;
+
+    // 場に履歴がなければ発動しない（最初の出し）
+    const history = gameState.field.getHistory();
+    if (history.length === 0) return;
+
+    // 前回のプレイを取得
+    const prevPlayHistory = history[history.length - 1];
+    const prevCards = prevPlayHistory.play.cards;
+    const currentCards = play.cards;
+
+    // 複数枚でなければ発動しない
+    if (prevCards.length < 2 || currentCards.length < 2) return;
+
+    // 前回と今回のスートを収集（ジョーカー以外）
+    const prevSuits = new Set(prevCards.filter(c => c.rank !== 'JOKER').map(c => c.suit));
+    const currentSuits = new Set(currentCards.filter(c => c.rank !== 'JOKER').map(c => c.suit));
+
+    // 共通するスートを見つける
+    const commonSuits = [...prevSuits].filter(suit => currentSuits.has(suit));
+
+    // 共通スートがあれば片縛り発動
+    if (commonSuits.length > 0) {
+      gameState.partialLockSuits = commonSuits;
+      console.log(`片縛りが発動しました！（${commonSuits.join(', ')}）`);
+    }
+  }
+
+  /**
+   * 矢切の渡し処理（非同期）
+   * 8を出すと8切り＋任意プレイヤーにカードを渡せる
+   */
+  private async handleYagiriNoWatashi(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('矢切の渡し：コントローラーがないためスキップ');
+      return;
+    }
+
+    // 手札がなければスキップ
+    if (player.hand.isEmpty()) {
+      console.log('矢切の渡し：手札がないためスキップ');
+      return;
+    }
+
+    // 自分以外のアクティブプレイヤーを取得
+    const targetPlayers = gameState.players.filter(
+      p => p.id.value !== player.id.value && !p.isFinished
+    );
+
+    if (targetPlayers.length === 0) {
+      console.log('矢切の渡し：対象プレイヤーがいないためスキップ');
+      return;
+    }
+
+    console.log(`矢切の渡し：${player.name} が任意のプレイヤーにカードを渡せます`);
+
+    // プレイヤーを選択
+    const targetPlayer = await controller.choosePlayer(
+      targetPlayers,
+      '矢切の渡し：カードを渡すプレイヤーを選んでください'
+    );
+
+    if (!targetPlayer) {
+      console.log('矢切の渡し：プレイヤー選択がキャンセルされました');
+      return;
+    }
+
+    // 渡すカードを選択（1枚）
+    const validator: Validator = {
+      validate: (cards: Card[]) => {
+        if (cards.length === 1) {
+          return { valid: true };
+        }
+        return { valid: false, reason: '1枚選んでください' };
+      }
+    };
+
+    const cardsToPass = await controller.chooseCardsInHand(
+      validator,
+      `矢切の渡し：${targetPlayer.name}に渡すカードを1枚選んでください`
+    );
+
+    if (cardsToPass.length !== 1) {
+      console.log('矢切の渡し：カード選択がキャンセルされました');
+      return;
+    }
+
+    const card = cardsToPass[0];
+
+    // カードを渡す
+    player.hand.remove([card]);
+    targetPlayer.hand.add([card]);
+    console.log(`矢切の渡し：${player.name} が ${targetPlayer.name} に ${card.rank}${card.suit} を渡しました`);
+
+    // ソート
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    targetPlayer.hand.sort(shouldReverse);
+
+    // 自分の手札が空になったら上がり
+    if (player.hand.isEmpty()) {
+      this.handlePlayerFinish(gameState, player);
     }
   }
 }

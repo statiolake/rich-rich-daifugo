@@ -35,6 +35,8 @@ export interface GameState {
   deathSentenceTarget: string | null; // 死の宣告対象プレイヤーID（パスすると敗北）
   endCountdownValue: number | null; // 終焉のカウントダウン残り値（パスごとに1減少、0でパスした人が敗北）
   teleforceCountdown: number | null; // テレフォースカウントダウン（7から0へ、ターン終了時に減少）
+  partialLockSuits: string[] | null; // 片縛り（複数枚で一部スートが一致すると、そのスートを含む組み合わせのみ出せる）
+  excludedCards: Card[]; // 強化8切りで除外されたカード（捨て札にも行かない）
   passCount: number;
   round: number;
   phase: GamePhaseType;
@@ -69,6 +71,8 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     deathSentenceTarget: null,
     endCountdownValue: null,
     teleforceCountdown: null,
+    partialLockSuits: null,
+    excludedCards: [],
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,

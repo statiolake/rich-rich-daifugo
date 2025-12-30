@@ -86,7 +86,13 @@ export class PlayValidator {
       if (!hotMilkResult.valid) return hotMilkResult;
     }
 
-    // 9. 強さチェック
+    // 9. 片縛りチェック（一部スートが一致した時のロック）
+    if (context.ruleSettings.partialLock && context.partialLockSuits) {
+      const partialLockResult = this.validatePartialLock(cards, context.partialLockSuits);
+      if (!partialLockResult.valid) return partialLockResult;
+    }
+
+    // 10. 強さチェック
     const strengthResult = this.validateStrength(cards, context);
     if (!strengthResult.valid) return strengthResult;
 
@@ -282,6 +288,28 @@ export class PlayValidator {
           reason: 'ホットミルクが発動中です（ダイヤ/ハートのみ）',
         };
       }
+    }
+    return { valid: true, reason: '' };
+  }
+
+  /**
+   * 片縛りチェック
+   * 出されたカードが片縛りスートのいずれかを含むか確認
+   */
+  private validatePartialLock(cards: Card[], lockedSuits: string[]): ValidationResult {
+    // ジョーカー以外のカードのスートを取得
+    const cardSuits = cards
+      .filter(card => card.rank !== 'JOKER')
+      .map(card => card.suit);
+
+    // いずれかの片縛りスートを含んでいるかチェック
+    const hasLockedSuit = cardSuits.some(suit => lockedSuits.includes(suit));
+
+    if (!hasLockedSuit) {
+      return {
+        valid: false,
+        reason: `片縛りが発動中です（${lockedSuits.join('または')}を含む必要があります）`,
+      };
     }
     return { valid: true, reason: '' };
   }
