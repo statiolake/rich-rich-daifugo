@@ -72,7 +72,15 @@ export type TriggerEffect =
   | '偶数制限'
   | '奇数制限'
   | '10フリ'
-  | '死者蘇生';
+  | '死者蘇生'
+  | 'ジャンヌダルク'
+  | 'ブラッディメアリ'
+  | 'キング牧師'
+  | 'Re:KING'
+  | 'DEATH'
+  | 'シーフ'
+  | '2桁封じ'
+  | 'ホットミルク';
 
 /**
  * トリガーエフェクトアナライザー
@@ -404,6 +412,46 @@ export class TriggerEffectAnalyzer {
     // 死者蘇生判定（4を出すと、直前に出されたカードを枚数分手札に加える）
     if (ruleSettings.resurrection && this.triggersResurrection(play, gameState)) {
       effects.push('死者蘇生');
+    }
+
+    // ジャンヌダルク判定（Qx3で次のプレイヤーが手札から最強カード2枚を捨てる）
+    if (ruleSettings.jeanneDArc && this.triggersJeanneDArc(play)) {
+      effects.push('ジャンヌダルク');
+    }
+
+    // ブラッディメアリ判定（Qx3で全員が手札から最強カード2枚を捨てる）
+    if (ruleSettings.bloodyMary && this.triggersBloodyMary(play)) {
+      effects.push('ブラッディメアリ');
+    }
+
+    // キング牧師判定（Kを出すと全員が右隣に任意カード1枚を渡す）
+    if (ruleSettings.kingPastor && this.triggersKingPastor(play)) {
+      effects.push('キング牧師');
+    }
+
+    // Re:KING判定（Kを出すと全員が捨て札からK枚数分ランダムに引く）
+    if (ruleSettings.reKing && this.triggersReKing(play, gameState)) {
+      effects.push('Re:KING');
+    }
+
+    // DEATH判定（4x3で全員が最強カードを捨てる）
+    if (ruleSettings.death && this.triggersDeath(play)) {
+      effects.push('DEATH');
+    }
+
+    // シーフ判定（4x3で次のプレイヤーから最強カードを奪う）
+    if (ruleSettings.thief && this.triggersThief(play)) {
+      effects.push('シーフ');
+    }
+
+    // 2桁封じ判定（6を出すと場が流れるまでJ〜Kが出せなくなる）
+    if (ruleSettings.doubleDigitSeal && this.triggersDoubleDigitSeal(play)) {
+      effects.push('2桁封じ');
+    }
+
+    // ホットミルク判定（3の上に9を出すとダイヤ/ハートのみ出せる）
+    if (ruleSettings.hotMilk && this.triggersHotMilk(play, gameState)) {
+      effects.push('ホットミルク');
     }
 
     return effects;
@@ -930,5 +978,70 @@ export class TriggerEffectAnalyzer {
     if (gameState.field.isEmpty()) return false;
     const fieldPlayHistory = gameState.field.getLastPlay();
     return fieldPlayHistory !== null;
+  }
+
+  /**
+   * ジャンヌダルク判定（Qx3で次のプレイヤーが手札から最強カード2枚を捨てる）
+   */
+  private triggersJeanneDArc(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === 'Q');
+  }
+
+  /**
+   * ブラッディメアリ判定（Qx3で全員が手札から最強カード2枚を捨てる）
+   */
+  private triggersBloodyMary(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === 'Q');
+  }
+
+  /**
+   * キング牧師判定（Kを出すと全員が右隣に任意カード1枚を渡す）
+   */
+  private triggersKingPastor(play: Play): boolean {
+    return play.cards.some(card => card.rank === 'K');
+  }
+
+  /**
+   * Re:KING判定（Kを出すと全員が捨て札からK枚数分ランダムに引く）
+   * 捨て札がある場合のみ発動
+   */
+  private triggersReKing(play: Play, gameState: GameState): boolean {
+    const hasKing = play.cards.some(card => card.rank === 'K');
+    const hasDiscardPile = gameState.discardPile && gameState.discardPile.length > 0;
+    return hasKing && hasDiscardPile;
+  }
+
+  /**
+   * DEATH判定（4x3で全員が最強カードを捨てる）
+   */
+  private triggersDeath(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '4');
+  }
+
+  /**
+   * シーフ判定（4x3で次のプレイヤーから最強カードを奪う）
+   */
+  private triggersThief(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '4');
+  }
+
+  /**
+   * 2桁封じ判定（6を出すと場が流れるまでJ〜Kが出せなくなる）
+   */
+  private triggersDoubleDigitSeal(play: Play): boolean {
+    return play.cards.some(card => card.rank === '6');
+  }
+
+  /**
+   * ホットミルク判定（3の上に9を出すとダイヤ/ハートのみ出せる）
+   */
+  private triggersHotMilk(play: Play, gameState: GameState): boolean {
+    // 9を含むプレイで発動
+    if (!play.cards.some(card => card.rank === '9')) return false;
+    // 場に3がある場合のみ発動
+    if (gameState.field.isEmpty()) return false;
+    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (!fieldPlayHistory) return false;
+    return fieldPlayHistory.play.cards.some(card => card.rank === '3');
   }
 }

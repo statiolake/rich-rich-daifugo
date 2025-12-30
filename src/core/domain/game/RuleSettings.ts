@@ -58,14 +58,20 @@ export interface RuleSettings {
   nineQuick: boolean;          // 9クイック（9を出すと続けてもう1回出せる）
   queenReverse: boolean;       // Qリバース（Qを出すと席順が逆転）
   kingReverse: boolean;        // Kリバース（Kを出すと席順が逆転）
+  kingPastor: boolean;         // キング牧師（Kを出すと全員が右隣に任意カード1枚を渡す）
+  reKing: boolean;             // Re:KING（Kを出すと全員が捨て札からK枚数分ランダムに引く）
 
   // 特殊効果
   queenBomber: boolean;        // クイーンボンバー
+  jeanneDArc: boolean;         // ジャンヌダルク（Qx3で次のプレイヤーが手札から最強カード2枚を捨てる）
+  bloodyMary: boolean;         // ブラッディメアリ（Qx3で全員が手札から最強カード2枚を捨てる）
   downNumber: boolean;         // ダウンナンバー
   twoBack: boolean;            // 2バック（2を出すと場が流れるまで強さ逆転）
   zombie: boolean;             // ゾンビ（3x3で捨て札から任意カードを次のプレイヤーに渡す）
   enhancedJBack: boolean;      // 強化Jバック（Jx3で11バックが2回場が流れるまで持続）
   damian: boolean;             // ダミアン（6x3で場が流れるまでパスした人は敗北）
+  death: boolean;              // DEATH（4x3で全員が最強カードを捨てる）
+  thief: boolean;              // シーフ（4x3で次のプレイヤーから最強カードを奪う）
 
   // 捨て札回収ルール
   salvage: boolean;            // サルベージ（3で場が流れた時に捨て札から1枚回収）
@@ -93,6 +99,10 @@ export interface RuleSettings {
   fivePick: boolean;           // 5ピック（5を出すと枚数分だけ好きなプレイヤーの手札を見れる）
   weakShow: boolean;           // 弱見せ（9を出すと次のプレイヤーの最弱カードを公開）
   strongShow: boolean;         // 強見せ（6を出すと次のプレイヤーの最強カードを公開）
+
+  // 出せるカード制限
+  doubleDigitSeal: boolean;    // 2桁封じ（6を出すと場が流れるまでJ〜K（11〜13）が出せなくなる）
+  hotMilk: boolean;            // ホットミルク（3の上に9を出すとダイヤ/ハートのみ出せる）
 }
 
 /**
@@ -142,12 +152,18 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   nineQuick: true,
   queenReverse: true,
   kingReverse: true,
+  kingPastor: true,
+  reKing: true,
   queenBomber: true,
+  jeanneDArc: true,
+  bloodyMary: true,
   downNumber: true,
   twoBack: true,
   zombie: true,
   enhancedJBack: true,
   damian: true,
+  death: true,
+  thief: true,
   salvage: true,
   kingsMarch: true,
   satan: true,
@@ -165,4 +181,6 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   fivePick: true,
   weakShow: true,
   strongShow: true,
+  doubleDigitSeal: true,
+  hotMilk: true,
 };

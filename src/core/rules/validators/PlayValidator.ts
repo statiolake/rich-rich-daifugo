@@ -74,7 +74,19 @@ export class PlayValidator {
       if (!parityResult.valid) return parityResult;
     }
 
-    // 7. 強さチェック
+    // 7. 2桁封じチェック（J〜Kが出せない）
+    if (context.ruleSettings.doubleDigitSeal && context.isDoubleDigitSealActive) {
+      const doubleDigitSealResult = this.validateDoubleDigitSeal(cards);
+      if (!doubleDigitSealResult.valid) return doubleDigitSealResult;
+    }
+
+    // 8. ホットミルクチェック（ダイヤ/ハートのみ）
+    if (context.ruleSettings.hotMilk && context.hotMilkRestriction === 'warm') {
+      const hotMilkResult = this.validateHotMilk(cards);
+      if (!hotMilkResult.valid) return hotMilkResult;
+    }
+
+    // 9. 強さチェック
     const strengthResult = this.validateStrength(cards, context);
     if (!strengthResult.valid) return strengthResult;
 
@@ -202,6 +214,49 @@ export class PlayValidator {
         return {
           valid: false,
           reason: `${restrictionName}が発動中です（${restriction === 'even' ? '偶数' : '奇数'}のみ）`,
+        };
+      }
+    }
+    return { valid: true, reason: '' };
+  }
+
+  /**
+   * 2桁封じチェック
+   * J(11), Q(12), K(13) が出せなくなる
+   * Aと2は出せる（Aは14、2は15として扱われるが2桁ではない）
+   */
+  private validateDoubleDigitSeal(cards: Card[]): ValidationResult {
+    // 2桁封じ対象ランク: J, Q, K（11〜13）
+    const sealedRanks = ['J', 'Q', 'K'];
+
+    for (const card of cards) {
+      if (sealedRanks.includes(card.rank)) {
+        return {
+          valid: false,
+          reason: '2桁封じが発動中です（J〜Kは出せません）',
+        };
+      }
+    }
+    return { valid: true, reason: '' };
+  }
+
+  /**
+   * ホットミルクチェック
+   * ダイヤ（DIAMOND）とハート（HEART）のみ出せる
+   * Jokerは許可
+   */
+  private validateHotMilk(cards: Card[]): ValidationResult {
+    // 許可されるスート: DIAMOND, HEART（赤色）
+    const warmSuits = [Suit.DIAMOND, Suit.HEART];
+
+    for (const card of cards) {
+      // Jokerは常に許可
+      if (card.rank === 'JOKER') continue;
+      // ダイヤかハートかチェック
+      if (!warmSuits.includes(card.suit)) {
+        return {
+          valid: false,
+          reason: 'ホットミルクが発動中です（ダイヤ/ハートのみ）',
         };
       }
     }

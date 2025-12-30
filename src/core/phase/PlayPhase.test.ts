@@ -7,6 +7,7 @@ import { RuleEngine } from '../rules/base/RuleEngine';
 import { EventBus } from '../../application/services/EventBus';
 import { MockPlayerController } from '../test-helpers/MockPlayerController';
 import { MockPresentationRequester } from '../test-helpers/MockPresentationRequester';
+import { DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
 
 describe('PlayPhase - 11バック機能', () => {
   let playPhase: PlayPhase;
@@ -157,7 +158,13 @@ describe('PlayPhase - 11バック機能', () => {
       player2.hand.add([CardFactory.create(Suit.HEART, '3')]);
       player3.hand.add([CardFactory.create(Suit.CLUB, '4')]);
 
-      const gameState = createGameState([player1, player2, player3]);
+      const gameState = createGameState([player1, player2, player3], {
+        ...DEFAULT_RULE_SETTINGS,
+        kingPastor: false,  // キング牧師を無効化（このテストはパス処理のみテスト）
+        reKing: false,      // Re:KINGを無効化
+        kingReverse: false, // Kリバースを無効化
+        kingsMarch: false,  // キングの行進を無効化
+      });
       gameState.phase = GamePhaseType.PLAY;
       gameState.currentPlayerIndex = 0;
 

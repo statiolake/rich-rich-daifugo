@@ -833,5 +833,101 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'gold',
       duration: 250
     }
+  },
+
+  'ジャンヌダルク': {
+    apply: () => {
+      // ジャンヌダルクは後で別途処理するため、ここではイベント発火のみ
+      console.log('ジャンヌダルクが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'ジャンヌダルク！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  'ブラッディメアリ': {
+    apply: () => {
+      // ブラッディメアリは後で別途処理するため、ここではイベント発火のみ
+      console.log('ブラッディメアリが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'ブラッディメアリ！',
+      variant: 'red',
+      duration: 300
+    }
+  },
+
+  'キング牧師': {
+    apply: () => {
+      // キング牧師は後で別途処理するため、ここではイベント発火のみ
+      console.log('キング牧師が発動しました！');
+    },
+    cutIn: {
+      getText: () => 'キング牧師！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  'Re:KING': {
+    apply: () => {
+      // Re:KINGは後で別途処理するため、ここではイベント発火のみ
+      console.log('Re:KINGが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'Re:KING！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  'DEATH': {
+    apply: () => {
+      // DEATHは後で別途処理するため、ここではイベント発火のみ
+      console.log('DEATHが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'DEATH！',
+      variant: 'red',
+      duration: 300
+    }
+  },
+
+  'シーフ': {
+    apply: () => {
+      // シーフは後で別途処理するため、ここではイベント発火のみ
+      console.log('シーフが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'シーフ！',
+      variant: 'blue',
+      duration: 300
+    }
+  },
+
+  '2桁封じ': {
+    apply: (gameState) => {
+      gameState.isDoubleDigitSealActive = true;
+      console.log('2桁封じが発動しました！J〜Kが出せなくなります');
+    },
+    cutIn: {
+      getText: () => '2桁封じ！J〜K禁止',
+      variant: 'blue',
+      duration: 300
+    }
+  },
+
+  'ホットミルク': {
+    apply: (gameState) => {
+      gameState.hotMilkRestriction = 'warm';
+      console.log('ホットミルクが発動しました！ダイヤ/ハートのみ出せます');
+    },
+    cutIn: {
+      getText: () => 'ホットミルク！赤のみ',
+      variant: 'yellow',
+      duration: 300
+    }
   }
 };

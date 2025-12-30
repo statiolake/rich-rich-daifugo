@@ -151,6 +151,8 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     const gameState = createGameState([player1, player2], {
       ...DEFAULT_RULE_SETTINGS,
       queenBomber: true,
+      jeanneDArc: false,  // ジャンヌダルクを無効化
+      bloodyMary: false,  // ブラッディメアリを無効化
     });
     gameState.phase = GamePhaseType.PLAY;
     gameState.currentPlayerIndex = 0;

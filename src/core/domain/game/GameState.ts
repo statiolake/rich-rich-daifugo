@@ -29,6 +29,8 @@ export interface GameState {
   luckySeven: { playerId: string } | null; // ラッキーセブン（7x3を出したプレイヤー、無敗なら勝利）
   parityRestriction: 'even' | 'odd' | null; // 偶数/奇数制限（4で偶数のみ、5で奇数のみ）
   isTenFreeActive: boolean; // 10フリ状態（10を出した後、次のプレイヤーはどんなカードでも出せる）
+  isDoubleDigitSealActive: boolean; // 2桁封じ状態（6を出すと場が流れるまでJ〜Kが出せなくなる）
+  hotMilkRestriction: 'warm' | null; // ホットミルク制限（warm: ダイヤ/ハートのみ）
   passCount: number;
   round: number;
   phase: GamePhaseType;
@@ -57,6 +59,8 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     luckySeven: null,
     parityRestriction: null,
     isTenFreeActive: false,
+    isDoubleDigitSealActive: false,
+    hotMilkRestriction: null,
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,

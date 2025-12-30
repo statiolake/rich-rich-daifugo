@@ -52,6 +52,8 @@ export class RuleEngine {
       suitLock: gameState.suitLock,
       numberLock: gameState.numberLock,
       parityRestriction: gameState.parityRestriction,
+      isDoubleDigitSealActive: gameState.isDoubleDigitSealActive,
+      hotMilkRestriction: gameState.hotMilkRestriction,
       ruleSettings: gameState.ruleSettings,
     };
 

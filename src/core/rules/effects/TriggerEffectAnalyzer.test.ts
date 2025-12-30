@@ -35,6 +35,8 @@ describe('TriggerEffectAnalyzer', () => {
       luckySeven: null,
       parityRestriction: null,
       isTenFreeActive: false,
+      isDoubleDigitSealActive: false,
+      hotMilkRestriction: null,
       round: 1,
       previousDaifugoId: null,
       previousDaihinminId: null,

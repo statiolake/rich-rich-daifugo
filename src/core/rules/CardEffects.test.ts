@@ -35,11 +35,15 @@ describe('CardEffects - 特殊カードの効果', () => {
       player1.hand.add([kingCard, eightCard, CardFactory.create(Suit.CLUB, '5')]);
       player2.hand.add([CardFactory.create(Suit.DIAMOND, '3')]);
 
-      // ゲーム状態作成（forbidden finish をOFFにする）
+      // ゲーム状態作成（forbidden finish とキング牧師をOFFにする）
       const gameState = createGameState([player1, player2], {
         ...DEFAULT_RULE_SETTINGS,
         eightCut: true,
         forbiddenFinish: false,
+        kingPastor: false,  // キング牧師を無効化（このテストは8切りのみテスト）
+        reKing: false,      // Re:KINGを無効化（このテストは8切りのみテスト）
+        kingReverse: false, // Kリバースを無効化（このテストは8切りのみテスト）
+        kingsMarch: false,  // キングの行進を無効化（このテストは8切りのみテスト）
       });
       gameState.phase = GamePhaseType.PLAY;
       gameState.currentPlayerIndex = 0;

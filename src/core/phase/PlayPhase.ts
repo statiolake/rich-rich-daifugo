@@ -227,6 +227,26 @@ export class PlayPhase implements GamePhase {
       await this.handleQueenBomber(gameState, player, queenCount);
     }
 
+    // ジャンヌダルク（Qx3で次のプレイヤーが手札から最強カード2枚を捨てる）
+    if (effects.includes('ジャンヌダルク')) {
+      await this.handleJeanneDArc(gameState, player);
+    }
+
+    // ブラッディメアリ（Qx3で全員が手札から最強カード2枚を捨てる）
+    if (effects.includes('ブラッディメアリ')) {
+      await this.handleBloodyMary(gameState, player);
+    }
+
+    // DEATH（4x3で全員が最強カードを捨てる）
+    if (effects.includes('DEATH')) {
+      await this.handleDeath(gameState, player);
+    }
+
+    // シーフ（4x3で次のプレイヤーから最強カードを奪う）
+    if (effects.includes('シーフ')) {
+      await this.handleThief(gameState, player);
+    }
+
     // 手札が空になったら上がり
     if (player.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, player);
@@ -325,6 +345,17 @@ export class PlayPhase implements GamePhase {
     // 暴君（2を出すと自分以外の全員が捨て札からランダムに1枚引く）
     if (effects.includes('暴君')) {
       this.handleTyrant(gameState, player);
+    }
+
+    // キング牧師（Kを出すと全員が右隣に任意カード1枚を渡す）
+    if (effects.includes('キング牧師')) {
+      await this.handleKingPastor(gameState);
+    }
+
+    // Re:KING（Kを出すと全員が捨て札からK枚数分ランダムに引く）
+    if (effects.includes('Re:KING')) {
+      const kingCount = cards.filter(c => c.rank === 'K').length;
+      this.handleReKing(gameState, kingCount);
     }
 
     // 5スキップ・フリーメイソン・10飛び判定
@@ -463,6 +494,8 @@ export class PlayPhase implements GamePhase {
     gameState.isDamianActive = false; // ダミアンをリセット
     gameState.parityRestriction = null; // 偶数/奇数制限をリセット
     gameState.isTenFreeActive = false; // 10フリをリセット
+    gameState.isDoubleDigitSealActive = false; // 2桁封じをリセット
+    gameState.hotMilkRestriction = null; // ホットミルクをリセット
 
     if (resetElevenBack && gameState.isElevenBack) {
       // 強化Jバック中の場合はelevenBackDurationをデクリメント
@@ -609,6 +642,14 @@ export class PlayPhase implements GamePhase {
       '奇数制限': { effect: '奇数制限', variant: 'blue' },
       '10フリ': { effect: '10フリ', variant: 'green' },
       '死者蘇生': { effect: '死者蘇生', variant: 'gold' },
+      'ジャンヌダルク': { effect: 'ジャンヌダルク', variant: 'gold' },
+      'ブラッディメアリ': { effect: 'ブラッディメアリ', variant: 'red' },
+      'キング牧師': { effect: 'キング牧師', variant: 'gold' },
+      'Re:KING': { effect: 'Re:KING', variant: 'gold' },
+      'DEATH': { effect: 'DEATH', variant: 'red' },
+      'シーフ': { effect: 'シーフ', variant: 'blue' },
+      '2桁封じ': { effect: '2桁封じ', variant: 'blue' },
+      'ホットミルク': { effect: 'ホットミルク', variant: 'yellow' },
     };
 
     return cutInMap[effect] || null;
@@ -1417,5 +1458,290 @@ export class PlayPhase implements GamePhase {
     // ソート
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
     player.hand.sort(shouldReverse);
+  }
+
+  /**
+   * ジャンヌダルク処理
+   * Qx3で次のプレイヤーが手札から最強カード2枚を捨てる
+   */
+  private async handleJeanneDArc(gameState: GameState, _player: Player): Promise<void> {
+    // 次のプレイヤーを探す
+    const direction = gameState.isReversed ? -1 : 1;
+    let nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+    let targetPlayer = gameState.players[nextIndex];
+
+    let attempts = 0;
+    while (targetPlayer.isFinished && attempts < gameState.players.length) {
+      nextIndex = (nextIndex + direction + gameState.players.length) % gameState.players.length;
+      targetPlayer = gameState.players[nextIndex];
+      attempts++;
+    }
+
+    if (targetPlayer.isFinished) {
+      console.log('ジャンヌダルク：対象プレイヤーがいません');
+      return;
+    }
+
+    // 最強カードを取得して捨てる
+    const discardCount = Math.min(2, targetPlayer.hand.getCards().length);
+    if (discardCount === 0) {
+      console.log(`ジャンヌダルク：${targetPlayer.name} は手札がありません`);
+      return;
+    }
+
+    const cardsToDiscard = this.getStrongestCards(targetPlayer, gameState, discardCount);
+    targetPlayer.hand.remove(cardsToDiscard);
+    gameState.discardPile.push(...cardsToDiscard);
+
+    console.log(`ジャンヌダルク：${targetPlayer.name} が ${cardsToDiscard.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
+
+    if (targetPlayer.hand.isEmpty()) {
+      this.handlePlayerFinish(gameState, targetPlayer);
+    }
+  }
+
+  /**
+   * ブラッディメアリ処理
+   * Qx3で全員が手札から最強カード2枚を捨てる
+   */
+  private async handleBloodyMary(gameState: GameState, _player: Player): Promise<void> {
+    console.log('ブラッディメアリ：全員が最強カード2枚を捨てます');
+
+    for (const targetPlayer of gameState.players) {
+      if (targetPlayer.isFinished) continue;
+
+      const discardCount = Math.min(2, targetPlayer.hand.getCards().length);
+      if (discardCount === 0) {
+        console.log(`ブラッディメアリ：${targetPlayer.name} は手札がありません`);
+        continue;
+      }
+
+      const cardsToDiscard = this.getStrongestCards(targetPlayer, gameState, discardCount);
+      targetPlayer.hand.remove(cardsToDiscard);
+      gameState.discardPile.push(...cardsToDiscard);
+
+      console.log(`ブラッディメアリ：${targetPlayer.name} が ${cardsToDiscard.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
+
+      if (targetPlayer.hand.isEmpty()) {
+        this.handlePlayerFinish(gameState, targetPlayer);
+      }
+    }
+  }
+
+  /**
+   * プレイヤーの手札から最強カードを指定枚数取得する
+   * 革命/11バック状態を考慮
+   */
+  private getStrongestCards(player: Player, gameState: GameState, count: number): Card[] {
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    const cards = [...player.hand.getCards()];
+
+    // 強さ順にソート（降順）
+    cards.sort((a, b) => {
+      const strengthA = this.getCardStrength(a.rank, shouldReverse);
+      const strengthB = this.getCardStrength(b.rank, shouldReverse);
+      return strengthB - strengthA; // 降順
+    });
+
+    return cards.slice(0, count);
+  }
+
+  /**
+   * キング牧師処理（非同期）
+   * Kを出すと全員が右隣のプレイヤーに任意カード1枚を渡す
+   * CPUの場合は最弱カードを渡す
+   */
+  private async handleKingPastor(gameState: GameState): Promise<void> {
+    console.log('キング牧師発動！全員が右隣のプレイヤーにカードを1枚渡します');
+
+    const activePlayers = gameState.players.filter(p => !p.isFinished && p.hand.getCards().length > 0);
+
+    if (activePlayers.length < 2) {
+      console.log('キング牧師：渡せるプレイヤーが足りないためスキップ');
+      return;
+    }
+
+    // 各プレイヤーが渡すカードを収集（同時に選択するイメージ）
+    const cardsToPass: Map<string, Card> = new Map();
+
+    for (const player of activePlayers) {
+      const controller = this.playerControllers.get(player.id.value);
+      if (!controller) continue;
+
+      // バリデーター: 1枚だけ選択可能
+      const validator: Validator = {
+        validate: (cards: Card[]) => {
+          if (cards.length === 1) {
+            return { valid: true };
+          }
+          return { valid: false, reason: '1枚選んでください' };
+        }
+      };
+
+      const cards = await controller.chooseCardsInHand(
+        validator,
+        `キング牧師：右隣のプレイヤーに渡すカードを1枚選んでください`
+      );
+
+      if (cards.length === 1) {
+        cardsToPass.set(player.id.value, cards[0]);
+      }
+    }
+
+    // カードを右隣のプレイヤーに渡す（席順で右隣 = 次のプレイヤー）
+    // リバース状態でも物理的な右隣に渡す（ゲームの進行方向とは関係ない）
+    for (const player of activePlayers) {
+      const cardToPass = cardsToPass.get(player.id.value);
+      if (!cardToPass) continue;
+
+      // 右隣のプレイヤーを探す（物理的な位置で、インデックス+1）
+      const currentIndex = gameState.players.indexOf(player);
+      let rightNeighborIndex = (currentIndex + 1) % gameState.players.length;
+
+      // 右隣がfinishedなら次を探す
+      let attempts = 0;
+      while (gameState.players[rightNeighborIndex].isFinished && attempts < gameState.players.length) {
+        rightNeighborIndex = (rightNeighborIndex + 1) % gameState.players.length;
+        attempts++;
+      }
+
+      const rightNeighbor = gameState.players[rightNeighborIndex];
+      if (rightNeighbor.isFinished) continue;
+
+      // カードを渡す
+      player.hand.remove([cardToPass]);
+      rightNeighbor.hand.add([cardToPass]);
+      console.log(`${player.name} が ${rightNeighbor.name} に ${cardToPass.rank}${cardToPass.suit} を渡しました（キング牧師）`);
+    }
+
+    // 全員の手札をソート
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    for (const player of gameState.players) {
+      if (!player.isFinished) {
+        player.hand.sort(shouldReverse);
+      }
+    }
+
+    // 手札が空になったプレイヤーの処理
+    for (const player of gameState.players) {
+      if (!player.isFinished && player.hand.isEmpty()) {
+        this.handlePlayerFinish(gameState, player);
+      }
+    }
+  }
+
+  /**
+   * Re:KING処理
+   * Kを出すと全員が捨て札からK枚数分ランダムに引く
+   * @param kingCount 出されたKの枚数（＝引く枚数）
+   */
+  private handleReKing(gameState: GameState, kingCount: number): void {
+    // 捨て札がなければスキップ
+    if (gameState.discardPile.length === 0) {
+      console.log('Re:KING：捨て札がないためスキップ');
+      return;
+    }
+
+    console.log(`Re:KING発動！全員が捨て札から${kingCount}枚ずつランダムに引きます`);
+
+    // 全てのアクティブなプレイヤーが捨て札からランダムにカードを引く
+    for (const player of gameState.players) {
+      // 終了したプレイヤーはスキップ
+      if (player.isFinished) continue;
+
+      // 捨て札がなくなったらスキップ
+      if (gameState.discardPile.length === 0) {
+        console.log(`Re:KING：捨て札がなくなったため ${player.name} はスキップ`);
+        continue;
+      }
+
+      // 引ける枚数 = min(捨て札の枚数, Kの枚数)
+      const drawCount = Math.min(gameState.discardPile.length, kingCount);
+
+      // 捨て札からランダムに選択
+      const drawnCards: Card[] = [];
+      for (let i = 0; i < drawCount; i++) {
+        if (gameState.discardPile.length === 0) break;
+
+        // ランダムなインデックスを選択
+        const randomIndex = Math.floor(Math.random() * gameState.discardPile.length);
+        const card = gameState.discardPile.splice(randomIndex, 1)[0];
+        drawnCards.push(card);
+      }
+
+      if (drawnCards.length > 0) {
+        // プレイヤーの手札に追加
+        player.hand.add(drawnCards);
+        console.log(`Re:KING：${player.name} が ${drawnCards.map(c => `${c.rank}${c.suit}`).join(', ')} を引きました`);
+
+        // ソート
+        const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+        player.hand.sort(shouldReverse);
+      }
+    }
+  }
+
+  /**
+   * DEATH処理
+   * 4x3で全員が最強カードを捨てる
+   */
+  private async handleDeath(gameState: GameState, _player: Player): Promise<void> {
+    console.log('DEATH発動！全員が最強カードを捨てます');
+
+    for (const targetPlayer of gameState.players) {
+      if (targetPlayer.isFinished) continue;
+      if (targetPlayer.hand.isEmpty()) continue;
+
+      const cardsToDiscard = this.getStrongestCards(targetPlayer, gameState, 1);
+      if (cardsToDiscard.length > 0) {
+        targetPlayer.hand.remove(cardsToDiscard);
+        gameState.discardPile.push(...cardsToDiscard);
+        console.log(`DEATH：${targetPlayer.name} が ${cardsToDiscard.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
+
+        if (targetPlayer.hand.isEmpty()) {
+          this.handlePlayerFinish(gameState, targetPlayer);
+        }
+      }
+    }
+  }
+
+  /**
+   * シーフ処理
+   * 4x3で次のプレイヤーから最強カードを奪う
+   */
+  private async handleThief(gameState: GameState, player: Player): Promise<void> {
+    // 次のプレイヤーを探す
+    const direction = gameState.isReversed ? -1 : 1;
+    let nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+    let targetPlayer = gameState.players[nextIndex];
+
+    let attempts = 0;
+    while (targetPlayer.isFinished && attempts < gameState.players.length) {
+      nextIndex = (nextIndex + direction + gameState.players.length) % gameState.players.length;
+      targetPlayer = gameState.players[nextIndex];
+      attempts++;
+    }
+
+    if (targetPlayer.isFinished || targetPlayer.hand.isEmpty()) {
+      console.log('シーフ：対象プレイヤーがいないか手札がありません');
+      return;
+    }
+
+    console.log(`シーフ発動！${player.name} が ${targetPlayer.name} から最強カードを奪います`);
+
+    const cardsToSteal = this.getStrongestCards(targetPlayer, gameState, 1);
+    if (cardsToSteal.length > 0) {
+      targetPlayer.hand.remove(cardsToSteal);
+      player.hand.add(cardsToSteal);
+      console.log(`シーフ：${player.name} が ${targetPlayer.name} から ${cardsToSteal.map(c => `${c.rank}${c.suit}`).join(', ')} を奪いました`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      player.hand.sort(shouldReverse);
+
+      if (targetPlayer.hand.isEmpty()) {
+        this.handlePlayerFinish(gameState, targetPlayer);
+      }
+    }
   }
 }

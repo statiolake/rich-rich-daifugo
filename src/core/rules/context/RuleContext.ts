@@ -19,6 +19,8 @@ export interface RuleContext {
   suitLock: string | null; // マークしばり
   numberLock: boolean; // 数字しばり
   parityRestriction: 'even' | 'odd' | null; // 偶数/奇数制限
+  isDoubleDigitSealActive: boolean; // 2桁封じ状態（J〜Kが出せなくなる）
+  hotMilkRestriction: 'warm' | null; // ホットミルク制限（warm: ダイヤ/ハートのみ）
 
   // ルール設定
   ruleSettings: RuleSettings;
