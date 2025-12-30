@@ -40,10 +40,16 @@ export interface RuleSettings {
   queenRelease: boolean;       // Q解き（縛り中にQを出すと解除）
   sixReturn: boolean;          // 6戻し（11バック中に6を出すと解除）
 
+  // 偶数/奇数制限
+  sevenCounter: boolean;       // 7カウンター（8切り発生時にスペード7を出すと8切りをキャンセル）
+  evenRestriction: boolean;    // 偶数制限（4を出すと場が流れるまで偶数のみ出せる）
+  oddRestriction: boolean;     // 奇数制限（5を出すと場が流れるまで奇数のみ出せる）
+
   // ターン操作
   fiveSkip: boolean;           // 5スキップ
   freemason: boolean;          // フリーメイソン（6を1枚出すと次のプレイヤーをスキップ）
   tenSkip: boolean;            // 10飛び（10を出すと次のプレイヤーをスキップ）
+  tenFree: boolean;            // 10フリ（10を出した後、次のプレイヤーはどんなカードでも出せる）
   sevenPass: boolean;          // 7渡し
   sevenAttach: boolean;        // 7付け（7を出すと枚数分のカードを追加で捨てる）
   nineReturn: boolean;         // 9戻し（9を出すと枚数分のカードを直前のプレイヤーに渡す）
@@ -68,6 +74,11 @@ export interface RuleSettings {
   chestnutPicking: boolean;    // 栗拾い（9を出すと枚数分だけ捨て札から回収）
   galaxyExpress999: boolean;   // 銀河鉄道999（9x3で手札2枚を捨て、捨て札から2枚引く）
   blackSeven: boolean;         // 黒7（スペード7またはクラブ7を出すと、枚数分だけ捨て山からランダムにカードを引く）
+  tyrant: boolean;             // 暴君（2を出すと自分以外の全員が捨て札からランダムに1枚引く）
+  resurrection: boolean;       // 死者蘇生（4を出すと、直前に出されたカードを枚数分手札に加える）
+
+  // ジョーカー関連
+  jokerReturn: boolean;        // ジョーカー返し（ジョーカー1枚に対してもう1枚のジョーカーを重ねて出せる）
 
   // 親権ルール
   nextAce: boolean;            // 次期エース（Aで場が流れた時に親になる）
@@ -77,6 +88,11 @@ export interface RuleSettings {
   gekokujou: boolean;          // 下剋上
   luckySeven: boolean;         // ラッキーセブン
   catastrophe: boolean;        // 天変地異
+
+  // 情報公開ルール
+  fivePick: boolean;           // 5ピック（5を出すと枚数分だけ好きなプレイヤーの手札を見れる）
+  weakShow: boolean;           // 弱見せ（9を出すと次のプレイヤーの最弱カードを公開）
+  strongShow: boolean;         // 強見せ（6を出すと次のプレイヤーの最強カードを公開）
 }
 
 /**
@@ -111,9 +127,13 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   colorLock: true,
   queenRelease: true,
   sixReturn: true,
+  sevenCounter: true,
+  evenRestriction: true,
+  oddRestriction: true,
   fiveSkip: true,
   freemason: true,
   tenSkip: true,
+  tenFree: true,
   sevenPass: true,
   sevenAttach: true,
   nineReturn: true,
@@ -134,9 +154,15 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   chestnutPicking: true,
   galaxyExpress999: true,
   blackSeven: true,
+  tyrant: true,
+  resurrection: true,
+  jokerReturn: true,
   nextAce: true,
   cityFall: true,
   gekokujou: true,
   luckySeven: true,
   catastrophe: true,
+  fivePick: true,
+  weakShow: true,
+  strongShow: true,
 };

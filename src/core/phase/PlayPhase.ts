@@ -137,7 +137,7 @@ export class PlayPhase implements GamePhase {
     let salvagePlayer: Player | undefined = undefined;
     let nextAcePlayer: Player | undefined = undefined;
 
-    if (gameState.isEightCutPending && !effects.includes('4止め')) {
+    if (gameState.isEightCutPending && !effects.includes('4止め') && !effects.includes('7カウンター')) {
       shouldClearField = true;
       console.log('8切りが発動します');
       // 8切りで場が流れる場合、3を含むカードを出したプレイヤーにサルベージ権利
@@ -151,6 +151,11 @@ export class PlayPhase implements GamePhase {
     }
     if (effects.includes('4止め')) {
       console.log('4止めが発動しました！');
+      gameState.isEightCutPending = false;
+    }
+    // 7カウンター: 8切り発生時にスペード7を出すと8切りをキャンセル
+    if (effects.includes('7カウンター')) {
+      console.log('7カウンターが発動しました！8切りがキャンセルされます');
       gameState.isEightCutPending = false;
     }
     if (effects.includes('救急車') || effects.includes('ろくろ首')) {
@@ -181,6 +186,11 @@ export class PlayPhase implements GamePhase {
     if (effects.includes('5切り') || effects.includes('6切り') || effects.includes('7切り')) {
       shouldClearField = true;
       console.log('革命中の切りが発動します');
+    }
+    // ジョーカー返しで場が流れる（ジョーカー1枚に対してジョーカー1枚）
+    if (effects.includes('ジョーカー返し')) {
+      shouldClearField = true;
+      console.log('ジョーカー返しが発動します');
     }
 
     if (shouldClearField) {
@@ -248,6 +258,12 @@ export class PlayPhase implements GamePhase {
       await this.handleChestnutPicking(gameState, player, nineCount);
     }
 
+    // 死者蘇生（4を出すと、直前に出されたカードを枚数分手札に加える）
+    if (effects.includes('死者蘇生')) {
+      const fourCount = cards.filter(c => c.rank === '4').length;
+      await this.handleResurrection(gameState, player, fourCount);
+    }
+
     // 銀河鉄道999（9x3で手札2枚を捨て、捨て札から2枚引く）
     if (effects.includes('銀河鉄道999')) {
       await this.handleGalaxyExpress999(gameState, player);
@@ -287,6 +303,28 @@ export class PlayPhase implements GamePhase {
       await this.handleSevenAttach(gameState, player, sevenCount);
       this.nextPlayer(gameState);
       return;
+    }
+
+    // 情報公開系ルール（手札操作なし、コンソールログで表示）
+    // 5ピック（5を出すと枚数分だけ好きなプレイヤーの手札を見れる）
+    if (effects.includes('5ピック')) {
+      const fiveCount = cards.filter(c => c.rank === '5').length;
+      this.handleFivePick(gameState, player, fiveCount);
+    }
+
+    // 弱見せ（9を出すと次のプレイヤーの最弱カードを公開）
+    if (effects.includes('弱見せ')) {
+      this.handleWeakShow(gameState, player);
+    }
+
+    // 強見せ（6を出すと次のプレイヤーの最強カードを公開）
+    if (effects.includes('強見せ')) {
+      this.handleStrongShow(gameState, player);
+    }
+
+    // 暴君（2を出すと自分以外の全員が捨て札からランダムに1枚引く）
+    if (effects.includes('暴君')) {
+      this.handleTyrant(gameState, player);
     }
 
     // 5スキップ・フリーメイソン・10飛び判定
@@ -423,6 +461,8 @@ export class PlayPhase implements GamePhase {
     gameState.colorLock = null;
     gameState.isTwoBack = false; // 2バックをリセット
     gameState.isDamianActive = false; // ダミアンをリセット
+    gameState.parityRestriction = null; // 偶数/奇数制限をリセット
+    gameState.isTenFreeActive = false; // 10フリをリセット
 
     if (resetElevenBack && gameState.isElevenBack) {
       // 強化Jバック中の場合はelevenBackDurationをデクリメント
@@ -559,6 +599,16 @@ export class PlayPhase implements GamePhase {
       '9戻し': { effect: '9戻し', variant: 'blue' },
       '強化Jバック': { effect: '強化Jバック', variant: 'gold' },
       'ダミアン': { effect: 'ダミアン', variant: 'red' },
+      '5ピック': { effect: '5ピック', variant: 'blue' },
+      '弱見せ': { effect: '弱見せ', variant: 'green' },
+      '強見せ': { effect: '強見せ', variant: 'red' },
+      '暴君': { effect: '暴君', variant: 'red' },
+      'ジョーカー返し': { effect: 'ジョーカー返し', variant: 'gold' },
+      '7カウンター': { effect: '7カウンター', variant: 'blue' },
+      '偶数制限': { effect: '偶数制限', variant: 'blue' },
+      '奇数制限': { effect: '奇数制限', variant: 'blue' },
+      '10フリ': { effect: '10フリ', variant: 'green' },
+      '死者蘇生': { effect: '死者蘇生', variant: 'gold' },
     };
 
     return cutInMap[effect] || null;
@@ -1176,5 +1226,196 @@ export class PlayPhase implements GamePhase {
     }
 
     return strength;
+  }
+
+  /**
+   * 5ピック処理
+   * 5を出すと、出した5の枚数分だけ好きなプレイヤーの手札を見れる
+   * @param fiveCount 出された5の枚数（＝見れるプレイヤー数）
+   */
+  private handleFivePick(gameState: GameState, player: Player, fiveCount: number): void {
+    // 自分以外のアクティブなプレイヤーを取得
+    const otherPlayers = gameState.players.filter(p => !p.isFinished && p.id.value !== player.id.value);
+
+    if (otherPlayers.length === 0) {
+      console.log('5ピック：見れるプレイヤーがいません');
+      return;
+    }
+
+    // 見れるプレイヤー数は、他のプレイヤー数と5の枚数の小さい方
+    const viewCount = Math.min(fiveCount, otherPlayers.length);
+
+    console.log(`5ピック発動！${player.name} が ${viewCount} 人の手札を見ます`);
+
+    // 簡易的に先頭から viewCount 人の手札を表示（本来はプレイヤーが選択）
+    for (let i = 0; i < viewCount; i++) {
+      const targetPlayer = otherPlayers[i];
+      const cards = targetPlayer.hand.getCards();
+      const cardStrings = cards.map(c => `${c.rank}${c.suit}`).join(', ');
+      console.log(`  ${targetPlayer.name} の手札: ${cardStrings}`);
+    }
+  }
+
+  /**
+   * 弱見せ処理
+   * 9を出すと、次のプレイヤーの最弱カードを公開
+   */
+  private handleWeakShow(gameState: GameState, _player: Player): void {
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+
+    // 次のプレイヤーを探す
+    const direction = gameState.isReversed ? -1 : 1;
+    let nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+    let nextPlayer = gameState.players[nextIndex];
+
+    let attempts = 0;
+    while (nextPlayer.isFinished && attempts < gameState.players.length) {
+      nextIndex = (nextIndex + direction + gameState.players.length) % gameState.players.length;
+      nextPlayer = gameState.players[nextIndex];
+      attempts++;
+    }
+
+    if (nextPlayer.isFinished || nextPlayer.hand.isEmpty()) {
+      console.log('弱見せ：対象プレイヤーがいないかカードがありません');
+      return;
+    }
+
+    // 最弱カードを取得（革命/11バックを考慮）
+    const cards = nextPlayer.hand.getCards();
+    let weakestCard = cards[0];
+    let weakestStrength = this.getCardStrength(weakestCard.rank, shouldReverse);
+
+    for (const card of cards) {
+      const strength = this.getCardStrength(card.rank, shouldReverse);
+      // 弱いカード = 強さが小さい（革命時は反転済み）
+      if (strength < weakestStrength) {
+        weakestStrength = strength;
+        weakestCard = card;
+      }
+    }
+
+    console.log(`弱見せ発動！${nextPlayer.name} の最弱カード: ${weakestCard.rank}${weakestCard.suit}`);
+  }
+
+  /**
+   * 強見せ処理
+   * 6を出すと、次のプレイヤーの最強カードを公開
+   */
+  private handleStrongShow(gameState: GameState, _player: Player): void {
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+
+    // 次のプレイヤーを探す
+    const direction = gameState.isReversed ? -1 : 1;
+    let nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+    let nextPlayer = gameState.players[nextIndex];
+
+    let attempts = 0;
+    while (nextPlayer.isFinished && attempts < gameState.players.length) {
+      nextIndex = (nextIndex + direction + gameState.players.length) % gameState.players.length;
+      nextPlayer = gameState.players[nextIndex];
+      attempts++;
+    }
+
+    if (nextPlayer.isFinished || nextPlayer.hand.isEmpty()) {
+      console.log('強見せ：対象プレイヤーがいないかカードがありません');
+      return;
+    }
+
+    // 最強カードを取得（革命/11バックを考慮）
+    const cards = nextPlayer.hand.getCards();
+    let strongestCard = cards[0];
+    let strongestStrength = this.getCardStrength(strongestCard.rank, shouldReverse);
+
+    for (const card of cards) {
+      const strength = this.getCardStrength(card.rank, shouldReverse);
+      // 強いカード = 強さが大きい（革命時は反転済み）
+      if (strength > strongestStrength) {
+        strongestStrength = strength;
+        strongestCard = card;
+      }
+    }
+
+    console.log(`強見せ発動！${nextPlayer.name} の最強カード: ${strongestCard.rank}${strongestCard.suit}`);
+  }
+
+  /**
+   * 暴君処理
+   * 2を出すと、自分以外の全員が捨て札からランダムに1枚引く
+   */
+  private handleTyrant(gameState: GameState, player: Player): void {
+    // 捨て札がなければスキップ
+    if (gameState.discardPile.length === 0) {
+      console.log('暴君：捨て札がないためスキップ');
+      return;
+    }
+
+    console.log(`暴君発動！${player.name} 以外の全員が捨て札からランダムに1枚引きます`);
+
+    // 自分以外のアクティブなプレイヤーが捨て札からランダムに1枚引く
+    for (const p of gameState.players) {
+      // 自分はスキップ
+      if (p.id.value === player.id.value) continue;
+      // 終了したプレイヤーはスキップ
+      if (p.isFinished) continue;
+      // 捨て札がなくなったらスキップ
+      if (gameState.discardPile.length === 0) {
+        console.log(`暴君：捨て札がなくなったため ${p.name} はスキップ`);
+        continue;
+      }
+
+      // ランダムなインデックスを選択
+      const randomIndex = Math.floor(Math.random() * gameState.discardPile.length);
+      const card = gameState.discardPile.splice(randomIndex, 1)[0];
+
+      // プレイヤーの手札に追加
+      p.hand.add([card]);
+      console.log(`暴君：${p.name} が ${card.rank}${card.suit} を引きました`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      p.hand.sort(shouldReverse);
+    }
+  }
+
+  /**
+   * 死者蘇生処理（非同期）
+   * 4を出すと、直前に出されたカードを枚数分手札に加える
+   * @param fourCount 出された4の枚数（＝回収できる枚数の上限）
+   */
+  private async handleResurrection(gameState: GameState, player: Player, fourCount: number): Promise<void> {
+    // 場の履歴から直前のプレイを取得（自分が今出したプレイの1つ前）
+    const history = gameState.field.getHistory();
+    if (history.length < 2) {
+      console.log('死者蘇生：直前のプレイがないためスキップ');
+      return;
+    }
+
+    // history の最後は今出したプレイなので、その1つ前を取得
+    const previousPlay = history[history.length - 2];
+    const previousCards = previousPlay.play.cards;
+
+    if (previousCards.length === 0) {
+      console.log('死者蘇生：直前のプレイにカードがないためスキップ');
+      return;
+    }
+
+    // 回収できる枚数 = min(直前のカード枚数, 4の枚数)
+    const recoverCount = Math.min(previousCards.length, fourCount);
+
+    console.log(`死者蘇生：${player.name} が直前のカードから${recoverCount}枚回収します`);
+
+    // 直前のカードから recoverCount 枚を手札に追加
+    // 注意: 場のカードは field.clear() まで残っているので、ここではコピーを手札に追加
+    const cardsToRecover = previousCards.slice(0, recoverCount);
+
+    // カードのコピーを作成（元のカードは場に残る）
+    // 実際にはカードの参照を渡すだけで、場が流れる時に捨て札に移動される
+    // ここでは直接手札に追加する
+    player.hand.add(cardsToRecover);
+    console.log(`${player.name} が ${cardsToRecover.map(c => `${c.rank}${c.suit}`).join(', ')} を回収しました（死者蘇生）`);
+
+    // ソート
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    player.hand.sort(shouldReverse);
   }
 }

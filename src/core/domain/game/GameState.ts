@@ -27,6 +27,8 @@ export interface GameState {
   isTwoBack: boolean; // 2バック状態（2を出すと場が流れるまで強さ逆転）
   isDamianActive: boolean; // ダミアン状態（6x3を出すと場が流れるまでパスした人は敗北）
   luckySeven: { playerId: string } | null; // ラッキーセブン（7x3を出したプレイヤー、無敗なら勝利）
+  parityRestriction: 'even' | 'odd' | null; // 偶数/奇数制限（4で偶数のみ、5で奇数のみ）
+  isTenFreeActive: boolean; // 10フリ状態（10を出した後、次のプレイヤーはどんなカードでも出せる）
   passCount: number;
   round: number;
   phase: GamePhaseType;
@@ -53,6 +55,8 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     isTwoBack: false,
     isDamianActive: false,
     luckySeven: null,
+    parityRestriction: null,
+    isTenFreeActive: false,
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,

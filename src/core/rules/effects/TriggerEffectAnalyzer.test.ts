@@ -33,6 +33,8 @@ describe('TriggerEffectAnalyzer', () => {
       isDamianActive: false,
       isOmenActive: false,
       luckySeven: null,
+      parityRestriction: null,
+      isTenFreeActive: false,
       round: 1,
       previousDaifugoId: null,
       previousDaihinminId: null,
@@ -597,7 +599,8 @@ describe('TriggerEffectAnalyzer', () => {
       expect(effects).toContain('栗拾い'); // 9を出すと栗拾いも発動
       expect(effects).toContain('9クイック'); // 9を出すと9クイックも発動
       expect(effects).toContain('9戻し'); // 9を出すと9戻しも発動
-      expect(effects).toHaveLength(5);
+      expect(effects).toContain('弱見せ'); // 9を出すと弱見せも発動
+      expect(effects).toHaveLength(6);
     });
 
     it('9x3でクーデターと9リバースが同時に発動', () => {
@@ -623,7 +626,8 @@ describe('TriggerEffectAnalyzer', () => {
       expect(effects).toContain('銀河鉄道999'); // 9x3で銀河鉄道999も発動
       expect(effects).toContain('9クイック'); // 9を出すと9クイックも発動
       expect(effects).toContain('9戻し'); // 9を出すと9戻しも発動
-      expect(effects).toHaveLength(6);
+      expect(effects).toContain('弱見せ'); // 9を出すと弱見せも発動
+      expect(effects).toHaveLength(7);
     });
   });
 });

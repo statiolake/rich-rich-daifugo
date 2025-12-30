@@ -713,5 +713,125 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'red',
       duration: 300
     }
+  },
+
+  '5ピック': {
+    apply: () => {
+      // 5ピックは後で別途処理するため、ここではイベント発火のみ
+      console.log('5ピックが発動しました！');
+    },
+    cutIn: {
+      getText: (_, context) => context?.fiveCount ? `5ピック！（${context.fiveCount}人の手札を見る）` : '5ピック！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '弱見せ': {
+    apply: () => {
+      // 弱見せは後で別途処理するため、ここではイベント発火のみ
+      console.log('弱見せが発動しました！');
+    },
+    cutIn: {
+      getText: () => '弱見せ！',
+      variant: 'green',
+      duration: 250
+    }
+  },
+
+  '強見せ': {
+    apply: () => {
+      // 強見せは後で別途処理するため、ここではイベント発火のみ
+      console.log('強見せが発動しました！');
+    },
+    cutIn: {
+      getText: () => '強見せ！',
+      variant: 'red',
+      duration: 250
+    }
+  },
+
+  '暴君': {
+    apply: () => {
+      // 暴君は後で別途処理するため、ここではイベント発火のみ
+      console.log('暴君が発動しました！');
+    },
+    cutIn: {
+      getText: () => '暴君！',
+      variant: 'red',
+      duration: 250
+    }
+  },
+
+  'ジョーカー返し': {
+    apply: (gameState) => {
+      console.log('ジョーカー返しが発動しました！');
+      gameState.isEightCutPending = true; // 場が流れる
+    },
+    cutIn: {
+      getText: () => 'ジョーカー返し！',
+      variant: 'gold',
+      duration: 250
+    }
+  },
+
+  '7カウンター': {
+    apply: () => {
+      // 7カウンターは後で別途処理するため、ここではイベント発火のみ
+      console.log('7カウンターが発動しました！');
+    },
+    cutIn: {
+      getText: () => '7カウンター！',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '偶数制限': {
+    apply: (gameState) => {
+      gameState.parityRestriction = 'even';
+      console.log('偶数制限が発動しました！偶数のみ出せます');
+    },
+    cutIn: {
+      getText: () => '偶数制限！偶数のみ',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '奇数制限': {
+    apply: (gameState) => {
+      gameState.parityRestriction = 'odd';
+      console.log('奇数制限が発動しました！奇数のみ出せます');
+    },
+    cutIn: {
+      getText: () => '奇数制限！奇数のみ',
+      variant: 'blue',
+      duration: 250
+    }
+  },
+
+  '10フリ': {
+    apply: (gameState) => {
+      gameState.isTenFreeActive = true;
+      console.log('10フリが発動しました！次のプレイヤーはどんなカードでも出せます');
+    },
+    cutIn: {
+      getText: () => '10フリ！',
+      variant: 'green',
+      duration: 250
+    }
+  },
+
+  '死者蘇生': {
+    apply: () => {
+      // 死者蘇生は後で別途処理するため、ここではイベント発火のみ
+      console.log('死者蘇生が発動しました！');
+    },
+    cutIn: {
+      getText: (_, context) => context?.cardCount ? `死者蘇生！（${context.cardCount}枚回収）` : '死者蘇生！',
+      variant: 'gold',
+      duration: 250
+    }
   }
 };

@@ -62,7 +62,17 @@ export type TriggerEffect =
   | '9クイック'
   | '9戻し'
   | '強化Jバック'
-  | 'ダミアン';
+  | 'ダミアン'
+  | '5ピック'
+  | '弱見せ'
+  | '強見せ'
+  | '暴君'
+  | 'ジョーカー返し'
+  | '7カウンター'
+  | '偶数制限'
+  | '奇数制限'
+  | '10フリ'
+  | '死者蘇生';
 
 /**
  * トリガーエフェクトアナライザー
@@ -344,6 +354,56 @@ export class TriggerEffectAnalyzer {
     // 黒7判定（スペード7またはクラブ7を出すと、枚数分だけ捨て山からランダムにカードを引く）
     if (ruleSettings.blackSeven && this.triggersBlackSeven(play, gameState)) {
       effects.push('黒7');
+    }
+
+    // 5ピック判定（5を出すと枚数分だけ好きなプレイヤーの手札を見れる）
+    if (ruleSettings.fivePick && this.triggersFivePick(play)) {
+      effects.push('5ピック');
+    }
+
+    // 弱見せ判定（9を出すと次のプレイヤーの最弱カードを公開）
+    if (ruleSettings.weakShow && this.triggersWeakShow(play)) {
+      effects.push('弱見せ');
+    }
+
+    // 強見せ判定（6を出すと次のプレイヤーの最強カードを公開）
+    if (ruleSettings.strongShow && this.triggersStrongShow(play)) {
+      effects.push('強見せ');
+    }
+
+    // 暴君判定（2を出すと自分以外の全員が捨て札からランダムに1枚引く）
+    if (ruleSettings.tyrant && this.triggersTyrant(play, gameState)) {
+      effects.push('暴君');
+    }
+
+    // ジョーカー返し判定（ジョーカー1枚に対してもう1枚のジョーカーを重ねて出せる）
+    if (ruleSettings.jokerReturn && this.triggersJokerReturn(play, gameState)) {
+      effects.push('ジョーカー返し');
+    }
+
+    // 7カウンター判定（8切り発生時にスペード7を出すと8切りをキャンセル）
+    if (ruleSettings.sevenCounter && this.triggersSevenCounter(play, gameState)) {
+      effects.push('7カウンター');
+    }
+
+    // 偶数制限判定（4を出すと場が流れるまで偶数のみ出せる）
+    if (ruleSettings.evenRestriction && this.triggersEvenRestriction(play)) {
+      effects.push('偶数制限');
+    }
+
+    // 奇数制限判定（5を出すと場が流れるまで奇数のみ出せる）
+    if (ruleSettings.oddRestriction && this.triggersOddRestriction(play)) {
+      effects.push('奇数制限');
+    }
+
+    // 10フリ判定（10を出した後、次のプレイヤーはどんなカードでも出せる）
+    if (ruleSettings.tenFree && this.triggersTenFree(play)) {
+      effects.push('10フリ');
+    }
+
+    // 死者蘇生判定（4を出すと、直前に出されたカードを枚数分手札に加える）
+    if (ruleSettings.resurrection && this.triggersResurrection(play, gameState)) {
+      effects.push('死者蘇生');
     }
 
     return effects;
@@ -771,5 +831,104 @@ export class TriggerEffectAnalyzer {
    */
   private triggersEnhancedJBack(play: Play): boolean {
     return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === 'J');
+  }
+
+  /**
+   * 5ピック判定（5を出すと枚数分だけ好きなプレイヤーの手札を見れる）
+   */
+  private triggersFivePick(play: Play): boolean {
+    return play.cards.some(card => card.rank === '5');
+  }
+
+  /**
+   * 弱見せ判定（9を出すと次のプレイヤーの最弱カードを公開）
+   */
+  private triggersWeakShow(play: Play): boolean {
+    return play.cards.some(card => card.rank === '9');
+  }
+
+  /**
+   * 強見せ判定（6を出すと次のプレイヤーの最強カードを公開）
+   */
+  private triggersStrongShow(play: Play): boolean {
+    return play.cards.some(card => card.rank === '6');
+  }
+
+  /**
+   * 暴君判定（2を出すと自分以外の全員が捨て札からランダムに1枚引く）
+   */
+  private triggersTyrant(play: Play, gameState: GameState): boolean {
+    // 2を含むプレイで発動
+    const hasTwo = play.cards.some(card => card.rank === '2');
+    // 捨て札がある場合のみ発動
+    const hasDiscardPile = gameState.discardPile && gameState.discardPile.length > 0;
+    return hasTwo && hasDiscardPile;
+  }
+
+  /**
+   * ジョーカー返し判定（ジョーカー1枚に対してもう1枚のジョーカーを重ねて出せる）
+   * 場にジョーカー1枚があり、ジョーカー1枚を出す場合に発動
+   */
+  private triggersJokerReturn(play: Play, gameState: GameState): boolean {
+    // 場が空なら発動しない
+    if (gameState.field.isEmpty()) return false;
+
+    // 場にジョーカー1枚があるか確認
+    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (!fieldPlayHistory) return false;
+    if (fieldPlayHistory.play.type !== PlayType.SINGLE) return false;
+    if (fieldPlayHistory.play.cards[0].rank !== 'JOKER') return false;
+
+    // プレイがジョーカー1枚か確認
+    if (play.type !== PlayType.SINGLE) return false;
+    if (play.cards[0].rank !== 'JOKER') return false;
+
+    return true;
+  }
+
+  /**
+   * 7カウンター判定（8切り発生時にスペード7を出すと8切りをキャンセル）
+   */
+  private triggersSevenCounter(play: Play, gameState: GameState): boolean {
+    // 8切りが発動予定でなければ発動しない
+    if (!gameState.isEightCutPending) return false;
+    // スペード7が含まれているか確認
+    return play.cards.some(card => card.rank === '7' && card.suit === Suit.SPADE);
+  }
+
+  /**
+   * 偶数制限判定（4を出すと場が流れるまで偶数のみ出せる）
+   */
+  private triggersEvenRestriction(play: Play): boolean {
+    return play.cards.some(card => card.rank === '4');
+  }
+
+  /**
+   * 奇数制限判定（5を出すと場が流れるまで奇数のみ出せる）
+   */
+  private triggersOddRestriction(play: Play): boolean {
+    return play.cards.some(card => card.rank === '5');
+  }
+
+  /**
+   * 10フリ判定（10を出した後、次のプレイヤーはどんなカードでも出せる）
+   */
+  private triggersTenFree(play: Play): boolean {
+    return play.cards.some(card => card.rank === '10');
+  }
+
+  /**
+   * 死者蘇生判定（4を出すと、直前に出されたカードを枚数分手札に加える）
+   * 場に直前のプレイがある場合のみ発動
+   */
+  private triggersResurrection(play: Play, gameState: GameState): boolean {
+    // 4を含むプレイでなければ発動しない
+    if (!play.cards.some(card => card.rank === '4')) {
+      return false;
+    }
+    // 場に直前のプレイがある場合のみ発動
+    if (gameState.field.isEmpty()) return false;
+    const fieldPlayHistory = gameState.field.getLastPlay();
+    return fieldPlayHistory !== null;
   }
 }

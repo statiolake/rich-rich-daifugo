@@ -68,11 +68,17 @@ export class PlayValidator {
       if (!numberLockResult.valid) return numberLockResult;
     }
 
-    // 6. 強さチェック
+    // 6. 偶数/奇数制限チェック
+    if (context.parityRestriction) {
+      const parityResult = this.validateParityRestriction(cards, context.parityRestriction);
+      if (!parityResult.valid) return parityResult;
+    }
+
+    // 7. 強さチェック
     const strengthResult = this.validateStrength(cards, context);
     if (!strengthResult.valid) return strengthResult;
 
-    // 7. 禁止上がりチェック
+    // 8. 禁止上がりチェック
     return this.validateForbiddenFinish(player, cards, context);
   }
 
@@ -172,12 +178,48 @@ export class PlayValidator {
   }
 
   /**
+   * 偶数/奇数制限チェック
+   * 偶数制限: 偶数のみ（4, 6, 8, 10, Q）
+   * 奇数制限: 奇数のみ（3, 5, 7, 9, J, K, A）
+   * 2とJokerは特殊扱いで常に出せる
+   */
+  private validateParityRestriction(cards: Card[], restriction: 'even' | 'odd'): ValidationResult {
+    // 偶数ランク: 4, 6, 8, 10, Q
+    const evenRanks = ['4', '6', '8', '10', 'Q'];
+    // 奇数ランク: 3, 5, 7, 9, J, K, A
+    const oddRanks = ['3', '5', '7', '9', 'J', 'K', 'A'];
+    // 特殊ランク（常に出せる）: 2, JOKER
+    const specialRanks = ['2', 'JOKER'];
+
+    const allowedRanks = restriction === 'even' ? evenRanks : oddRanks;
+    const restrictionName = restriction === 'even' ? '偶数制限' : '奇数制限';
+
+    for (const card of cards) {
+      // 特殊カードは常に許可
+      if (specialRanks.includes(card.rank)) continue;
+      // 許可されたランクかチェック
+      if (!allowedRanks.includes(card.rank)) {
+        return {
+          valid: false,
+          reason: `${restrictionName}が発動中です（${restriction === 'even' ? '偶数' : '奇数'}のみ）`,
+        };
+      }
+    }
+    return { valid: true, reason: '' };
+  }
+
+  /**
    * 強さチェック
    */
   private validateStrength(cards: Card[], context: RuleContext): ValidationResult {
     // 場が空ならどんなカードでも出せる
     if (context.field.isEmpty()) {
       return { valid: true, reason: '' };
+    }
+
+    // 10フリ状態ならどんなカードでも出せる（強さ制限なし）
+    if (context.ruleSettings.tenFree && context.isTenFreeActive) {
+      return { valid: true, reason: '10フリ' };
     }
 
     const currentPlay = PlayAnalyzer.analyze(cards)!;

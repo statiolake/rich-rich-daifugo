@@ -10,6 +10,7 @@ export interface RuleContext {
   isRevolution: boolean;
   isElevenBack: boolean;
   isTwoBack: boolean; // 2バック状態（2を出すと場が流れるまで強さ逆転）
+  isTenFreeActive: boolean; // 10フリ状態（10を出した後、次のプレイヤーはどんなカードでも出せる）
 
   // 場の状態
   field: Field;
@@ -17,6 +18,7 @@ export interface RuleContext {
   // 縛り状態
   suitLock: string | null; // マークしばり
   numberLock: boolean; // 数字しばり
+  parityRestriction: 'even' | 'odd' | null; // 偶数/奇数制限
 
   // ルール設定
   ruleSettings: RuleSettings;

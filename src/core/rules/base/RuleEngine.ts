@@ -47,9 +47,11 @@ export class RuleEngine {
       isRevolution: gameState.isRevolution,
       isElevenBack: gameState.isElevenBack,
       isTwoBack: gameState.isTwoBack,
+      isTenFreeActive: gameState.isTenFreeActive,
       field: field,
       suitLock: gameState.suitLock,
       numberLock: gameState.numberLock,
+      parityRestriction: gameState.parityRestriction,
       ruleSettings: gameState.ruleSettings,
     };
 
