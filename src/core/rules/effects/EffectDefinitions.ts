@@ -929,5 +929,91 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'yellow',
       duration: 300
     }
+  },
+
+  'ジョーカー請求': {
+    apply: () => {
+      // ジョーカー請求は後で別途処理するため、ここではイベント発火のみ
+      console.log('ジョーカー請求が発動しました！');
+    },
+    cutIn: {
+      getText: () => 'ジョーカー請求！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  'Qラブ': {
+    apply: () => {
+      // Qラブは後で別途処理するため、ここではイベント発火のみ
+      console.log('Qラブが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'Qラブ！',
+      variant: 'red',
+      duration: 300
+    }
+  },
+
+  'A税収': {
+    apply: () => {
+      // A税収は後で別途処理するため、ここではイベント発火のみ
+      console.log('A税収が発動しました！');
+    },
+    cutIn: {
+      getText: () => 'A税収！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  'ネロ': {
+    apply: () => {
+      // ネロは後で別途処理するため、ここではイベント発火のみ
+      console.log('ネロが発動しました！');
+    },
+    cutIn: {
+      getText: () => 'ネロ！',
+      variant: 'red',
+      duration: 300
+    }
+  },
+
+  '王の特権': {
+    apply: () => {
+      // 王の特権は後で別途処理するため、ここではイベント発火のみ
+      console.log('王の特権が発動しました！');
+    },
+    cutIn: {
+      getText: () => '王の特権！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  '5色縛り': {
+    apply: (gameState, context) => {
+      if (context?.color) {
+        gameState.colorLock = context.color;
+        console.log(`5色縛りが発動しました！（${context.color === 'red' ? '赤' : '黒'}）`);
+      }
+    },
+    cutIn: {
+      getText: (_, context) => context?.color ? `5色縛り！（${context.color === 'red' ? '赤' : '黒'}）` : '5色縛り！',
+      variant: 'blue',
+      duration: 300
+    }
+  },
+
+  '威厳': {
+    apply: () => {
+      // 威厳は後で別途処理するため、ここではイベント発火のみ
+      console.log('威厳が発動しました！');
+    },
+    cutIn: {
+      getText: () => '威厳！',
+      variant: 'gold',
+      duration: 300
+    }
   }
 };

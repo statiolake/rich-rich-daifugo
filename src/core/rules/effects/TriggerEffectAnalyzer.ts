@@ -80,7 +80,14 @@ export type TriggerEffect =
   | 'DEATH'
   | 'シーフ'
   | '2桁封じ'
-  | 'ホットミルク';
+  | 'ホットミルク'
+  | 'ジョーカー請求'
+  | 'Qラブ'
+  | 'A税収'
+  | 'ネロ'
+  | '王の特権'
+  | '5色縛り'
+  | '威厳';
 
 /**
  * トリガーエフェクトアナライザー
@@ -452,6 +459,41 @@ export class TriggerEffectAnalyzer {
     // ホットミルク判定（3の上に9を出すとダイヤ/ハートのみ出せる）
     if (ruleSettings.hotMilk && this.triggersHotMilk(play, gameState)) {
       effects.push('ホットミルク');
+    }
+
+    // ジョーカー請求判定（4を出した時、次のプレイヤーがジョーカーを持っていれば発動）
+    if (ruleSettings.jokerSeize && this.triggersJokerSeize(play, gameState)) {
+      effects.push('ジョーカー請求');
+    }
+
+    // Qラブ判定（Q（階段以外）を出すと、枚数分だけ捨て札から回収＋連続ターン）
+    if (ruleSettings.queenLove && this.triggersQueenLove(play, gameState)) {
+      effects.push('Qラブ');
+    }
+
+    // A税収判定（子がAを出した時、直前のカードを手札に加え、次のプレイヤーをスキップ）
+    if (ruleSettings.aceTax && this.triggersAceTax(play, gameState)) {
+      effects.push('A税収');
+    }
+
+    // ネロ判定（Kx3で各対戦相手から最強カードを1枚ずつ奪う）
+    if (ruleSettings.nero && this.triggersNero(play)) {
+      effects.push('ネロ');
+    }
+
+    // 王の特権判定（Kx3で左隣のプレイヤーと手札を全交換する）
+    if (ruleSettings.kingsPrivilege && this.triggersKingsPrivilege(play)) {
+      effects.push('王の特権');
+    }
+
+    // 5色縛り判定（5を1枚出すとその色で縛り発動）
+    if (ruleSettings.fiveColorLock && this.triggersFiveColorLock(play, gameState)) {
+      effects.push('5色縛り');
+    }
+
+    // 威厳判定（J-Q-Kの階段で場が流れる）
+    if (ruleSettings.dignity && this.triggersDignity(play)) {
+      effects.push('威厳');
     }
 
     return effects;
@@ -1043,5 +1085,81 @@ export class TriggerEffectAnalyzer {
     const fieldPlayHistory = gameState.field.getLastPlay();
     if (!fieldPlayHistory) return false;
     return fieldPlayHistory.play.cards.some(card => card.rank === '3');
+  }
+
+  /**
+   * ジョーカー請求判定（4を出した時、次のプレイヤーがジョーカーを持っていれば発動）
+   * 注意: 次のプレイヤーがジョーカーを持っているかの判定はPlayPhase側で行う
+   * ここでは4を出したかどうかのみ判定
+   */
+  private triggersJokerSeize(play: Play, _gameState: GameState): boolean {
+    return play.cards.some(card => card.rank === '4');
+  }
+
+  /**
+   * Qラブ判定（Q（階段以外）を出すと、枚数分だけ捨て札から回収＋連続ターン）
+   * 階段で出した場合は発動しない
+   */
+  private triggersQueenLove(play: Play, _gameState: GameState): boolean {
+    // 階段の場合は発動しない
+    if (play.type === PlayType.STAIR) return false;
+    // Qを含んでいなければ発動しない
+    if (!play.cards.some(card => card.rank === 'Q')) return false;
+    // 連続ターンは常に発動するので、Qを含むかのみ判定
+    return true;
+  }
+
+  /**
+   * A税収判定（子がAを出した時、直前のカードを手札に加え、次のプレイヤーをスキップ）
+   * 条件:
+   * 1. 場が空でない（子の出し = 親が出したカードに対して出している）
+   * 2. Aを含むプレイ
+   */
+  private triggersAceTax(play: Play, gameState: GameState): boolean {
+    // 場が空でない（子の出し）
+    if (gameState.field.isEmpty()) return false;
+    // Aを含むプレイ
+    return play.cards.some(card => card.rank === 'A');
+  }
+
+  /**
+   * ネロ判定（Kx3で各対戦相手から最強カードを1枚ずつ奪う）
+   */
+  private triggersNero(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === 'K');
+  }
+
+  /**
+   * 王の特権判定（Kx3で左隣のプレイヤーと手札を全交換する）
+   */
+  private triggersKingsPrivilege(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === 'K');
+  }
+
+  /**
+   * 5色縛り判定（5を1枚出すとその色で縛り発動）
+   * 既に色縛りが発動している場合は発動しない
+   */
+  private triggersFiveColorLock(play: Play, gameState: GameState): boolean {
+    // 既に色縛りが発動している場合は発動しない
+    if (gameState.colorLock) return false;
+    // ジョーカー以外のカードを取得
+    const nonJokers = play.cards.filter(c => c.rank !== 'JOKER');
+    // 5を1枚だけ出した場合のみ発動
+    if (nonJokers.length !== 1) return false;
+    return nonJokers[0].rank === '5';
+  }
+
+  /**
+   * 威厳判定（J-Q-Kの階段で場が流れる）
+   * 階段で、J/Q/Kがすべて含まれている場合に発動
+   */
+  private triggersDignity(play: Play): boolean {
+    // 階段でなければ発動しない
+    if (play.type !== PlayType.STAIR) return false;
+    // ジョーカー以外のカードのランクを取得
+    const ranks = play.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
+    // J, Q, K がすべて含まれていること
+    return ranks.includes('J') && ranks.includes('Q') && ranks.includes('K');
   }
 }

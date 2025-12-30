@@ -164,6 +164,8 @@ describe('PlayPhase - 11バック機能', () => {
         reKing: false,      // Re:KINGを無効化
         kingReverse: false, // Kリバースを無効化
         kingsMarch: false,  // キングの行進を無効化
+        nero: false,        // ネロを無効化
+        kingsPrivilege: false, // 王の特権を無効化
       });
       gameState.phase = GamePhaseType.PLAY;
       gameState.currentPlayerIndex = 0;

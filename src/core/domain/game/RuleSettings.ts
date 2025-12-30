@@ -72,6 +72,8 @@ export interface RuleSettings {
   damian: boolean;             // ダミアン（6x3で場が流れるまでパスした人は敗北）
   death: boolean;              // DEATH（4x3で全員が最強カードを捨てる）
   thief: boolean;              // シーフ（4x3で次のプレイヤーから最強カードを奪う）
+  nero: boolean;               // ネロ（Kx3で各対戦相手から最強カードを1枚ずつ奪う）
+  kingsPrivilege: boolean;     // 王の特権（Kx3で左隣のプレイヤーと手札を全交換する）
 
   // 捨て札回収ルール
   salvage: boolean;            // サルベージ（3で場が流れた時に捨て札から1枚回収）
@@ -103,6 +105,20 @@ export interface RuleSettings {
   // 出せるカード制限
   doubleDigitSeal: boolean;    // 2桁封じ（6を出すと場が流れるまでJ〜K（11〜13）が出せなくなる）
   hotMilk: boolean;            // ホットミルク（3の上に9を出すとダイヤ/ハートのみ出せる）
+
+  // ジョーカー請求・Qラブ
+  jokerSeize: boolean;         // ジョーカー請求（4を出した時、次のプレイヤーがジョーカーを持っていれば強制的に奪う）
+  queenLove: boolean;          // Qラブ（Q（階段以外）を出すと、枚数分だけ捨て札から回収＋連続ターン）
+
+  // 上がり・税収ルール
+  finishFlow: boolean;         // 上がり流し（プレイヤーが上がった時に場が流れる）
+  aceTax: boolean;             // A税収（子がAを出した時、直前のカードを手札に加え、次のプレイヤーをスキップ）
+
+  // 追加の色縛りルール
+  fiveColorLock: boolean;      // 5色縛り（5を1枚出すとその色で縛り発動）
+
+  // 場をクリアする追加ルール
+  dignity: boolean;            // 威厳（J-Q-Kの階段で場が流れる）
 }
 
 /**
@@ -164,6 +180,8 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   damian: true,
   death: true,
   thief: true,
+  nero: true,
+  kingsPrivilege: true,
   salvage: true,
   kingsMarch: true,
   satan: true,
@@ -183,4 +201,10 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   strongShow: true,
   doubleDigitSeal: true,
   hotMilk: true,
+  jokerSeize: false,
+  queenLove: false,
+  finishFlow: false,
+  aceTax: false,
+  fiveColorLock: false,
+  dignity: false,
 };

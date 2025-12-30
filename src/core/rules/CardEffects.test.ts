@@ -44,6 +44,8 @@ describe('CardEffects - 特殊カードの効果', () => {
         reKing: false,      // Re:KINGを無効化（このテストは8切りのみテスト）
         kingReverse: false, // Kリバースを無効化（このテストは8切りのみテスト）
         kingsMarch: false,  // キングの行進を無効化（このテストは8切りのみテスト）
+        nero: false,        // ネロを無効化（このテストは8切りのみテスト）
+        kingsPrivilege: false, // 王の特権を無効化（このテストは8切りのみテスト）
       });
       gameState.phase = GamePhaseType.PLAY;
       gameState.currentPlayerIndex = 0;

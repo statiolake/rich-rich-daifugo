@@ -192,6 +192,11 @@ export class PlayPhase implements GamePhase {
       shouldClearField = true;
       console.log('ジョーカー返しが発動します');
     }
+    // 威厳で場が流れる（J-Q-Kの階段）
+    if (effects.includes('威厳')) {
+      shouldClearField = true;
+      console.log('威厳が発動します');
+    }
 
     if (shouldClearField) {
       this.handleLuckySevenVictory(gameState);
@@ -200,7 +205,9 @@ export class PlayPhase implements GamePhase {
 
     // 9クイック: 9を出すと続けてもう1回出せる（ターンを維持）
     const shouldKeepTurnForNineQuick = effects.includes('9クイック');
-    const shouldKeepTurn = shouldClearField || shouldKeepTurnForNineQuick;
+    // Qラブ: Q（階段以外）を出すと続けてもう1回出せる（ターンを維持）
+    const shouldKeepTurnForQueenLove = effects.includes('Qラブ');
+    const shouldKeepTurn = shouldClearField || shouldKeepTurnForNineQuick || shouldKeepTurnForQueenLove;
 
     // 大革命の即勝利処理
     if (effects.includes('大革命＋即勝利')) {
@@ -247,9 +254,32 @@ export class PlayPhase implements GamePhase {
       await this.handleThief(gameState, player);
     }
 
+    // ジョーカー請求（4を出した時、次のプレイヤーがジョーカーを持っていれば奪う）
+    if (effects.includes('ジョーカー請求')) {
+      await this.handleJokerSeize(gameState, player);
+    }
+
+    // ネロ（Kx3で各対戦相手から最強カードを1枚ずつ奪う）
+    if (effects.includes('ネロ')) {
+      await this.handleNero(gameState, player);
+    }
+
+    // 王の特権（Kx3で左隣のプレイヤーと手札を全交換する）
+    if (effects.includes('王の特権')) {
+      await this.handleKingsPrivilege(gameState, player);
+    }
+
     // 手札が空になったら上がり
     if (player.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, player);
+
+      // 上がり流し（finishFlow）: プレイヤーが上がった時に場が流れる
+      if (gameState.ruleSettings.finishFlow) {
+        console.log('上がり流しが発動します');
+        await this.presentationRequester.requestCutIns([{ effect: '上がり流し', variant: 'green' }]);
+        await this.clearFieldAndResetState(gameState, true);
+      }
+
       this.nextPlayer(gameState);
       return;
     }
@@ -276,6 +306,12 @@ export class PlayPhase implements GamePhase {
     if (effects.includes('栗拾い')) {
       const nineCount = cards.filter(c => c.rank === '9').length;
       await this.handleChestnutPicking(gameState, player, nineCount);
+    }
+
+    // Qラブ（Q（階段以外）を出すと、枚数分だけ捨て札から回収）
+    if (effects.includes('Qラブ')) {
+      const queenCount = cards.filter(c => c.rank === 'Q').length;
+      await this.handleQueenLove(gameState, player, queenCount);
     }
 
     // 死者蘇生（4を出すと、直前に出されたカードを枚数分手札に加える）
@@ -358,8 +394,13 @@ export class PlayPhase implements GamePhase {
       this.handleReKing(gameState, kingCount);
     }
 
-    // 5スキップ・フリーメイソン・10飛び判定
-    const shouldSkipNext = effects.includes('5スキップ') || effects.includes('フリーメイソン') || effects.includes('10飛び');
+    // A税収（子がAを出した時、直前のカードを手札に加え、次のプレイヤーをスキップ）
+    if (effects.includes('A税収')) {
+      await this.handleAceTax(gameState, player);
+    }
+
+    // 5スキップ・フリーメイソン・10飛び・A税収判定
+    const shouldSkipNext = effects.includes('5スキップ') || effects.includes('フリーメイソン') || effects.includes('10飛び') || effects.includes('A税収');
 
     // 次プレイヤーへ
     if (!shouldKeepTurn) {
@@ -571,7 +612,15 @@ export class PlayPhase implements GamePhase {
   private applyEffect(effect: TriggerEffect, gameState: GameState, player: Player, play?: Play): void {
     // マークしばりの場合、プレイのスートをコンテキストに含める
     const suit = play && play.cards.length > 0 ? play.cards[0].suit : undefined;
-    this.effectHandler.apply(effect, gameState, { player, suit });
+    // 5色縛りの場合、5のカードの色を判定してコンテキストに含める
+    let color: 'red' | 'black' | undefined;
+    if (effect === '5色縛り' && play) {
+      const fiveCard = play.cards.find(c => c.rank === '5');
+      if (fiveCard) {
+        color = (fiveCard.suit === Suit.HEART || fiveCard.suit === Suit.DIAMOND) ? 'red' : 'black';
+      }
+    }
+    this.effectHandler.apply(effect, gameState, { player, suit, color });
   }
 
   /**
@@ -650,6 +699,13 @@ export class PlayPhase implements GamePhase {
       'シーフ': { effect: 'シーフ', variant: 'blue' },
       '2桁封じ': { effect: '2桁封じ', variant: 'blue' },
       'ホットミルク': { effect: 'ホットミルク', variant: 'yellow' },
+      'A税収': { effect: 'A税収', variant: 'gold' },
+      'ジョーカー請求': { effect: 'ジョーカー請求', variant: 'gold' },
+      'Qラブ': { effect: 'Qラブ', variant: 'red' },
+      '5色縛り': { effect: '5色縛り', variant: 'blue' },
+      '威厳': { effect: '威厳', variant: 'gold' },
+      'ネロ': { effect: 'ネロ', variant: 'red' },
+      '王の特権': { effect: '王の特権', variant: 'gold' },
     };
 
     return cutInMap[effect] || null;
@@ -1742,6 +1798,200 @@ export class PlayPhase implements GamePhase {
       if (targetPlayer.hand.isEmpty()) {
         this.handlePlayerFinish(gameState, targetPlayer);
       }
+    }
+  }
+
+  /**
+   * A税収処理
+   * 子がAを出した時、直前のカードを手札に加える
+   * （次のプレイヤーのスキップはshouldSkipNextで処理）
+   */
+  private async handleAceTax(gameState: GameState, player: Player): Promise<void> {
+    // 場の履歴から直前のプレイを取得（自分が今出したプレイの1つ前）
+    const history = gameState.field.getHistory();
+    if (history.length < 2) {
+      console.log('A税収：直前のプレイがないためスキップ');
+      return;
+    }
+
+    // history の最後は今出したプレイなので、その1つ前を取得
+    const previousPlay = history[history.length - 2];
+    const previousCards = previousPlay.play.cards;
+
+    if (previousCards.length === 0) {
+      console.log('A税収：直前のプレイにカードがないためスキップ');
+      return;
+    }
+
+    // 直前のカードを手札に加える
+    player.hand.add(previousCards);
+    console.log(`A税収：${player.name} が ${previousCards.map(c => `${c.rank}${c.suit}`).join(', ')} を手札に加えました`);
+
+    // ソート
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    player.hand.sort(shouldReverse);
+  }
+
+  /**
+   * ネロ処理
+   * Kx3で各対戦相手から最強カードを1枚ずつ奪う
+   */
+  private async handleNero(gameState: GameState, player: Player): Promise<void> {
+    console.log(`ネロ発動！${player.name} が全員から最強カードを奪います`);
+
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+
+    for (const targetPlayer of gameState.players) {
+      // 自分と上がったプレイヤーはスキップ
+      if (targetPlayer.id.value === player.id.value || targetPlayer.isFinished) continue;
+      if (targetPlayer.hand.isEmpty()) continue;
+
+      const cardsToSteal = this.getStrongestCards(targetPlayer, gameState, 1);
+      if (cardsToSteal.length > 0) {
+        targetPlayer.hand.remove(cardsToSteal);
+        player.hand.add(cardsToSteal);
+        console.log(`ネロ：${player.name} が ${targetPlayer.name} から ${cardsToSteal.map(c => `${c.rank}${c.suit}`).join(', ')} を奪いました`);
+
+        if (targetPlayer.hand.isEmpty()) {
+          this.handlePlayerFinish(gameState, targetPlayer);
+        }
+      }
+    }
+
+    // ソート
+    player.hand.sort(shouldReverse);
+  }
+
+  /**
+   * 王の特権処理
+   * Kx3で左隣のプレイヤーと手札を全交換する
+   */
+  private async handleKingsPrivilege(gameState: GameState, player: Player): Promise<void> {
+    // 左隣のプレイヤーを探す（物理的な位置でインデックス-1）
+    const currentIndex = gameState.players.indexOf(player);
+    let leftNeighborIndex = (currentIndex - 1 + gameState.players.length) % gameState.players.length;
+
+    // 左隣がfinishedなら次を探す
+    let attempts = 0;
+    while (gameState.players[leftNeighborIndex].isFinished && attempts < gameState.players.length) {
+      leftNeighborIndex = (leftNeighborIndex - 1 + gameState.players.length) % gameState.players.length;
+      attempts++;
+    }
+
+    const leftNeighbor = gameState.players[leftNeighborIndex];
+    if (leftNeighbor.isFinished || leftNeighbor.id.value === player.id.value) {
+      console.log('王の特権：交換対象がいません');
+      return;
+    }
+
+    console.log(`王の特権発動！${player.name} と ${leftNeighbor.name} が手札を全交換します`);
+
+    // 手札を交換
+    const playerCards = [...player.hand.getCards()];
+    const neighborCards = [...leftNeighbor.hand.getCards()];
+
+    player.hand.remove(playerCards);
+    leftNeighbor.hand.remove(neighborCards);
+
+    player.hand.add(neighborCards);
+    leftNeighbor.hand.add(playerCards);
+
+    // ソート
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    player.hand.sort(shouldReverse);
+    leftNeighbor.hand.sort(shouldReverse);
+
+    console.log(`王の特権：${player.name} は ${neighborCards.length}枚、${leftNeighbor.name} は ${playerCards.length}枚の手札になりました`);
+  }
+
+  /**
+   * ジョーカー請求処理
+   * 4を出した時、次のプレイヤーがジョーカーを持っていれば奪う
+   */
+  private async handleJokerSeize(gameState: GameState, player: Player): Promise<void> {
+    // 次のプレイヤーを探す
+    const direction = gameState.isReversed ? -1 : 1;
+    let nextIndex = (gameState.currentPlayerIndex + direction + gameState.players.length) % gameState.players.length;
+    let targetPlayer = gameState.players[nextIndex];
+
+    let attempts = 0;
+    while (targetPlayer.isFinished && attempts < gameState.players.length) {
+      nextIndex = (nextIndex + direction + gameState.players.length) % gameState.players.length;
+      targetPlayer = gameState.players[nextIndex];
+      attempts++;
+    }
+
+    if (targetPlayer.isFinished) {
+      console.log('ジョーカー請求：対象プレイヤーがいません');
+      return;
+    }
+
+    // ジョーカーを持っているか確認
+    const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
+    if (jokers.length === 0) {
+      console.log(`ジョーカー請求：${targetPlayer.name} はジョーカーを持っていません`);
+      return;
+    }
+
+    // ジョーカーを1枚奪う
+    const jokerToSteal = jokers[0];
+    targetPlayer.hand.remove([jokerToSteal]);
+    player.hand.add([jokerToSteal]);
+    console.log(`ジョーカー請求：${player.name} が ${targetPlayer.name} からジョーカーを奪いました`);
+
+    // ソート
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    player.hand.sort(shouldReverse);
+  }
+
+  /**
+   * Qラブ処理
+   * Q（階段以外）を出すと、枚数分だけ捨て札から回収
+   * （連続ターンはshouldKeepTurnForQueenLoveで処理）
+   */
+  private async handleQueenLove(gameState: GameState, player: Player, queenCount: number): Promise<void> {
+    // 捨て札がなければスキップ
+    if (gameState.discardPile.length === 0) {
+      console.log('Qラブ：捨て札がないためスキップ');
+      return;
+    }
+
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('Qラブ：コントローラーがないためスキップ');
+      return;
+    }
+
+    // 回収できる枚数 = min(捨て札の枚数, Qの枚数)
+    const maxRecovery = Math.min(gameState.discardPile.length, queenCount);
+
+    console.log(`Qラブ：${player.name} が捨て札から${maxRecovery}枚まで回収できます`);
+
+    // カード選択
+    const selectedCards = await controller.chooseCardsFromDiscard(
+      gameState.discardPile,
+      maxRecovery,
+      `Qラブ：捨て札から${maxRecovery}枚まで選んでください`
+    );
+
+    if (selectedCards.length > 0) {
+      // 捨て札から削除
+      for (const card of selectedCards) {
+        const index = gameState.discardPile.findIndex(
+          (c: Card) => c.suit === card.suit && c.rank === card.rank
+        );
+        if (index !== -1) {
+          gameState.discardPile.splice(index, 1);
+        }
+      }
+
+      // 手札に追加
+      player.hand.add(selectedCards);
+      console.log(`${player.name} が ${selectedCards.map(c => `${c.rank}${c.suit}`).join(', ')} を回収しました（Qラブ）`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      player.hand.sort(shouldReverse);
     }
   }
 }
