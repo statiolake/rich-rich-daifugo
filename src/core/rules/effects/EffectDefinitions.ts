@@ -1015,5 +1015,77 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'gold',
       duration: 300
     }
+  },
+
+  '赤い5': {
+    apply: () => {
+      // 赤い5は後で別途処理するため、ここではイベント発火のみ
+      console.log('赤い5が発動しました！');
+    },
+    cutIn: {
+      getText: () => '赤い5！',
+      variant: 'red',
+      duration: 300
+    }
+  },
+
+  '名誉革命': {
+    apply: () => {
+      // 名誉革命は後で別途処理するため、ここではイベント発火のみ
+      console.log('名誉革命が発動しました！');
+    },
+    cutIn: {
+      getText: () => '名誉革命！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  'アーサー': {
+    apply: (gameState) => {
+      gameState.isArthurActive = true;
+      console.log('アーサーが発動しました！ジョーカーの強さが10〜Jの間になります');
+    },
+    cutIn: {
+      getText: () => 'アーサー！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  '産業革命': {
+    apply: () => {
+      // 産業革命は後で別途処理するため、ここではイベント発火のみ
+      console.log('産業革命が発動しました！');
+    },
+    cutIn: {
+      getText: () => '産業革命！',
+      variant: 'gold',
+      duration: 300
+    }
+  },
+
+  '死の宣告': {
+    apply: () => {
+      // 死の宣告は後で別途処理するため、ここではイベント発火のみ
+      console.log('死の宣告が発動しました！');
+    },
+    cutIn: {
+      getText: () => '死の宣告！',
+      variant: 'red',
+      duration: 300
+    }
+  },
+
+  '闇市': {
+    apply: () => {
+      // 闇市は後で別途処理するため、ここではイベント発火のみ
+      console.log('闇市が発動しました！');
+    },
+    cutIn: {
+      getText: () => '闇市！',
+      variant: 'gold',
+      duration: 300
+    }
   }
 };

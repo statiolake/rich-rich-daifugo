@@ -37,6 +37,8 @@ describe('TriggerEffectAnalyzer', () => {
       isTenFreeActive: false,
       isDoubleDigitSealActive: false,
       hotMilkRestriction: null,
+      isArthurActive: false,
+      deathSentenceTarget: null,
       round: 1,
       previousDaifugoId: null,
       previousDaihinminId: null,

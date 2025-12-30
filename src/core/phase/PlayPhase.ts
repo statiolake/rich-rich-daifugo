@@ -11,6 +11,7 @@ import { GameEndChecker } from './handlers/GameEndChecker';
 import { RankAssignmentService } from './handlers/RankAssignmentService';
 import { PlayerController, Validator } from '../domain/player/PlayerController';
 import { PresentationRequester, CutIn } from '../domain/presentation/PresentationRequester';
+import { PlayerRank } from '../domain/player/PlayerRank';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
@@ -269,6 +270,31 @@ export class PlayPhase implements GamePhase {
       await this.handleKingsPrivilege(gameState, player);
     }
 
+    // 赤い5（♥5/♦5を1枚出すと指名者と手札をシャッフルして同数に再配布）
+    if (effects.includes('赤い5')) {
+      await this.handleRedFive(gameState, player);
+    }
+
+    // 名誉革命（4x4で革命せず、大富豪を大貧民に転落）
+    if (effects.includes('名誉革命')) {
+      await this.handleGloriousRevolution(gameState, player);
+    }
+
+    // 産業革命（3x4で全員の手札を見て1人1枚ずつ回収）
+    if (effects.includes('産業革命')) {
+      await this.handleIndustrialRevolution(gameState, player);
+    }
+
+    // 死の宣告（4x4で指名者は以降パスすると敗北）
+    if (effects.includes('死の宣告')) {
+      await this.handleDeathSentence(gameState, player);
+    }
+
+    // 闇市（Ax3で指名者と任意2枚⇔最強2枚を交換）
+    if (effects.includes('闇市')) {
+      await this.handleBlackMarket(gameState, player);
+    }
+
     // 手札が空になったら上がり
     if (player.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, player);
@@ -423,6 +449,15 @@ export class PlayPhase implements GamePhase {
       return;
     }
 
+    // 死の宣告対象がパスすると敗北
+    if (gameState.deathSentenceTarget === player.id.value) {
+      console.log(`死の宣告発動！${player.name} はパスしたため敗北`);
+      gameState.deathSentenceTarget = null; // 宣告解除
+      this.handlePlayerDefeat(gameState, player);
+      this.nextPlayer(gameState);
+      return;
+    }
+
     gameState.passCount++;
 
     // 全員がパスした場合の処理
@@ -537,6 +572,7 @@ export class PlayPhase implements GamePhase {
     gameState.isTenFreeActive = false; // 10フリをリセット
     gameState.isDoubleDigitSealActive = false; // 2桁封じをリセット
     gameState.hotMilkRestriction = null; // ホットミルクをリセット
+    gameState.isArthurActive = false; // アーサーをリセット
 
     if (resetElevenBack && gameState.isElevenBack) {
       // 強化Jバック中の場合はelevenBackDurationをデクリメント
@@ -706,6 +742,12 @@ export class PlayPhase implements GamePhase {
       '威厳': { effect: '威厳', variant: 'gold' },
       'ネロ': { effect: 'ネロ', variant: 'red' },
       '王の特権': { effect: '王の特権', variant: 'gold' },
+      'アーサー': { effect: 'アーサー', variant: 'gold' },
+      '赤い5': { effect: '赤い5', variant: 'red' },
+      '名誉革命': { effect: '名誉革命', variant: 'gold' },
+      '産業革命': { effect: '産業革命', variant: 'gold' },
+      '死の宣告': { effect: '死の宣告', variant: 'red' },
+      '闇市': { effect: '闇市', variant: 'gold' },
     };
 
     return cutInMap[effect] || null;
@@ -1992,6 +2034,267 @@ export class PlayPhase implements GamePhase {
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
       player.hand.sort(shouldReverse);
+    }
+  }
+
+  /**
+   * 赤い5処理
+   * ♥5/♦5を1枚出すと指名者と手札をシャッフルして同数に再配布
+   */
+  private async handleRedFive(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('赤い5：コントローラーがないためスキップ');
+      return;
+    }
+
+    // 指名可能なプレイヤー（自分以外でまだ上がっていないプレイヤー）
+    const targetPlayers = gameState.players.filter(
+      p => p.id.value !== player.id.value && !p.isFinished && !p.hand.isEmpty()
+    );
+
+    if (targetPlayers.length === 0) {
+      console.log('赤い5：対象プレイヤーがいないためスキップ');
+      return;
+    }
+
+    // プレイヤーIDと名前のマップを作成
+    const playerIds = targetPlayers.map(p => p.id.value);
+    const playerNames = new Map(targetPlayers.map(p => [p.id.value, p.name]));
+
+    // プレイヤーを指名
+    const targetPlayerId = await controller.choosePlayerForBlackMarket(
+      playerIds,
+      playerNames,
+      '赤い5：手札を交換するプレイヤーを選んでください'
+    );
+
+    const targetPlayer = targetPlayers.find(p => p.id.value === targetPlayerId);
+    if (!targetPlayer) {
+      console.log('赤い5：プレイヤーが選択されませんでした');
+      return;
+    }
+
+    console.log(`赤い5発動！${player.name} と ${targetPlayer.name} の手札をシャッフルして再配布します`);
+
+    // 両者の手札を合わせる
+    const allCards = [...player.hand.getCards(), ...targetPlayer.hand.getCards()];
+
+    // シャッフル
+    for (let i = allCards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allCards[i], allCards[j]] = [allCards[j], allCards[i]];
+    }
+
+    // 同数に再配布（元の枚数を維持）
+    const playerOriginalCount = player.hand.getCards().length;
+    const targetOriginalCount = targetPlayer.hand.getCards().length;
+
+    // 手札をクリア
+    player.hand.remove([...player.hand.getCards()]);
+    targetPlayer.hand.remove([...targetPlayer.hand.getCards()]);
+
+    // 再配布
+    const playerNewCards = allCards.slice(0, playerOriginalCount);
+    const targetNewCards = allCards.slice(playerOriginalCount, playerOriginalCount + targetOriginalCount);
+
+    player.hand.add(playerNewCards);
+    targetPlayer.hand.add(targetNewCards);
+
+    // ソート
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    player.hand.sort(shouldReverse);
+    targetPlayer.hand.sort(shouldReverse);
+
+    console.log(`赤い5：${player.name} は ${playerNewCards.length}枚、${targetPlayer.name} は ${targetNewCards.length}枚の手札になりました`);
+  }
+
+  /**
+   * 名誉革命処理
+   * 4x4で革命せず、大富豪を大貧民に転落
+   */
+  private async handleGloriousRevolution(gameState: GameState, _player: Player): Promise<void> {
+    // 大富豪のプレイヤーを探す
+    const daifugo = gameState.players.find(p => p.rank === PlayerRank.DAIFUGO);
+
+    if (!daifugo) {
+      console.log('名誉革命：大富豪がいないためスキップ');
+      return;
+    }
+
+    console.log(`名誉革命発動！${daifugo.name} が大富豪から大貧民に転落します`);
+
+    // 大富豪のランクを大貧民に変更
+    daifugo.rank = PlayerRank.DAIHINMIN;
+
+    console.log(`名誉革命：${daifugo.name} のランクが大貧民になりました`);
+  }
+
+  /**
+   * 産業革命処理（3x4で全員の手札を見て1人1枚ずつ回収）
+   * プレイヤーが各対戦相手の手札を見て、1枚ずつカードを奪う
+   */
+  private async handleIndustrialRevolution(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('産業革命：コントローラーがないためスキップ');
+      return;
+    }
+
+    console.log(`産業革命：${player.name} が全員の手札を見て1人1枚ずつ回収します`);
+
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+
+    // 各対戦相手から1枚ずつ奪う
+    for (const opponent of gameState.players) {
+      // 自分自身はスキップ
+      if (opponent.id.value === player.id.value) continue;
+      // 終了したプレイヤーはスキップ
+      if (opponent.isFinished) continue;
+      // 手札がないプレイヤーはスキップ
+      if (opponent.hand.isEmpty()) continue;
+
+      const opponentCards = [...opponent.hand.getCards()];
+      console.log(`産業革命：${opponent.name} の手札: ${opponentCards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+
+      // プレイヤーにカードを選ばせる
+      const selectedCards = await controller.chooseCardsFromOpponentHand(
+        opponentCards,
+        1,
+        `産業革命：${opponent.name} の手札から1枚選んでください`
+      );
+
+      if (selectedCards.length > 0) {
+        const card = selectedCards[0];
+        opponent.hand.remove([card]);
+        player.hand.add([card]);
+        console.log(`${player.name} が ${opponent.name} から ${card.rank}${card.suit} を奪いました（産業革命）`);
+
+        // ソート
+        player.hand.sort(shouldReverse);
+        opponent.hand.sort(shouldReverse);
+      }
+    }
+  }
+
+  /**
+   * 死の宣告処理（4x4で指名者は以降パスすると敗北）
+   * プレイヤーが対戦相手を1人指名し、その相手は以降パスすると敗北
+   */
+  private async handleDeathSentence(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('死の宣告：コントローラーがないためスキップ');
+      return;
+    }
+
+    // 指名可能な対戦相手（自分以外でまだ終了していないプレイヤー）
+    const targets = gameState.players.filter(
+      p => p.id.value !== player.id.value && !p.isFinished
+    );
+
+    if (targets.length === 0) {
+      console.log('死の宣告：指名可能な対戦相手がいません');
+      return;
+    }
+
+    console.log(`死の宣告：${player.name} が対戦相手を指名します`);
+
+    // プレイヤーに対戦相手を選ばせる
+    const targetPlayer = await controller.choosePlayer(
+      targets,
+      '死の宣告：対象プレイヤーを選んでください'
+    );
+
+    if (targetPlayer) {
+      gameState.deathSentenceTarget = targetPlayer.id.value;
+      console.log(`死の宣告：${targetPlayer.name} が指名されました。パスすると敗北します。`);
+    }
+  }
+
+  /**
+   * 闇市処理（非同期）
+   * Ax3で指名者と任意2枚⇔最強2枚を交換
+   */
+  private async handleBlackMarket(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('闇市：コントローラーがないためスキップ');
+      return;
+    }
+
+    // 自分以外のアクティブプレイヤーを取得
+    const targetPlayers = gameState.players.filter(
+      p => p.id.value !== player.id.value && !p.isFinished && p.hand.size() >= 2
+    );
+
+    if (targetPlayers.length === 0) {
+      console.log('闇市：対象プレイヤーがいません');
+      return;
+    }
+
+    // プレイヤー選択
+    const targetPlayer = await controller.choosePlayer(
+      targetPlayers,
+      '闇市：交換相手を選んでください'
+    );
+
+    if (!targetPlayer || targetPlayer.isFinished) {
+      console.log('闇市：対象プレイヤーが見つかりません');
+      return;
+    }
+
+    console.log(`闇市発動！${player.name} が ${targetPlayer.name} と交換します`);
+
+    // 自分の手札から2枚選択
+    const handCards = player.hand.getCards();
+    const cardsToGiveCount = Math.min(2, handCards.length);
+
+    if (cardsToGiveCount === 0) {
+      console.log('闇市：手札がないため交換できません');
+      return;
+    }
+
+    const validator: Validator = {
+      validate: (cards: Card[]) => {
+        if (cards.length === cardsToGiveCount) {
+          return { valid: true };
+        }
+        return { valid: false, reason: `${cardsToGiveCount}枚選んでください` };
+      }
+    };
+
+    const cardsToGive = await controller.chooseCardsInHand(
+      validator,
+      `闇市：${targetPlayer.name}に渡すカードを${cardsToGiveCount}枚選んでください`
+    );
+
+    if (cardsToGive.length !== cardsToGiveCount) {
+      console.log('闇市：カード選択がキャンセルされました');
+      return;
+    }
+
+    // 相手から最強2枚を取得
+    const cardsToReceiveCount = Math.min(2, targetPlayer.hand.size());
+    const cardsToReceive = this.getStrongestCards(targetPlayer, gameState, cardsToReceiveCount);
+
+    // 交換実行
+    player.hand.remove(cardsToGive);
+    targetPlayer.hand.remove(cardsToReceive);
+
+    player.hand.add(cardsToReceive);
+    targetPlayer.hand.add(cardsToGive);
+
+    console.log(`闇市：${player.name} が ${cardsToGive.map(c => `${c.rank}${c.suit}`).join(', ')} を渡し、${cardsToReceive.map(c => `${c.rank}${c.suit}`).join(', ')} を受け取りました`);
+
+    // ソート
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    player.hand.sort(shouldReverse);
+    targetPlayer.hand.sort(shouldReverse);
+
+    // 相手の手札が空になったら上がり
+    if (targetPlayer.hand.isEmpty()) {
+      this.handlePlayerFinish(gameState, targetPlayer);
     }
   }
 }

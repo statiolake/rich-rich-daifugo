@@ -1,5 +1,6 @@
 import { PlayerController, Validator } from '../domain/player/PlayerController';
 import { Card } from '../domain/card/Card';
+import { Player } from '../domain/player/Player';
 
 /**
  * テスト用のモック PlayerController
@@ -9,9 +10,15 @@ export class MockPlayerController implements PlayerController {
   private cardChoices: Card[][] = [];
   private rankChoices: string[] = [];
   private discardChoices: Card[][] = [];
+  private playerChoices: string[] = [];
+  private opponentCardChoices: Card[][] = [];
+  private choosePlayerChoices: Player[] = [];
   private cardChoiceIndex = 0;
   private rankChoiceIndex = 0;
   private discardChoiceIndex = 0;
+  private playerChoiceIndex = 0;
+  private opponentCardChoiceIndex = 0;
+  private choosePlayerChoiceIndex = 0;
 
   /**
    * 次のカード選択時に返すカードを設定
@@ -32,6 +39,27 @@ export class MockPlayerController implements PlayerController {
    */
   setNextDiscardChoice(cards: Card[]): void {
     this.discardChoices.push(cards);
+  }
+
+  /**
+   * 次のプレイヤー選択時に返すプレイヤーIDを設定
+   */
+  setNextPlayerChoice(playerId: string): void {
+    this.playerChoices.push(playerId);
+  }
+
+  /**
+   * 次の対戦相手手札選択時に返すカードを設定（産業革命用）
+   */
+  setNextOpponentCardChoice(cards: Card[]): void {
+    this.opponentCardChoices.push(cards);
+  }
+
+  /**
+   * 次のプレイヤー選択時に返すプレイヤーを設定（choosePlayer用）
+   */
+  setNextChoosePlayerChoice(player: Player): void {
+    this.choosePlayerChoices.push(player);
   }
 
   async chooseCardsInHand(_validator: Validator, _prompt?: string): Promise<Card[]> {
@@ -67,6 +95,40 @@ export class MockPlayerController implements PlayerController {
     return handCards.slice(0, exactCount);
   }
 
+  async choosePlayerForBlackMarket(
+    playerIds: string[],
+    _playerNames: Map<string, string>,
+    _prompt: string
+  ): Promise<string> {
+    if (this.playerChoiceIndex >= this.playerChoices.length) {
+      // デフォルト: 最初のプレイヤーを選択
+      return playerIds[0];
+    }
+    const choice = this.playerChoices[this.playerChoiceIndex];
+    this.playerChoiceIndex++;
+    return choice;
+  }
+
+  async chooseCardsFromOpponentHand(cards: Card[], _maxCount: number, _prompt: string): Promise<Card[]> {
+    if (this.opponentCardChoiceIndex >= this.opponentCardChoices.length) {
+      // デフォルト: 最初のカードを選択
+      return cards.length > 0 ? [cards[0]] : [];
+    }
+    const choice = this.opponentCardChoices[this.opponentCardChoiceIndex];
+    this.opponentCardChoiceIndex++;
+    return choice;
+  }
+
+  async choosePlayer(players: Player[], _prompt: string): Promise<Player | null> {
+    if (this.choosePlayerChoiceIndex >= this.choosePlayerChoices.length) {
+      // デフォルト: 最初のプレイヤーを選択
+      return players.length > 0 ? players[0] : null;
+    }
+    const choice = this.choosePlayerChoices[this.choosePlayerChoiceIndex];
+    this.choosePlayerChoiceIndex++;
+    return choice;
+  }
+
   /**
    * モックをリセット
    */
@@ -74,8 +136,14 @@ export class MockPlayerController implements PlayerController {
     this.cardChoices = [];
     this.rankChoices = [];
     this.discardChoices = [];
+    this.playerChoices = [];
+    this.opponentCardChoices = [];
+    this.choosePlayerChoices = [];
     this.cardChoiceIndex = 0;
     this.rankChoiceIndex = 0;
     this.discardChoiceIndex = 0;
+    this.playerChoiceIndex = 0;
+    this.opponentCardChoiceIndex = 0;
+    this.choosePlayerChoiceIndex = 0;
   }
 }

@@ -31,6 +31,8 @@ export interface GameState {
   isTenFreeActive: boolean; // 10フリ状態（10を出した後、次のプレイヤーはどんなカードでも出せる）
   isDoubleDigitSealActive: boolean; // 2桁封じ状態（6を出すと場が流れるまでJ〜Kが出せなくなる）
   hotMilkRestriction: 'warm' | null; // ホットミルク制限（warm: ダイヤ/ハートのみ）
+  isArthurActive: boolean; // アーサー状態（Kx3でジョーカーの強さが10〜Jの間になる）
+  deathSentenceTarget: string | null; // 死の宣告対象プレイヤーID（パスすると敗北）
   passCount: number;
   round: number;
   phase: GamePhaseType;
@@ -61,6 +63,8 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     isTenFreeActive: false,
     isDoubleDigitSealActive: false,
     hotMilkRestriction: null,
+    isArthurActive: false,
+    deathSentenceTarget: null,
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,

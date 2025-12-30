@@ -97,4 +97,34 @@ export class CPUPlayerController implements PlayerController {
     const sortedCards = [...handCards].sort((a, b) => a.strength - b.strength);
     return sortedCards.slice(0, exactCount);
   }
+
+  async choosePlayerForBlackMarket(
+    playerIds: string[],
+    _playerNames: Map<string, string>,
+    _prompt: string
+  ): Promise<string> {
+    // CPU思考時間をシミュレート
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // CPUはランダムにプレイヤーを選択
+    return playerIds[Math.floor(Math.random() * playerIds.length)];
+  }
+
+  async chooseCardsFromOpponentHand(cards: Card[], _maxCount: number, _prompt: string): Promise<Card[]> {
+    // CPU思考時間をシミュレート
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // CPUは強いカードを優先して奪う（シンプルな戦略）
+    const sortedCards = [...cards].sort((a, b) => b.strength - a.strength);
+    return sortedCards.length > 0 ? [sortedCards[0]] : [];
+  }
+
+  async choosePlayer(players: Player[], _prompt: string): Promise<Player | null> {
+    // CPU思考時間をシミュレート
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // CPUはランダムにプレイヤーを選択
+    if (players.length === 0) return null;
+    return players[Math.floor(Math.random() * players.length)];
+  }
 }

@@ -11,6 +11,7 @@ export interface RuleContext {
   isElevenBack: boolean;
   isTwoBack: boolean; // 2バック状態（2を出すと場が流れるまで強さ逆転）
   isTenFreeActive: boolean; // 10フリ状態（10を出した後、次のプレイヤーはどんなカードでも出せる）
+  isArthurActive: boolean; // アーサー状態（Kx3でジョーカーの強さが10〜Jの間になる）
 
   // 場の状態
   field: Field;

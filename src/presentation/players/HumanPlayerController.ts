@@ -1,5 +1,6 @@
 import { PlayerController, Validator } from '../../core/domain/player/PlayerController';
 import { Card } from '../../core/domain/card/Card';
+import { Player } from '../../core/domain/player/Player';
 import { useGameStore } from '../store/gameStore';
 
 type GameStore = ReturnType<typeof useGameStore.getState>;
@@ -96,5 +97,62 @@ export class HumanPlayerController implements PlayerController {
     this.gameStore.clearExchangeSelectionCallback();
 
     return result;
+  }
+
+  async choosePlayerForBlackMarket(
+    playerIds: string[],
+    playerNames: Map<string, string>,
+    prompt: string
+  ): Promise<string> {
+    // 1. コールバックを設定（Promise を作成）
+    const resultPromise = new Promise<string>((resolve) => {
+      this.gameStore.setPlayerSelectionCallback(resolve);
+    });
+
+    // 2. UI を表示
+    this.gameStore.enablePlayerSelection(playerIds, playerNames, prompt);
+
+    // 3. ユーザーの選択を待機
+    const result = await resultPromise;
+
+    // 4. UI を非表示
+    this.gameStore.disablePlayerSelection();
+
+    // 5. コールバックを解除
+    this.gameStore.clearPlayerSelectionCallback();
+
+    return result;
+  }
+
+  async chooseCardsFromOpponentHand(cards: Card[], maxCount: number, prompt: string): Promise<Card[]> {
+    // 捨て札選択UIを流用して対戦相手の手札を選択
+    // 1. コールバックを設定（Promise を作成）
+    const resultPromise = new Promise<Card[]>((resolve) => {
+      this.gameStore.setDiscardSelectionCallback(resolve);
+    });
+
+    // 2. UI を表示（捨て札選択UIを流用）
+    this.gameStore.enableDiscardSelection(cards, maxCount, prompt);
+
+    // 3. ユーザーの選択を待機
+    const result = await resultPromise;
+
+    // 4. UI を非表示
+    this.gameStore.disableDiscardSelection();
+
+    // 5. コールバックを解除
+    this.gameStore.clearDiscardSelectionCallback();
+
+    return result;
+  }
+
+  async choosePlayer(players: Player[], prompt: string): Promise<Player | null> {
+    // BlackMarket用のプレイヤー選択UIを流用
+    const playerIds = players.map(p => p.id.value);
+    const playerNames = new Map(players.map(p => [p.id.value, p.name]));
+
+    // choosePlayerForBlackMarketと同じロジックを使用
+    const resultId = await this.choosePlayerForBlackMarket(playerIds, playerNames, prompt);
+    return players.find(p => p.id.value === resultId) || null;
   }
 }

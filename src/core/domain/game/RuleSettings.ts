@@ -119,6 +119,24 @@ export interface RuleSettings {
 
   // 場をクリアする追加ルール
   dignity: boolean;            // 威厳（J-Q-Kの階段で場が流れる）
+
+  // キング系ルール
+  arthur: boolean;             // アーサー（Kx3でジョーカーが10〜Jの間の強さになる）
+  doubleKing: boolean;         // ダブルキング（Kx2がK以下のペアとして出せる）
+
+  // 手札交換・ランク変動ルール
+  redFive: boolean;            // 赤い5（♥5/♦5を1枚出すと指名者と手札をシャッフルして同数に再配布）
+  gloriousRevolution: boolean; // 名誉革命（4x4で革命せず、大富豪を大貧民に転落）
+
+  // 特殊効果ルール（4枚系）
+  industrialRevolution: boolean; // 産業革命（3x4で全員の手札を見て1人1枚ずつ回収）
+  deathSentence: boolean;        // 死の宣告（4x4で指名者は以降パスすると敗北）
+
+  // カード交換ルール
+  blackMarket: boolean;        // 闇市（Ax3で指名者と任意2枚⇔最強2枚を交換）
+
+  // 特殊出しルール
+  crossDressing: boolean;      // 女装（Qを出す時、同枚数のKも一緒に出せる）
 }
 
 /**
@@ -207,4 +225,12 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   aceTax: false,
   fiveColorLock: false,
   dignity: false,
+  arthur: false,
+  doubleKing: false,
+  redFive: false,
+  gloriousRevolution: false,
+  industrialRevolution: false,
+  deathSentence: false,
+  blackMarket: false,
+  crossDressing: false,
 };

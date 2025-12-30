@@ -57,4 +57,38 @@ export interface PlayerController {
    * @returns 選択されたカードの配列（exactCount枚）
    */
   chooseCardsForExchange(handCards: Card[], exactCount: number, prompt: string): Promise<Card[]>;
+
+  /**
+   * 闇市用のプレイヤー選択
+   * 自分以外のプレイヤーから1人を選択
+   *
+   * @param playerIds 選択可能なプレイヤーIDの配列
+   * @param playerNames プレイヤー名のマップ（ID -> 名前）
+   * @param prompt UIに表示するリード文
+   * @returns 選択されたプレイヤーのID
+   */
+  choosePlayerForBlackMarket(
+    playerIds: string[],
+    playerNames: Map<string, string>,
+    prompt: string
+  ): Promise<string>;
+
+  /**
+   * 対戦相手の手札からカードを選択（産業革命用）
+   *
+   * @param cards 対戦相手の手札の配列
+   * @param maxCount 選択可能な最大枚数
+   * @param prompt UIに表示するリード文
+   * @returns 選択されたカードの配列
+   */
+  chooseCardsFromOpponentHand(cards: Card[], maxCount: number, prompt: string): Promise<Card[]>;
+
+  /**
+   * プレイヤーを選択（死の宣告、赤い5など）
+   *
+   * @param players 選択可能なプレイヤーの配列
+   * @param prompt UIに表示するリード文
+   * @returns 選択されたプレイヤー（nullの場合は選択キャンセル）
+   */
+  choosePlayer(players: import('./Player').Player[], prompt: string): Promise<import('./Player').Player | null>;
 }

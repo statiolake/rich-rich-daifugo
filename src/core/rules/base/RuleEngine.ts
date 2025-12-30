@@ -48,6 +48,7 @@ export class RuleEngine {
       isElevenBack: gameState.isElevenBack,
       isTwoBack: gameState.isTwoBack,
       isTenFreeActive: gameState.isTenFreeActive,
+      isArthurActive: gameState.isArthurActive,
       field: field,
       suitLock: gameState.suitLock,
       numberLock: gameState.numberLock,

@@ -120,6 +120,11 @@ export class PlayValidator {
    * 組み合わせチェック: カードの組み合わせが有効な役か
    */
   private validateCombination(cards: Card[], context: RuleContext): ValidationResult {
+    // 女装ルールチェック（QとKの混合出し）
+    if (context.ruleSettings.crossDressing && this.isCrossDressing(cards)) {
+      return { valid: true, reason: '女装' };
+    }
+
     const play = PlayAnalyzer.analyze(cards);
 
     if (!play) {
@@ -138,6 +143,20 @@ export class PlayValidator {
     }
 
     return { valid: true, reason: '' };
+  }
+
+  /**
+   * 女装判定（QとKの混合出し）
+   * 条件: Q と K が同じ枚数ずつ含まれている（合計2N枚）
+   */
+  private isCrossDressing(cards: Card[]): boolean {
+    if (cards.length < 2 || cards.length % 2 !== 0) return false;
+
+    const queens = cards.filter(c => c.rank === 'Q');
+    const kings = cards.filter(c => c.rank === 'K');
+
+    // QとKが同じ枚数で、それ以外のカードがないこと
+    return queens.length > 0 && queens.length === kings.length && queens.length + kings.length === cards.length;
   }
 
   /**
@@ -277,6 +296,11 @@ export class PlayValidator {
       return { valid: true, reason: '10フリ' };
     }
 
+    // 女装の場合は特別な強さチェック
+    if (context.ruleSettings.crossDressing && this.isCrossDressing(cards)) {
+      return this.validateCrossDressingStrength(cards, context);
+    }
+
     const currentPlay = PlayAnalyzer.analyze(cards)!;
     const fieldPlay = context.field.getCurrentPlay()!;
 
@@ -311,6 +335,23 @@ export class PlayValidator {
     // 強さ反転ロジック: 革命、11バック、2バックが奇数個trueなら反転
     // XOR演算を連鎖させて、trueの数が奇数かどうかを判定
     const shouldReverse = context.isRevolution !== context.isElevenBack !== context.isTwoBack;
+
+    // ダブルキング効果: Kx2がK以下の任意のペアとして出せる
+    if (context.ruleSettings.doubleKing && this.isDoubleKing(currentPlay)) {
+      const doubleKingResult = this.validateDoubleKing(fieldPlay, shouldReverse);
+      if (doubleKingResult !== null) {
+        return doubleKingResult;
+      }
+    }
+
+    // アーサー効果: ジョーカーの強さが10〜Jの間になる（強さ8.5）
+    // ジョーカーを含むプレイの場合、強さを調整してからチェック
+    if (context.ruleSettings.arthur && context.isArthurActive) {
+      const arthurResult = this.validateStrengthWithArthur(fieldPlay, currentPlay, shouldReverse);
+      if (arthurResult !== null) {
+        return arthurResult;
+      }
+    }
 
     // PlayAnalyzer.canFollow で強さをチェック
     if (!PlayAnalyzer.canFollow(fieldPlay, currentPlay, shouldReverse)) {
@@ -398,5 +439,144 @@ export class PlayValidator {
       play.cards.length === 1 &&
       play.cards[0].rank === 'JOKER'
     );
+  }
+
+  /**
+   * アーサー効果を考慮した強さチェック
+   * ジョーカーの強さが10〜Jの間（強さ8.5）になる
+   * @returns ValidationResult | null（nullの場合は通常の強さチェックを続行）
+   */
+  private validateStrengthWithArthur(
+    fieldPlay: Play,
+    currentPlay: Play,
+    shouldReverse: boolean
+  ): ValidationResult | null {
+    // ジョーカーを含むプレイかどうかをチェック
+    const fieldHasJoker = fieldPlay.cards.some(c => c.rank === 'JOKER');
+    const currentHasJoker = currentPlay.cards.some(c => c.rank === 'JOKER');
+
+    // どちらにもジョーカーがない場合は通常の処理
+    if (!fieldHasJoker && !currentHasJoker) {
+      return null;
+    }
+
+    // タイプが異なる場合は出せない
+    if (fieldPlay.type !== currentPlay.type) {
+      return {
+        valid: false,
+        reason: '場のカードと同じタイプの組み合わせを出してください',
+      };
+    }
+
+    // 強さを計算（ジョーカーは8.5として扱う = 10と11の間）
+    const ARTHUR_JOKER_STRENGTH = 8.5;
+    const fieldStrength = fieldHasJoker ? ARTHUR_JOKER_STRENGTH : fieldPlay.strength;
+    const currentStrength = currentHasJoker ? ARTHUR_JOKER_STRENGTH : currentPlay.strength;
+
+    // 革命などで強さが反転している場合
+    const effectiveFieldStrength = shouldReverse ? -fieldStrength : fieldStrength;
+    const effectiveCurrentStrength = shouldReverse ? -currentStrength : currentStrength;
+
+    if (effectiveCurrentStrength > effectiveFieldStrength) {
+      return { valid: true, reason: 'アーサー' };
+    } else {
+      return {
+        valid: false,
+        reason: 'アーサー効果によりジョーカーの強さが10〜Jの間です',
+      };
+    }
+  }
+
+  /**
+   * ダブルキング（Kx2）かどうかを判定
+   */
+  private isDoubleKing(play: Play): boolean {
+    return play.type === PlayType.PAIR && play.cards.every(card => card.rank === 'K');
+  }
+
+  /**
+   * ダブルキング効果の検証
+   * Kx2がK以下の任意のペアとして出せる
+   * K=11なので、強さ11以下のペアに対して出せる
+   * @returns ValidationResult | null（nullの場合は通常の処理を続行）
+   */
+  private validateDoubleKing(fieldPlay: Play, shouldReverse: boolean): ValidationResult | null {
+    // 場がペアでない場合は通常の処理
+    if (fieldPlay.type !== PlayType.PAIR) {
+      return null;
+    }
+
+    // K以下の強さを持つペア（強さ11以下）に対して出せる
+    // 通常時: 場の強さ <= 11 (K) なら出せる
+    // 革命時: 場の強さ >= K (11) なら出せる（弱いほど強い）
+    const KING_STRENGTH = 11;
+    const fieldStrength = fieldPlay.strength;
+
+    if (shouldReverse) {
+      // 革命時: K以下の強さ = 強さ11以上（弱いカードが強いので、強さが大きいほど弱い）
+      // 革命時にダブルキングが出せるのは、場のカードがKより強い（=強さがK以上）の場合
+      if (fieldStrength >= KING_STRENGTH) {
+        return { valid: true, reason: 'ダブルキング' };
+      }
+    } else {
+      // 通常時: K以下の強さ = 強さ11以下
+      if (fieldStrength <= KING_STRENGTH) {
+        return { valid: true, reason: 'ダブルキング' };
+      }
+    }
+
+    return {
+      valid: false,
+      reason: 'ダブルキングはK以下のペアにしか出せません',
+    };
+  }
+
+  /**
+   * 女装（QとKの混合出し）の強さチェック
+   * QとKのペアとして扱い、Qの強さで判定
+   */
+  private validateCrossDressingStrength(cards: Card[], context: RuleContext): ValidationResult {
+    // 場が空なら出せる
+    if (context.field.isEmpty()) {
+      return { valid: true, reason: '女装' };
+    }
+
+    const fieldPlay = context.field.getCurrentPlay()!;
+
+    // 場のプレイタイプに応じてチェック
+    // 女装は Q と K の混合なので、ペア(2枚)、トリプル相当(4枚=Q2+K2)、クアッド相当(6枚=Q3+K3)など
+    const halfCount = cards.length / 2;
+
+    // 場のカード枚数が女装の「半数」と一致するかチェック（ペア相当なら場も2枚）
+    if (fieldPlay.cards.length !== halfCount) {
+      return {
+        valid: false,
+        reason: '場のカードと枚数が合いません',
+      };
+    }
+
+    // 強さ反転ロジック
+    const shouldReverse = context.isRevolution !== context.isElevenBack !== context.isTwoBack;
+
+    // 女装の強さはQの強さ（10）として扱う
+    const QUEEN_STRENGTH = 10;
+    const fieldStrength = fieldPlay.strength;
+
+    if (shouldReverse) {
+      // 革命時: 弱いほど強い
+      if (QUEEN_STRENGTH < fieldStrength) {
+        return { valid: true, reason: '女装' };
+      }
+    } else {
+      // 通常時: 強いほど強い
+      if (QUEEN_STRENGTH > fieldStrength) {
+        return { valid: true, reason: '女装' };
+      }
+    }
+
+    return {
+      valid: false,
+      reason: '場のカードより強くありません',
+    };
   }
 }

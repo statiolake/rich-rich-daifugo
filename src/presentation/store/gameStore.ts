@@ -62,6 +62,21 @@ interface GameStore {
   exchangeSelectionCount: number;
   exchangeSelectionPrompt: string | null;
   selectedExchangeCards: Card[];
+  playerSelectionCallback: ((playerId: string) => void) | null;
+  isPlayerSelectionEnabled: boolean;
+  playerSelectionIds: string[];
+  playerSelectionNames: Map<string, string>;
+  playerSelectionPrompt: string | null;
+  opponentHandSelectionCallback: ((cards: Card[]) => void) | null;
+  isOpponentHandSelectionEnabled: boolean;
+  opponentHandSelectionCards: Card[];
+  opponentHandSelectionMaxCount: number;
+  opponentHandSelectionPrompt: string | null;
+  selectedOpponentHandCards: Card[];
+  playerObjectSelectionCallback: ((player: import('../../core/domain/player/Player').Player | null) => void) | null;
+  isPlayerObjectSelectionEnabled: boolean;
+  playerObjectSelectionPlayers: import('../../core/domain/player/Player').Player[];
+  playerObjectSelectionPrompt: string | null;
 
   // Actions
   startGame: (options?: { playerName?: string; autoCPU?: boolean }) => void;
@@ -101,6 +116,28 @@ interface GameStore {
   toggleExchangeCardSelection: (card: Card) => void;
   submitExchangeSelection: () => void;
 
+  // Player selection methods
+  setPlayerSelectionCallback: (callback: (playerId: string) => void) => void;
+  clearPlayerSelectionCallback: () => void;
+  enablePlayerSelection: (playerIds: string[], playerNames: Map<string, string>, prompt: string) => void;
+  disablePlayerSelection: () => void;
+  submitPlayerSelection: (playerId: string) => void;
+
+  // Opponent hand selection methods
+  setOpponentHandSelectionCallback: (callback: (cards: Card[]) => void) => void;
+  clearOpponentHandSelectionCallback: () => void;
+  enableOpponentHandSelection: (cards: Card[], maxCount: number, prompt: string) => void;
+  disableOpponentHandSelection: () => void;
+  toggleOpponentHandCardSelection: (card: Card) => void;
+  submitOpponentHandSelection: () => void;
+
+  // Player object selection methods
+  setPlayerObjectSelectionCallback: (callback: (player: import('../../core/domain/player/Player').Player | null) => void) => void;
+  clearPlayerObjectSelectionCallback: () => void;
+  enablePlayerObjectSelection: (players: import('../../core/domain/player/Player').Player[], prompt: string) => void;
+  disablePlayerObjectSelection: () => void;
+  submitPlayerObjectSelection: (player: import('../../core/domain/player/Player').Player | null) => void;
+
   // Computed values
   getValidCombinations: () => Card[][];
   getRuleEngine: () => RuleEngine;
@@ -133,6 +170,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
   exchangeSelectionCount: 0,
   exchangeSelectionPrompt: null,
   selectedExchangeCards: [],
+  playerSelectionCallback: null,
+  isPlayerSelectionEnabled: false,
+  playerSelectionIds: [],
+  playerSelectionNames: new Map(),
+  playerSelectionPrompt: null,
+  opponentHandSelectionCallback: null,
+  isOpponentHandSelectionEnabled: false,
+  opponentHandSelectionCards: [],
+  opponentHandSelectionMaxCount: 0,
+  opponentHandSelectionPrompt: null,
+  selectedOpponentHandCards: [],
+  playerObjectSelectionCallback: null,
+  isPlayerObjectSelectionEnabled: false,
+  playerObjectSelectionPlayers: [],
+  playerObjectSelectionPrompt: null,
 
   startGame: (options = {}) => {
     const { playerName = 'あなた', autoCPU = false } = options;
@@ -562,5 +614,120 @@ export const useGameStore = create<GameStore>((set, get) => ({
       throw new Error('Engine not initialized');
     }
     return engine.getRuleEngine();
+  },
+
+  // Player selection methods
+  setPlayerSelectionCallback: (callback) => {
+    set({ playerSelectionCallback: callback });
+  },
+
+  clearPlayerSelectionCallback: () => {
+    set({ playerSelectionCallback: null });
+  },
+
+  enablePlayerSelection: (playerIds, playerNames, prompt) => {
+    set({
+      isPlayerSelectionEnabled: true,
+      playerSelectionIds: playerIds,
+      playerSelectionNames: playerNames,
+      playerSelectionPrompt: prompt,
+    });
+  },
+
+  disablePlayerSelection: () => {
+    set({
+      isPlayerSelectionEnabled: false,
+      playerSelectionIds: [],
+      playerSelectionNames: new Map(),
+      playerSelectionPrompt: null,
+    });
+  },
+
+  submitPlayerSelection: (playerId) => {
+    const { playerSelectionCallback } = get();
+    if (playerSelectionCallback) {
+      playerSelectionCallback(playerId);
+    }
+  },
+
+  // Opponent hand selection methods
+  setOpponentHandSelectionCallback: (callback) => {
+    set({ opponentHandSelectionCallback: callback });
+  },
+
+  clearOpponentHandSelectionCallback: () => {
+    set({ opponentHandSelectionCallback: null });
+  },
+
+  enableOpponentHandSelection: (cards, maxCount, prompt) => {
+    set({
+      isOpponentHandSelectionEnabled: true,
+      opponentHandSelectionCards: cards,
+      opponentHandSelectionMaxCount: maxCount,
+      opponentHandSelectionPrompt: prompt,
+      selectedOpponentHandCards: [],
+    });
+  },
+
+  disableOpponentHandSelection: () => {
+    set({
+      isOpponentHandSelectionEnabled: false,
+      opponentHandSelectionCards: [],
+      opponentHandSelectionMaxCount: 0,
+      opponentHandSelectionPrompt: null,
+      selectedOpponentHandCards: [],
+    });
+  },
+
+  toggleOpponentHandCardSelection: (card) => {
+    const { selectedOpponentHandCards, opponentHandSelectionMaxCount } = get();
+    const isSelected = selectedOpponentHandCards.some(c => c.id === card.id);
+
+    if (isSelected) {
+      set({ selectedOpponentHandCards: selectedOpponentHandCards.filter(c => c.id !== card.id) });
+    } else {
+      if (selectedOpponentHandCards.length < opponentHandSelectionMaxCount) {
+        set({ selectedOpponentHandCards: [...selectedOpponentHandCards, card] });
+      }
+    }
+  },
+
+  submitOpponentHandSelection: () => {
+    const { selectedOpponentHandCards, opponentHandSelectionCallback } = get();
+    if (opponentHandSelectionCallback) {
+      opponentHandSelectionCallback(selectedOpponentHandCards);
+    }
+  },
+
+  // Player object selection methods
+  setPlayerObjectSelectionCallback: (callback) => {
+    set({ playerObjectSelectionCallback: callback });
+  },
+
+  clearPlayerObjectSelectionCallback: () => {
+    set({ playerObjectSelectionCallback: null });
+  },
+
+  enablePlayerObjectSelection: (players, prompt) => {
+    set({
+      isPlayerObjectSelectionEnabled: true,
+      playerObjectSelectionPlayers: players,
+      playerObjectSelectionPrompt: prompt,
+    });
+  },
+
+  disablePlayerObjectSelection: () => {
+    set({
+      isPlayerObjectSelectionEnabled: false,
+      playerObjectSelectionPlayers: [],
+      playerObjectSelectionPrompt: null,
+    });
+  },
+
+  submitPlayerObjectSelection: (player) => {
+    const { playerObjectSelectionCallback } = get();
+    if (playerObjectSelectionCallback) {
+      playerObjectSelectionCallback(player);
+    }
   },
 }));

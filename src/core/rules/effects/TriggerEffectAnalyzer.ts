@@ -87,7 +87,13 @@ export type TriggerEffect =
   | 'ネロ'
   | '王の特権'
   | '5色縛り'
-  | '威厳';
+  | '威厳'
+  | 'アーサー'
+  | '赤い5'
+  | '名誉革命'
+  | '産業革命'
+  | '死の宣告'
+  | '闇市';
 
 /**
  * トリガーエフェクトアナライザー
@@ -494,6 +500,36 @@ export class TriggerEffectAnalyzer {
     // 威厳判定（J-Q-Kの階段で場が流れる）
     if (ruleSettings.dignity && this.triggersDignity(play)) {
       effects.push('威厳');
+    }
+
+    // アーサー判定（Kx3でジョーカーが10〜Jの間の強さになる）
+    if (ruleSettings.arthur && this.triggersArthur(play)) {
+      effects.push('アーサー');
+    }
+
+    // 赤い5判定（♥5/♦5を1枚出すと指名者と手札をシャッフルして同数に再配布）
+    if (ruleSettings.redFive && this.triggersRedFive(play)) {
+      effects.push('赤い5');
+    }
+
+    // 名誉革命判定（4x4で革命せず、大富豪を大貧民に転落）
+    if (ruleSettings.gloriousRevolution && this.triggersGloriousRevolution(play)) {
+      effects.push('名誉革命');
+    }
+
+    // 産業革命判定（3x4で全員の手札を見て1人1枚ずつ回収）
+    if (ruleSettings.industrialRevolution && this.triggersIndustrialRevolution(play)) {
+      effects.push('産業革命');
+    }
+
+    // 死の宣告判定（4x4で指名者は以降パスすると敗北）
+    if (ruleSettings.deathSentence && this.triggersDeathSentence(play)) {
+      effects.push('死の宣告');
+    }
+
+    // 闇市判定（Ax3で指名者と任意2枚⇔最強2枚を交換）
+    if (ruleSettings.blackMarket && this.triggersBlackMarket(play)) {
+      effects.push('闇市');
     }
 
     return effects;
@@ -1161,5 +1197,54 @@ export class TriggerEffectAnalyzer {
     const ranks = play.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
     // J, Q, K がすべて含まれていること
     return ranks.includes('J') && ranks.includes('Q') && ranks.includes('K');
+  }
+
+  /**
+   * アーサー判定（Kx3でジョーカーが10〜Jの間の強さになる）
+   */
+  private triggersArthur(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === 'K');
+  }
+
+  /**
+   * 赤い5判定（♥5/♦5を1枚出すと指名者と手札をシャッフルして同数に再配布）
+   * 条件: SINGLEでハートまたはダイヤの5
+   */
+  private triggersRedFive(play: Play): boolean {
+    if (play.type !== PlayType.SINGLE) return false;
+    const card = play.cards[0];
+    return card.rank === '5' && (card.suit === Suit.HEART || card.suit === Suit.DIAMOND);
+  }
+
+  /**
+   * 名誉革命判定（4x4で革命せず、大富豪を大貧民に転落）
+   * 条件: QUADで全て4
+   */
+  private triggersGloriousRevolution(play: Play): boolean {
+    return play.type === PlayType.QUAD && play.cards.every(card => card.rank === '4');
+  }
+
+  /**
+   * 闇市判定（Ax3で指名者と任意2枚⇔最強2枚を交換）
+   * 条件: TRIPLEで全てA
+   */
+  private triggersBlackMarket(play: Play): boolean {
+    return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === 'A');
+  }
+
+  /**
+   * 産業革命判定（3x4で全員の手札を見て1人1枚ずつ回収）
+   * 条件: QUADで全て3
+   */
+  private triggersIndustrialRevolution(play: Play): boolean {
+    return play.type === PlayType.QUAD && play.cards.every(card => card.rank === '3');
+  }
+
+  /**
+   * 死の宣告判定（4x4で指名者は以降パスすると敗北）
+   * 条件: QUADで全て4
+   */
+  private triggersDeathSentence(play: Play): boolean {
+    return play.type === PlayType.QUAD && play.cards.every(card => card.rank === '4');
   }
 }
