@@ -19,6 +19,10 @@ export interface RuleSettings {
   greatRevolution: boolean;    // 大革命（2x4で即勝利）
   omen: boolean;               // オーメン（6x3で革命＋以後革命なし）
   jokerRevolution: boolean;    // ジョーカー革命（ジョーカー2枚同時で革命）
+  skipStairRevolution: boolean; // 飛び連番革命（等差数列の同スート4枚以上で革命）
+  religiousRevolution: boolean; // 宗教革命（Kx4でQ最強、A最弱＋偶奇縛り）
+  superRevolution: boolean;     // 超革命（5枚以上で革命、以降革命不可）
+  revolutionFlow: boolean;      // 革命流し（革命カードに8が含まれると8切り効果）
 
   // 特殊勝利条件
   forbiddenFinish: boolean;    // 禁止上がり（J/2/8/Jokerで上がれない）
@@ -30,6 +34,8 @@ export interface RuleSettings {
   spadeThreeReturn: boolean;   // スぺ3返し（スペードの3がJokerに勝つ）
   spadeTwoReturn: boolean;     // スペ2返し（革命中ジョーカーに対してスペード2で流せる）
   stairs: boolean;             // 階段（同じマークの連番）
+  skipStair: boolean;          // 飛び階段（同スートで公差がある3枚以上、例：4,6,8）
+  doubleStair: boolean;        // 二列階段/一盃口（同ランク2枚ずつで階段、例：3x2,4x2,5x2）
   redSevenPower: boolean;      // レッドセブン（通常時に♥7/♦7が2より強くジョーカーより弱くなる）
   blackSevenPower: boolean;    // ブラックセブン（革命中に♠7/♣7が3より強くジョーカーより弱くなる）
 
@@ -167,6 +173,16 @@ export interface RuleSettings {
   eightCounter: boolean;       // 8切り返し（8切り発生時に他プレイヤーが8を重ねて自分の番に）
   tenCounter: boolean;         // 10返し（8切り発生時、同スートの10を出すと8切り無効化）
   enhancedEightCut: boolean;   // 強化8切り（8x3で場のカードをゲームから完全除外）
+
+  // 特殊階段ルール
+  tunnel: boolean;             // トンネル（A→2→3の階段、最弱の階段として扱う）
+  spadeStair: boolean;         // スペ階（♠2→Joker→♠3の階段、最強で場が流れる）
+
+  // 追加ルール（ビルドエラー修正用）
+  guillotineClock: boolean;    // ギロチン時計（4を出すとカウントダウン開始）
+  supplyAid: boolean;          // 物資救援
+  scavenging: boolean;         // 拾い食い
+  cartel: boolean;             // カルテル（大貧民が3-4-5の階段で発動）
 }
 
 /**
@@ -187,6 +203,10 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   greatRevolution: true,
   omen: true,
   jokerRevolution: true,
+  skipStairRevolution: false,
+  religiousRevolution: false,
+  superRevolution: false,
+  revolutionFlow: false,
   forbiddenFinish: true,
   sandstorm: true,
   tripleThreeReturn: true,
@@ -194,6 +214,8 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   spadeThreeReturn: true,
   spadeTwoReturn: true,
   stairs: true,
+  skipStair: false,
+  doubleStair: false,
   redSevenPower: false,
   blackSevenPower: false,
   fourStop: true,
@@ -279,4 +301,10 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   eightCounter: false,
   tenCounter: false,
   enhancedEightCut: false,
+  tunnel: false,
+  spadeStair: false,
+  guillotineClock: false,
+  supplyAid: false,
+  scavenging: false,
+  cartel: false,
 };

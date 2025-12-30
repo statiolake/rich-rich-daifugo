@@ -41,6 +41,14 @@ export class PlayPhase implements GamePhase {
     gameState.currentPlayerIndex = Math.floor(Math.random() * gameState.players.length);
 
     console.log(`Play phase started. Starting player: ${gameState.players[gameState.currentPlayerIndex].name}`);
+
+    // ギロチン時計の設定（大貧民がいる場合）
+    if (gameState.ruleSettings.guillotineClock) {
+      const daihinmin = gameState.players.find(p => p.rank === PlayerRank.DAIHINMIN);
+      if (daihinmin && !daihinmin.isFinished) {
+        await this.handleGuillotineClock(gameState, daihinmin);
+      }
+    }
   }
 
   async update(gameState: GameState): Promise<GamePhaseType | null> {
@@ -54,6 +62,24 @@ export class PlayPhase implements GamePhase {
     const controller = this.playerControllers.get(currentPlayer.id.value);
     if (!controller) {
       throw new Error(`Player controller not found for ${currentPlayer.id.value}`);
+    }
+
+    // 物資救援チェック（大貧民のターンで、場にカードがあり、未使用の場合）
+    if (
+      gameState.ruleSettings.supplyAid &&
+      !gameState.supplyAidUsed &&
+      currentPlayer.rank === PlayerRank.DAIHINMIN &&
+      !gameState.field.isEmpty()
+    ) {
+      // 簡易実装: 場のカードが3枚以上なら自動発動（実際のUI実装では確認ダイアログを出す）
+      const fieldHistory = gameState.field.getHistory();
+      const fieldCardCount = fieldHistory.reduce((sum, h) => sum + h.play.cards.length, 0);
+      if (fieldCardCount >= 3) {
+        console.log(`${currentPlayer.name}が物資救援を発動！`);
+        await this.presentationRequester.requestCutIns([{ effect: '物資救援', variant: 'gold' }]);
+        await this.handleSupplyAid(gameState, currentPlayer);
+        return null;
+      }
     }
 
     // バリデーターを作成
@@ -116,6 +142,24 @@ export class PlayPhase implements GamePhase {
     gameState.passCount = 0;
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+
+    // 拾い食いチェック（大富豪がカードを出した後、大貧民が拾える）
+    if (gameState.ruleSettings.scavenging && !gameState.scavengingUsed && player.rank === PlayerRank.DAIFUGO) {
+      const daihinmin = gameState.players.find(p => p.rank === PlayerRank.DAIHINMIN && !p.isFinished);
+      if (daihinmin) {
+        // 簡易実装: 大貧民のコントローラーに拾うか確認（ここではCPUは常に拾う）
+        const daihinminController = this.playerControllers.get(daihinmin.id.value);
+        if (daihinminController) {
+          console.log(`${daihinmin.name}に拾い食いの選択権があります`);
+          // 自動で拾い食いを発動（実際のUI実装では確認ダイアログを出す）
+          await this.handleScavenging(gameState, daihinmin);
+          await this.presentationRequester.requestCutIns([{ effect: '拾い食い', variant: 'green' }]);
+          // 大富豪はパス扱いで次のプレイヤーへ
+          this.nextPlayer(gameState);
+          return;
+        }
+      }
+    }
 
     // ラッキーセブンのリセット
     if (gameState.luckySeven && !effects.includes('ラッキーセブン')) {
@@ -371,6 +415,11 @@ export class PlayPhase implements GamePhase {
       await this.handleYagiriNoWatashi(gameState, player);
     }
 
+    // カルテル（大貧民が3-4-5の階段を出すと大富豪以外は手札を見せ合える）
+    if (effects.includes('カルテル')) {
+      this.handleCartel(gameState, player);
+    }
+
     // 片縛りの発動判定と適用
     this.checkAndApplyPartialLock(gameState, play);
 
@@ -545,6 +594,20 @@ export class PlayPhase implements GamePhase {
       if (gameState.endCountdownValue <= 0) {
         console.log(`終焉のカウントダウン発動！${player.name} はカウント0でパスしたため敗北`);
         gameState.endCountdownValue = null; // カウントダウン解除
+        this.handlePlayerDefeat(gameState, player);
+        this.nextPlayer(gameState);
+        return;
+      }
+    }
+
+    // ギロチン時計発動中はパスするとカウントが減少
+    if (gameState.guillotineClockCount !== null) {
+      gameState.guillotineClockCount--;
+      console.log(`ギロチン時計：残り${gameState.guillotineClockCount}回パス`);
+
+      if (gameState.guillotineClockCount <= 0) {
+        console.log(`ギロチン時計発動！${player.name} はカウント0でパスしたため敗北`);
+        gameState.guillotineClockCount = null;
         this.handlePlayerDefeat(gameState, player);
         this.nextPlayer(gameState);
         return;
@@ -860,6 +923,16 @@ export class PlayPhase implements GamePhase {
       '強化8切り': { effect: '強化8切り', variant: 'red' },
       '矢切の渡し': { effect: '矢切の渡し', variant: 'blue' },
       '8切り返し': { effect: '8切り返し', variant: 'green' },
+      '物資救援': { effect: '物資救援', variant: 'gold' },
+      '拾い食い': { effect: '拾い食い', variant: 'green' },
+      'カルテル': { effect: 'カルテル', variant: 'blue' },
+      'ギロチン時計': { effect: 'ギロチン時計', variant: 'red' },
+      '飛び連番革命': { effect: '飛び連番革命', variant: 'red' },
+      '飛び連番革命終了': { effect: '飛び連番革命終了', variant: 'blue' },
+      '宗教革命': { effect: '宗教革命', variant: 'gold' },
+      '超革命': { effect: '超革命', variant: 'gold' },
+      '超革命終了': { effect: '超革命終了', variant: 'blue' },
+      '革命流し': { effect: '革命流し', variant: 'green' },
     };
 
     return cutInMap[effect] || null;
@@ -2880,5 +2953,93 @@ export class PlayPhase implements GamePhase {
     if (player.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, player);
     }
+  }
+
+  /**
+   * 物資救援処理
+   * 大貧民のターン1回限りで、場のカード全てを手札に加え親になる
+   */
+  private async handleSupplyAid(gameState: GameState, player: Player): Promise<void> {
+    // 場のカードを全て手札に加える
+    const history = gameState.field.getHistory();
+    for (const playHistory of history) {
+      player.hand.add(playHistory.play.cards);
+    }
+    console.log(`${player.name} が物資救援で場のカードを全て回収しました！`);
+
+    // 場をクリア（捨て札には行かない）
+    gameState.field.clear();
+    gameState.passCount = 0;
+    gameState.isEightCutPending = false;
+    gameState.suitLock = null;
+    gameState.numberLock = false;
+    gameState.colorLock = null;
+    gameState.isTwoBack = false;
+    gameState.isDamianActive = false;
+    gameState.parityRestriction = null;
+    gameState.isTenFreeActive = false;
+    gameState.isDoubleDigitSealActive = false;
+    gameState.hotMilkRestriction = null;
+    gameState.isArthurActive = false;
+    gameState.partialLockSuits = null;
+
+    // 親になる（currentPlayerIndexはそのまま）
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    player.hand.sort(shouldReverse);
+
+    // 使用済みフラグを設定
+    gameState.supplyAidUsed = true;
+  }
+
+  /**
+   * 拾い食い処理
+   * 大富豪がカード出した時1回限りで、大富豪の捨てカードを拾える（大富豪はパス扱い）
+   */
+  private async handleScavenging(gameState: GameState, daihinminPlayer: Player): Promise<void> {
+    // 直前のプレイ（大富豪が出したカード）を取得
+    const lastPlay = gameState.field.getLastPlay();
+    if (!lastPlay) return;
+
+    // 直前のカードを手札に加える
+    daihinminPlayer.hand.add(lastPlay.play.cards);
+    console.log(`${daihinminPlayer.name} が拾い食いで${lastPlay.play.cards.map(c => `${c.rank}${c.suit}`).join(', ')}を拾いました！`);
+
+    // 場から直前のプレイを削除
+    gameState.field.removeLastPlay();
+
+    const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+    daihinminPlayer.hand.sort(shouldReverse);
+
+    // 使用済みフラグを設定
+    gameState.scavengingUsed = true;
+  }
+
+  /**
+   * カルテル処理
+   * 大貧民が3-4-5の階段を出すと大富豪以外は手札を見せ合える
+   */
+  private handleCartel(gameState: GameState, _player: Player): void {
+    console.log('カルテル発動！大富豪以外のプレイヤーの手札を表示します：');
+    for (const p of gameState.players) {
+      if (p.rank !== PlayerRank.DAIFUGO && !p.isFinished) {
+        const cards = p.hand.getCards();
+        console.log(`  ${p.name}: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+      }
+    }
+  }
+
+  /**
+   * ギロチン時計設定処理
+   * 大貧民が開始時に設定、n回目のパスで敗北確定（10<=n<=50）
+   */
+  private async handleGuillotineClock(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) return;
+
+    // プレイヤーに回数を選択させる（簡易実装: 10〜50の範囲でランダム）
+    // 実際のUI実装では、プレイヤーに数値入力を求める
+    const count = Math.floor(Math.random() * 41) + 10; // 10〜50
+    gameState.guillotineClockCount = count;
+    console.log(`${player.name} がギロチン時計を設定しました：${count}回パスで敗北`);
   }
 }

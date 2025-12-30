@@ -19,6 +19,9 @@ export interface GameState {
   isElevenBack: boolean;
   elevenBackDuration: number; // 強化Jバック時の残り場流れ回数（通常0、強化Jバック時は2）
   isOmenActive: boolean; // オーメン発動後、以降革命が起きない
+  isSuperRevolutionActive: boolean; // 超革命発動後、以降革命が固定される
+  isReligiousRevolutionActive: boolean; // 宗教革命発動後、Q最強、A最弱となる
+  oddEvenRestriction: 'odd' | 'even' | null; // 偶奇縛り（宗教革命で発動）
   isEightCutPending: boolean; // 8切りが発動予定（4止めで止められる可能性がある）
   suitLock: string | null; // マークしばり（例: 'SPADE', 'HEART', 'DIAMOND', 'CLUB'）
   numberLock: boolean; // 数字しばり（階段の縛り）
@@ -37,6 +40,9 @@ export interface GameState {
   teleforceCountdown: number | null; // テレフォースカウントダウン（7から0へ、ターン終了時に減少）
   partialLockSuits: string[] | null; // 片縛り（複数枚で一部スートが一致すると、そのスートを含む組み合わせのみ出せる）
   excludedCards: Card[]; // 強化8切りで除外されたカード（捨て札にも行かない）
+  supplyAidUsed: boolean; // 物資救援使用済み
+  scavengingUsed: boolean; // 拾い食い使用済み
+  guillotineClockCount: number | null; // ギロチン時計カウント（n回目のパスで敗北）
   passCount: number;
   round: number;
   phase: GamePhaseType;
@@ -55,6 +61,9 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     isElevenBack: false,
     elevenBackDuration: 0,
     isOmenActive: false,
+    isSuperRevolutionActive: false,
+    isReligiousRevolutionActive: false,
+    oddEvenRestriction: null,
     isEightCutPending: false,
     suitLock: null,
     numberLock: false,
@@ -73,6 +82,9 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     teleforceCountdown: null,
     partialLockSuits: null,
     excludedCards: [],
+    supplyAidUsed: false,
+    scavengingUsed: false,
+    guillotineClockCount: null,
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,

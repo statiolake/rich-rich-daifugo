@@ -1246,5 +1246,139 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'red',
       duration: 300
     }
+  },
+
+  '物資救援': {
+    apply: (gameState) => {
+      gameState.supplyAidUsed = true;
+      console.log('物資救援が発動しました！場のカードを全て手札に加え、親になります');
+    },
+    cutIn: {
+      getText: () => '物資救援！',
+      variant: 'gold',
+      duration: 400
+    }
+  },
+
+  '拾い食い': {
+    apply: (gameState) => {
+      gameState.scavengingUsed = true;
+      console.log('拾い食いが発動しました！大富豪の捨てカードを拾います');
+    },
+    cutIn: {
+      getText: () => '拾い食い！',
+      variant: 'green',
+      duration: 400
+    }
+  },
+
+  'カルテル': {
+    apply: () => {
+      console.log('カルテルが発動しました！大富豪以外は手札を見せ合えます');
+    },
+    cutIn: {
+      getText: () => 'カルテル！',
+      variant: 'blue',
+      duration: 400
+    }
+  },
+
+  'ギロチン時計': {
+    apply: () => {
+      console.log('ギロチン時計が設定されました！');
+    },
+    cutIn: {
+      getText: (_, context) => context?.guillotineCount ? `ギロチン時計！${context.guillotineCount}回パスで敗北` : 'ギロチン時計！',
+      variant: 'red',
+      duration: 500
+    }
+  },
+
+  '飛び連番革命': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`飛び連番革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '飛び連番革命！' : '飛び連番革命終了',
+      variant: 'red',
+      duration: 300
+    }
+  },
+
+  '飛び連番革命終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      console.log(`飛び連番革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '飛び連番革命！' : '飛び連番革命終了',
+      variant: 'red',
+      duration: 300
+    }
+  },
+
+  '宗教革命': {
+    apply: (gameState) => {
+      gameState.isReligiousRevolutionActive = true;
+      // 偶奇縛りは最初に出されたKのランクに基づく（Kは13で奇数）
+      gameState.oddEvenRestriction = 'odd';
+      console.log('宗教革命が発動しました！Q最強、A最弱、偶奇縛り発生');
+    },
+    cutIn: {
+      getText: () => '宗教革命！Q最強、奇数のみ',
+      variant: 'gold',
+      duration: 400
+    }
+  },
+
+  '超革命': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.isSuperRevolutionActive = true;
+      console.log(`超革命が発動しました！以降革命不可 isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '超革命！以降革命不可' : '超革命終了！以降革命不可',
+      variant: 'gold',
+      duration: 400
+    }
+  },
+
+  '超革命終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.isSuperRevolutionActive = true;
+      console.log(`超革命が発動しました！以降革命不可 isRevolution: ${gameState.isRevolution}`);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '超革命！以降革命不可' : '超革命終了！以降革命不可',
+      variant: 'gold',
+      duration: 400
+    }
+  },
+
+  '革命流し': {
+    apply: (gameState) => {
+      gameState.isEightCutPending = true;
+      console.log('革命流しが発動しました！8切り効果で場が流れます');
+    },
+    cutIn: {
+      getText: () => '革命流し！',
+      variant: 'green',
+      duration: 300
+    }
+  },
+
+  'スペ階': {
+    apply: (gameState) => {
+      gameState.isEightCutPending = true;
+      console.log('スペ階が発動しました！最強の階段で場が流れます');
+    },
+    cutIn: {
+      getText: () => 'スペ階！',
+      variant: 'gold',
+      duration: 300
+    }
   }
 };

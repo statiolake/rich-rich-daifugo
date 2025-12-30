@@ -64,7 +64,7 @@ export class PlayValidator {
 
     // 5. 数字しばりチェック
     if (context.ruleSettings.numberLock && context.numberLock) {
-      const numberLockResult = this.validateNumberLock(cards);
+      const numberLockResult = this.validateNumberLock(cards, context);
       if (!numberLockResult.valid) return numberLockResult;
     }
 
@@ -135,7 +135,15 @@ export class PlayValidator {
       return { valid: true, reason: '女装' };
     }
 
-    const play = PlayAnalyzer.analyze(cards);
+    const play = PlayAnalyzer.analyze(
+      cards,
+      context.ruleSettings.skipStair,
+      context.ruleSettings.doubleStair,
+      {
+        enableTunnel: context.ruleSettings.tunnel,
+        enableSpadeStair: context.ruleSettings.spadeStair,
+      }
+    );
 
     if (!play) {
       return {
@@ -149,6 +157,22 @@ export class PlayValidator {
       return {
         valid: false,
         reason: '階段は現在使用できません',
+      };
+    }
+
+    // 飛び階段ルールがOFFの場合、飛び階段は出せない
+    if (!context.ruleSettings.skipStair && play.type === PlayType.SKIP_STAIR) {
+      return {
+        valid: false,
+        reason: '飛び階段は現在使用できません',
+      };
+    }
+
+    // 二列階段ルールがOFFの場合、二列階段は出せない
+    if (!context.ruleSettings.doubleStair && play.type === PlayType.DOUBLE_STAIR) {
+      return {
+        valid: false,
+        reason: '二列階段は現在使用できません',
       };
     }
 
@@ -206,10 +230,20 @@ export class PlayValidator {
 
   /**
    * 数字しばりチェック
+   * 階段系のプレイタイプ（STAIR, SKIP_STAIR, DOUBLE_STAIR, TUNNEL, SPADE_STAIR）を許可
    */
-  private validateNumberLock(cards: Card[]): ValidationResult {
-    const play = PlayAnalyzer.analyze(cards);
-    if (!play || play.type !== PlayType.STAIR) {
+  private validateNumberLock(cards: Card[], context: RuleContext): ValidationResult {
+    const play = PlayAnalyzer.analyze(
+      cards,
+      context.ruleSettings.skipStair,
+      context.ruleSettings.doubleStair,
+      {
+        enableTunnel: context.ruleSettings.tunnel,
+        enableSpadeStair: context.ruleSettings.spadeStair,
+      }
+    );
+    const stairTypes = [PlayType.STAIR, PlayType.SKIP_STAIR, PlayType.DOUBLE_STAIR, PlayType.TUNNEL, PlayType.SPADE_STAIR];
+    if (!play || !stairTypes.includes(play.type)) {
       return {
         valid: false,
         reason: '数字しばりが発動中です（階段のみ）',
@@ -333,8 +367,16 @@ export class PlayValidator {
       return this.validateCrossDressingStrength(cards, context);
     }
 
-    const currentPlay = PlayAnalyzer.analyze(cards)!;
-    const fieldPlay = context.field.getCurrentPlay()!;
+    const currentPlay = PlayAnalyzer.analyze(
+      cards,
+      context.ruleSettings.skipStair,
+      context.ruleSettings.doubleStair,
+      {
+        enableTunnel: context.ruleSettings.tunnel,
+        enableSpadeStair: context.ruleSettings.spadeStair,
+      }
+    )!;
+    const fieldPlay = context.field.getCurrentPlay()!
 
     // 砂嵐チェック: 3のスリーカードは何にでも勝つ（ルールがONの場合のみ）
     if (context.ruleSettings.sandstorm) {
@@ -362,6 +404,58 @@ export class PlayValidator {
     // スぺ3返しチェック: スペードの3がJokerに勝つ（ルールがONの場合のみ）
     if (context.ruleSettings.spadeThreeReturn && this.isSpadeThree(currentPlay) && this.isJoker(fieldPlay)) {
       return { valid: true, reason: 'スぺ3返し' };
+    }
+
+    // スペ階チェック: ♠2→Joker→♠3の最強階段（どの階段にも勝つ）
+    if (context.ruleSettings.spadeStair && currentPlay.type === PlayType.SPADE_STAIR) {
+      // 場が3枚の階段系なら出せる
+      const stairTypes = [PlayType.STAIR, PlayType.SKIP_STAIR, PlayType.TUNNEL, PlayType.SPADE_STAIR];
+      if (stairTypes.includes(fieldPlay.type) && fieldPlay.cards.length === 3) {
+        return { valid: true, reason: 'スペ階' };
+      }
+      return {
+        valid: false,
+        reason: '場のカードと同じタイプの組み合わせを出してください',
+      };
+    }
+
+    // 場にスペ階がある場合、スペ階以外は出せない
+    if (fieldPlay.type === PlayType.SPADE_STAIR) {
+      if (currentPlay.type !== PlayType.SPADE_STAIR) {
+        return {
+          valid: false,
+          reason: 'スペ階には対抗できません',
+        };
+      }
+    }
+
+    // トンネルチェック: A→2→3の最弱階段（どの階段にも負ける）
+    if (context.ruleSettings.tunnel && currentPlay.type === PlayType.TUNNEL) {
+      // 場が3枚の階段系なら負ける（トンネルは最弱なので他の階段には出せない）
+      const stairTypes = [PlayType.STAIR, PlayType.SKIP_STAIR, PlayType.SPADE_STAIR];
+      if (stairTypes.includes(fieldPlay.type) && fieldPlay.cards.length === 3) {
+        return {
+          valid: false,
+          reason: 'トンネルは最弱の階段です',
+        };
+      }
+      // 場がトンネルの場合は、他のトンネルには勝てない
+      if (fieldPlay.type === PlayType.TUNNEL) {
+        return {
+          valid: false,
+          reason: 'トンネルは最弱の階段です',
+        };
+      }
+      // それ以外の場合（場が空や階段以外の場合）は出せる
+      return { valid: true, reason: 'トンネル' };
+    }
+
+    // 場がトンネルの場合、どの3枚階段でも勝てる
+    if (fieldPlay.type === PlayType.TUNNEL) {
+      const stairTypes = [PlayType.STAIR, PlayType.SKIP_STAIR, PlayType.SPADE_STAIR];
+      if (stairTypes.includes(currentPlay.type) && currentPlay.cards.length === 3) {
+        return { valid: true, reason: '' };
+      }
     }
 
     // 強さ反転ロジック: 革命、11バック、2バックが奇数個trueなら反転
@@ -402,6 +496,26 @@ export class PlayValidator {
     // 階段で出せる場合は理由を明示（ローカルルールとして扱う）
     if (currentPlay.type === PlayType.STAIR) {
       return { valid: true, reason: '階段' };
+    }
+
+    // 飛び階段で出せる場合は理由を明示
+    if (currentPlay.type === PlayType.SKIP_STAIR) {
+      return { valid: true, reason: `飛び階段（公差${currentPlay.skipStairDiff}）` };
+    }
+
+    // 二列階段で出せる場合は理由を明示
+    if (currentPlay.type === PlayType.DOUBLE_STAIR) {
+      return { valid: true, reason: '二列階段' };
+    }
+
+    // トンネルで出せる場合は理由を明示
+    if (currentPlay.type === PlayType.TUNNEL) {
+      return { valid: true, reason: 'トンネル' };
+    }
+
+    // スペ階で出せる場合は理由を明示
+    if (currentPlay.type === PlayType.SPADE_STAIR) {
+      return { valid: true, reason: 'スペ階' };
     }
 
     // エンペラーで出せる場合は理由を明示（ローカルルールとして扱う）

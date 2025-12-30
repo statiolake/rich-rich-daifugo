@@ -46,6 +46,12 @@ describe('TriggerEffectAnalyzer', () => {
       previousDaihinminId: null,
       partialLockSuits: null,
       excludedCards: [],
+      supplyAidUsed: false,
+      scavengingUsed: false,
+      guillotineClockCount: null,
+      isSuperRevolutionActive: false,
+      isReligiousRevolutionActive: false,
+      oddEvenRestriction: null,
       ...overrides,
     };
   }

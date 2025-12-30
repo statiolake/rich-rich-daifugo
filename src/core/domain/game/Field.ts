@@ -47,4 +47,23 @@ export class Field {
   getLastPlay(): PlayHistory | null {
     return this.history.length > 0 ? this.history[this.history.length - 1] : null;
   }
+
+  /**
+   * 直前のプレイを履歴から削除
+   * 拾い食いルールなどで使用
+   */
+  removeLastPlay(): void {
+    if (this.history.length > 0) {
+      this.history.pop();
+      // 履歴が残っている場合、直前のプレイを現在のプレイに設定
+      if (this.history.length > 0) {
+        const lastPlay = this.history[this.history.length - 1];
+        this.currentPlay = lastPlay.play;
+        this.currentPlayerId = lastPlay.playerId;
+      } else {
+        this.currentPlay = null;
+        this.currentPlayerId = null;
+      }
+    }
+  }
 }

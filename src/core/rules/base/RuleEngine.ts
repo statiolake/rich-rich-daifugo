@@ -49,6 +49,8 @@ export class RuleEngine {
       isTwoBack: gameState.isTwoBack,
       isTenFreeActive: gameState.isTenFreeActive,
       isArthurActive: gameState.isArthurActive,
+      isReligiousRevolutionActive: gameState.isReligiousRevolutionActive,
+      oddEvenRestriction: gameState.oddEvenRestriction,
       field: field,
       suitLock: gameState.suitLock,
       numberLock: gameState.numberLock,

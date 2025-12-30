@@ -12,6 +12,8 @@ export interface RuleContext {
   isTwoBack: boolean; // 2バック状態（2を出すと場が流れるまで強さ逆転）
   isTenFreeActive: boolean; // 10フリ状態（10を出した後、次のプレイヤーはどんなカードでも出せる）
   isArthurActive: boolean; // アーサー状態（Kx3でジョーカーの強さが10〜Jの間になる）
+  isReligiousRevolutionActive: boolean; // 宗教革命状態（Q最強、A最弱）
+  oddEvenRestriction: 'odd' | 'even' | null; // 偶奇縛り（宗教革命で発動）
 
   // 場の状態
   field: Field;

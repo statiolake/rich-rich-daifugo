@@ -107,7 +107,18 @@ export type TriggerEffect =
   | '矢切の渡し'
   | '8切り返し'
   | '10返し'
-  | '強化8切り';
+  | '強化8切り'
+  | '飛び連番革命'
+  | '飛び連番革命終了'
+  | '宗教革命'
+  | '超革命'
+  | '超革命終了'
+  | '革命流し'
+  | '物資救援'
+  | '拾い食い'
+  | 'カルテル'
+  | 'ギロチン時計'
+  | 'スペ階';
 
 /**
  * トリガーエフェクトアナライザー
@@ -142,12 +153,19 @@ export class TriggerEffectAnalyzer {
     }
 
     // 革命判定 - 大革命が優先、通常革命・階段革命はその次
-    if (!gameState.isOmenActive) {
+    // 超革命が発動中は革命が固定される
+    if (!gameState.isOmenActive && !gameState.isSuperRevolutionActive) {
       const isGreatRevolution = ruleSettings.greatRevolution && this.triggersGreatRevolution(play);
 
       if (isGreatRevolution) {
         effects.push('大革命＋即勝利');
       } else {
+        // 超革命（5枚以上で革命、以降革命不可）
+        const isSuperRevolution = ruleSettings.superRevolution && this.triggersSuperRevolution(play);
+        if (isSuperRevolution) {
+          effects.push(gameState.isRevolution ? '超革命終了' : '超革命');
+        }
+
         // 4枚同数の革命
         const isQuadRevolution = this.triggersQuadRevolution(play);
         if (isQuadRevolution) {
@@ -158,6 +176,12 @@ export class TriggerEffectAnalyzer {
         const isStairRevolution = ruleSettings.stairRevolution && this.triggersStairRevolution(play);
         if (isStairRevolution) {
           effects.push(gameState.isRevolution ? '階段革命終了' : '階段革命');
+        }
+
+        // 飛び連番革命（等差数列の同スート4枚以上で革命）
+        const isSkipStairRevolution = ruleSettings.skipStairRevolution && this.triggersSkipStairRevolution(play);
+        if (isSkipStairRevolution) {
+          effects.push(gameState.isRevolution ? '飛び連番革命終了' : '飛び連番革命');
         }
 
         // ナナサン革命（7x3で革命）
@@ -171,7 +195,19 @@ export class TriggerEffectAnalyzer {
         if (isJokerRevolution) {
           effects.push(gameState.isRevolution ? 'ジョーカー革命終了' : 'ジョーカー革命');
         }
+
+        // 宗教革命（Kx4でQ最強、A最弱＋偶奇縛り）
+        const isReligiousRevolution = ruleSettings.religiousRevolution && this.triggersReligiousRevolution(play);
+        if (isReligiousRevolution) {
+          effects.push('宗教革命');
+        }
       }
+    }
+
+    // 革命流し（革命カードに8が含まれると8切り効果）
+    // この判定は超革命・オーメン発動中でも行う（8切り効果なので）
+    if (ruleSettings.revolutionFlow && this.triggersRevolutionFlow(play, effects)) {
+      effects.push('革命流し');
     }
 
     // イレブンバック判定（Jが含まれている）
@@ -610,6 +646,16 @@ export class TriggerEffectAnalyzer {
     // 強化8切り判定（8x3で場のカードをゲームから完全除外）
     if (ruleSettings.enhancedEightCut && this.triggersEnhancedEightCut(play)) {
       effects.push('強化8切り');
+    }
+
+    // カルテル判定（大貧民が3-4-5の階段を出すと発動）
+    if (ruleSettings.cartel && this.triggersCartel(play, gameState)) {
+      effects.push('カルテル');
+    }
+
+    // スペ階判定（♠2→Joker→♠3の最強階段で場が流れる）
+    if (ruleSettings.spadeStair && this.triggersSpadeStair(play)) {
+      effects.push('スペ階');
     }
 
     return effects;
@@ -1458,5 +1504,84 @@ export class TriggerEffectAnalyzer {
    */
   private triggersEnhancedEightCut(play: Play): boolean {
     return play.type === PlayType.TRIPLE && play.cards.every(card => card.rank === '8');
+  }
+
+  /**
+   * カルテル判定（大貧民が3-4-5の階段を出すと発動）
+   * 条件: 大貧民がSTAIRで3,4,5を含む階段を出す
+   */
+  private triggersCartel(play: Play, gameState: GameState): boolean {
+    // 階段でなければ発動しない
+    if (play.type !== PlayType.STAIR) return false;
+
+    // 現在のプレイヤーが大貧民かどうかをチェック
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (currentPlayer.rank !== PlayerRank.DAIHINMIN) return false;
+
+    // 3,4,5がすべて含まれていること
+    const ranks = play.cards.map(c => c.rank);
+    return ranks.includes('3') && ranks.includes('4') && ranks.includes('5');
+  }
+
+  // ========== 新革命バリエーションのトリガー判定メソッド ==========
+
+  /**
+   * 飛び連番革命判定（等差数列の同スート4枚以上で革命）
+   * 条件: SKIP_STAIR で 4枚以上
+   * 例: 3,5,7,9（公差2）または 4,7,10,K（公差3）など
+   */
+  private triggersSkipStairRevolution(play: Play): boolean {
+    // SKIP_STAIR タイプで 4枚以上
+    return play.type === PlayType.SKIP_STAIR && play.cards.length >= 4;
+  }
+
+  /**
+   * 宗教革命判定（Kx4でQ最強、A最弱＋偶奇縛り）
+   * 条件: QUADで全てK
+   */
+  private triggersReligiousRevolution(play: Play): boolean {
+    return play.type === PlayType.QUAD && play.cards.every(card => card.rank === 'K');
+  }
+
+  /**
+   * 超革命判定（5枚以上で革命、以降革命不可）
+   * 条件: 5枚以上の同じランク（5枚目はジョーカーを含む）または5枚以上の階段
+   */
+  private triggersSuperRevolution(play: Play): boolean {
+    return play.cards.length >= 5;
+  }
+
+  /**
+   * 革命流し判定（革命カードに8が含まれると8切り効果）
+   * 条件: 革命が発動し、かつカードに8が含まれている
+   */
+  private triggersRevolutionFlow(play: Play, effects: TriggerEffect[]): boolean {
+    // 革命系エフェクトが含まれているかチェック
+    const revolutionEffects: TriggerEffect[] = [
+      '革命', '革命終了',
+      '階段革命', '階段革命終了',
+      '飛び連番革命', '飛び連番革命終了',
+      'ナナサン革命', 'ナナサン革命終了',
+      'ジョーカー革命', 'ジョーカー革命終了',
+      'エンペラー', 'エンペラー終了',
+      'クーデター', 'クーデター終了',
+      'オーメン',
+      '大革命＋即勝利',
+      '超革命', '超革命終了',
+      '十字軍'
+    ];
+
+    const hasRevolutionEffect = effects.some(effect => revolutionEffects.includes(effect));
+
+    // 革命が発動し、かつカードに8が含まれている
+    return hasRevolutionEffect && play.cards.some(card => card.rank === '8');
+  }
+
+  /**
+   * スペ階判定（♠2→Joker→♠3の階段で場が流れる）
+   * 条件: SPADE_STAIRタイプのプレイ
+   */
+  private triggersSpadeStair(play: Play): boolean {
+    return play.type === PlayType.SPADE_STAIR;
   }
 }
