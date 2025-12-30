@@ -75,6 +75,18 @@ export class PlayPhase implements GamePhase {
       await this.handlePlay(gameState, currentPlayer, selectedCards);
     }
 
+    // テレフォースカウントダウン処理
+    if (gameState.teleforceCountdown !== null) {
+      gameState.teleforceCountdown--;
+      console.log(`テレフォース：残り${gameState.teleforceCountdown}ターン`);
+
+      if (gameState.teleforceCountdown <= 0) {
+        console.log('テレフォース発動！全員敗北、残り手札で順位決定');
+        this.handleTeleforceGameEnd(gameState);
+        return null;
+      }
+    }
+
     return null;
   }
 
@@ -295,6 +307,26 @@ export class PlayPhase implements GamePhase {
       await this.handleBlackMarket(gameState, player);
     }
 
+    // 9賭け（9を出すと指名者がランダムで自分の手札を1枚捨てる）
+    if (effects.includes('9賭け')) {
+      await this.handleNineGamble(gameState, player);
+    }
+
+    // 9シャッフル（9x2で対戦相手の席順を自由に変更）
+    if (effects.includes('9シャッフル')) {
+      await this.handleNineShuffle(gameState, player);
+    }
+
+    // 終焉のカウントダウン（大貧民が4x1を出すとカウントダウン開始）
+    if (effects.includes('終焉のカウントダウン')) {
+      await this.handleEndCountdown(gameState, player);
+    }
+
+    // テレフォース（4x1を出すと7ターン後に全員敗北）
+    if (effects.includes('テレフォース')) {
+      await this.handleTeleforce(gameState);
+    }
+
     // 手札が空になったら上がり
     if (player.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, player);
@@ -456,6 +488,20 @@ export class PlayPhase implements GamePhase {
       this.handlePlayerDefeat(gameState, player);
       this.nextPlayer(gameState);
       return;
+    }
+
+    // 終焉のカウントダウン発動中はパスするとカウントが減少
+    if (gameState.endCountdownValue !== null) {
+      gameState.endCountdownValue--;
+      console.log(`終焉のカウントダウン：残り${gameState.endCountdownValue}`);
+
+      if (gameState.endCountdownValue <= 0) {
+        console.log(`終焉のカウントダウン発動！${player.name} はカウント0でパスしたため敗北`);
+        gameState.endCountdownValue = null; // カウントダウン解除
+        this.handlePlayerDefeat(gameState, player);
+        this.nextPlayer(gameState);
+        return;
+      }
     }
 
     gameState.passCount++;
@@ -748,6 +794,12 @@ export class PlayPhase implements GamePhase {
       '産業革命': { effect: '産業革命', variant: 'gold' },
       '死の宣告': { effect: '死の宣告', variant: 'red' },
       '闇市': { effect: '闇市', variant: 'gold' },
+      '9賭け': { effect: '9賭け', variant: 'yellow' },
+      '9シャッフル': { effect: '9シャッフル', variant: 'blue' },
+      '6もらい': { effect: '6もらい', variant: 'green' },
+      '9もらい': { effect: '9もらい', variant: 'green' },
+      '終焉のカウントダウン': { effect: '終焉のカウントダウン', variant: 'red' },
+      'テレフォース': { effect: 'テレフォース', variant: 'red' },
     };
 
     return cutInMap[effect] || null;
@@ -2295,6 +2347,280 @@ export class PlayPhase implements GamePhase {
     // 相手の手札が空になったら上がり
     if (targetPlayer.hand.isEmpty()) {
       this.handlePlayerFinish(gameState, targetPlayer);
+    }
+  }
+
+  /**
+   * 9賭け処理（非同期）
+   * 9を出すと指名者がランダムで自分の手札を1枚捨てる
+   */
+  private async handleNineGamble(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('9賭け：コントローラーがないためスキップ');
+      return;
+    }
+
+    // 自分以外のアクティブプレイヤーを取得
+    const targetPlayers = gameState.players.filter(
+      p => p.id.value !== player.id.value && !p.isFinished && p.hand.size() > 0
+    );
+
+    if (targetPlayers.length === 0) {
+      console.log('9賭け：対象プレイヤーがいません');
+      return;
+    }
+
+    // プレイヤー選択
+    const targetPlayer = await controller.choosePlayer(
+      targetPlayers,
+      '9賭け：手札を1枚捨てさせるプレイヤーを選んでください'
+    );
+
+    if (!targetPlayer || targetPlayer.isFinished) {
+      console.log('9賭け：対象プレイヤーが見つかりません');
+      return;
+    }
+
+    // 対象プレイヤーの手札からランダムで1枚選択
+    const targetHand = targetPlayer.hand.getCards();
+    if (targetHand.length === 0) {
+      console.log('9賭け：対象プレイヤーの手札がありません');
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * targetHand.length);
+    const cardToDiscard = targetHand[randomIndex];
+
+    // カードを捨てる
+    targetPlayer.hand.remove([cardToDiscard]);
+    gameState.discardPile.push(cardToDiscard);
+
+    console.log(`9賭け：${targetPlayer.name} が ${cardToDiscard.rank}${cardToDiscard.suit} を捨てました`);
+
+    // 手札が空になったら上がり
+    if (targetPlayer.hand.isEmpty()) {
+      this.handlePlayerFinish(gameState, targetPlayer);
+    }
+  }
+
+  /**
+   * 9シャッフル処理（非同期）
+   * 9x2で対戦相手の席順を自由に変更
+   */
+  private async handleNineShuffle(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('9シャッフル：コントローラーがないためスキップ');
+      return;
+    }
+
+    // 自分以外のアクティブプレイヤーを取得
+    const otherPlayers = gameState.players.filter(
+      p => p.id.value !== player.id.value && !p.isFinished
+    );
+
+    if (otherPlayers.length < 2) {
+      console.log('9シャッフル：対象プレイヤーが2人未満のためスキップ');
+      return;
+    }
+
+    // 現在のプレイヤーの位置を記録
+    const currentPlayerIndex = gameState.players.findIndex(p => p.id.value === player.id.value);
+
+    // プレイヤーに新しい席順を選択させる
+    const newOrder = await controller.choosePlayerOrder(
+      otherPlayers,
+      '9シャッフル：対戦相手の新しい席順を選んでください'
+    );
+
+    if (!newOrder || newOrder.length !== otherPlayers.length) {
+      console.log('9シャッフル：席順の選択がキャンセルされました');
+      return;
+    }
+
+    // 新しいプレイヤー配列を構築
+    // 現在のプレイヤーは自分の位置を維持し、他のプレイヤーは新しい順序で配置
+    const newPlayers: Player[] = [];
+    let newOrderIndex = 0;
+
+    for (let i = 0; i < gameState.players.length; i++) {
+      if (i === currentPlayerIndex) {
+        newPlayers.push(player);
+      } else {
+        // 新しい順序から次のプレイヤーを取得
+        if (newOrderIndex < newOrder.length) {
+          newPlayers.push(newOrder[newOrderIndex]);
+          newOrderIndex++;
+        }
+      }
+    }
+
+    // プレイヤー配列を更新
+    gameState.players = newPlayers;
+
+    // currentPlayerIndexを再計算
+    gameState.currentPlayerIndex = gameState.players.findIndex(p => p.id.value === player.id.value);
+
+    console.log(`9シャッフル：席順が変更されました -> ${newPlayers.map(p => p.name).join(' -> ')}`);
+  }
+
+  /**
+   * 6もらい処理（非同期）
+   * 6を出すと指名者にカード宣言、持っていれば貰える
+   */
+  private async handleSixClaim(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
+
+    // 自分以外のアクティブなプレイヤーを取得
+    const otherPlayers = gameState.players.filter(p => !p.isFinished && p.id.value !== player.id.value);
+
+    if (otherPlayers.length === 0) {
+      console.log('6もらい：対象プレイヤーがいません');
+      return;
+    }
+
+    // プレイヤーを選択
+    const targetPlayer = await controller.choosePlayer(otherPlayers, '6もらい：カードを要求するプレイヤーを選んでください');
+
+    if (!targetPlayer) {
+      console.log('6もらい：プレイヤー選択がキャンセルされました');
+      return;
+    }
+
+    // カードのランクを選択
+    const rank = await controller.chooseCardRank('6もらい：欲しいカードのランクを選んでください');
+
+    console.log(`6もらい：${player.name} が ${targetPlayer.name} に ${rank} を要求`);
+
+    // 対象プレイヤーが指定ランクのカードを持っているかチェック
+    const targetCards = targetPlayer.hand.getCards().filter(c => c.rank === rank);
+
+    if (targetCards.length > 0) {
+      // 1枚貰う
+      const cardToTake = targetCards[0];
+      targetPlayer.hand.remove([cardToTake]);
+      player.hand.add([cardToTake]);
+
+      console.log(`6もらい：${player.name} が ${targetPlayer.name} から ${cardToTake.rank}${cardToTake.suit} を貰いました`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      player.hand.sort(shouldReverse);
+      targetPlayer.hand.sort(shouldReverse);
+
+      // 対象プレイヤーの手札が空になったら上がり
+      if (targetPlayer.hand.isEmpty()) {
+        this.handlePlayerFinish(gameState, targetPlayer);
+      }
+    } else {
+      console.log(`6もらい：${targetPlayer.name} は ${rank} を持っていません`);
+    }
+  }
+
+  /**
+   * 9もらい処理（非同期）
+   * 9を出すと指名者に欲しいカードを宣言、持っていれば貰う
+   * 6もらいと同じロジック
+   */
+  private async handleNineClaim(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) throw new Error('Controller not found');
+
+    // 自分以外のアクティブなプレイヤーを取得
+    const otherPlayers = gameState.players.filter(p => !p.isFinished && p.id.value !== player.id.value);
+
+    if (otherPlayers.length === 0) {
+      console.log('9もらい：対象プレイヤーがいません');
+      return;
+    }
+
+    // プレイヤーを選択
+    const targetPlayer = await controller.choosePlayer(otherPlayers, '9もらい：カードを要求するプレイヤーを選んでください');
+
+    if (!targetPlayer) {
+      console.log('9もらい：プレイヤー選択がキャンセルされました');
+      return;
+    }
+
+    // カードのランクを選択
+    const rank = await controller.chooseCardRank('9もらい：欲しいカードのランクを選んでください');
+
+    console.log(`9もらい：${player.name} が ${targetPlayer.name} に ${rank} を要求`);
+
+    // 対象プレイヤーが指定ランクのカードを持っているかチェック
+    const targetCards = targetPlayer.hand.getCards().filter(c => c.rank === rank);
+
+    if (targetCards.length > 0) {
+      // 1枚貰う
+      const cardToTake = targetCards[0];
+      targetPlayer.hand.remove([cardToTake]);
+      player.hand.add([cardToTake]);
+
+      console.log(`9もらい：${player.name} が ${targetPlayer.name} から ${cardToTake.rank}${cardToTake.suit} を貰いました`);
+
+      // ソート
+      const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
+      player.hand.sort(shouldReverse);
+      targetPlayer.hand.sort(shouldReverse);
+
+      // 対象プレイヤーの手札が空になったら上がり
+      if (targetPlayer.hand.isEmpty()) {
+        this.handlePlayerFinish(gameState, targetPlayer);
+      }
+    } else {
+      console.log(`9もらい：${targetPlayer.name} は ${rank} を持っていません`);
+    }
+  }
+
+  /**
+   * 終焉のカウントダウン処理（非同期）
+   * 大貧民が4x1を出すとカウントダウン開始、プレイヤーにカウント値を選ばせる（10-50）
+   * パスするごとにカウントが1減少、0でパスした人が敗北
+   */
+  private async handleEndCountdown(gameState: GameState, player: Player): Promise<void> {
+    const controller = this.playerControllers.get(player.id.value);
+    if (!controller) {
+      console.log('終焉のカウントダウン：コントローラーがないためスキップ');
+      return;
+    }
+
+    // カウント値を選ばせる（10-50）
+    const countdownValue = await controller.chooseCountdownValue(10, 50);
+
+    gameState.endCountdownValue = countdownValue;
+    console.log(`終焉のカウントダウンが発動！カウント: ${countdownValue}`);
+  }
+
+  /**
+   * テレフォース処理
+   * 4x1を出すと7ターン後に全員敗北、残り手札で順位決定
+   */
+  private async handleTeleforce(gameState: GameState): Promise<void> {
+    gameState.teleforceCountdown = 7;
+    console.log('テレフォースが発動！7ターン後に全員敗北');
+  }
+
+  /**
+   * テレフォースによるゲーム終了処理
+   * 全員敗北、残り手札枚数で順位決定（手札が少ない方が上位）
+   */
+  private handleTeleforceGameEnd(gameState: GameState): void {
+    gameState.teleforceCountdown = null;
+
+    // まだ終了していないプレイヤーを手札枚数でソート（少ない順）
+    const activePlayers = gameState.players.filter(p => !p.isFinished);
+    const sortedPlayers = [...activePlayers].sort((a, b) => a.hand.size() - b.hand.size());
+
+    // 順位を割り当て
+    const finishedCount = gameState.players.filter(p => p.isFinished).length;
+    for (let i = 0; i < sortedPlayers.length; i++) {
+      const player = sortedPlayers[i];
+      player.isFinished = true;
+      player.finishPosition = finishedCount + i + 1;
+      console.log(`テレフォース終了：${player.name} は ${player.finishPosition}位（手札${player.hand.size()}枚）`);
+      this.rankAssignmentService.assignRank(gameState, player);
     }
   }
 }

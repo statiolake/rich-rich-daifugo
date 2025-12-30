@@ -91,4 +91,33 @@ export interface PlayerController {
    * @returns 選択されたプレイヤー（nullの場合は選択キャンセル）
    */
   choosePlayer(players: import('./Player').Player[], prompt: string): Promise<import('./Player').Player | null>;
+
+  /**
+   * カードのランクを選択（6もらい、9もらい用）
+   * 欲しいカードのランクを選択する
+   *
+   * @param prompt UIに表示するリード文
+   * @returns 選択されたランク（'3' ~ 'A', '2', 'JOKER'）
+   */
+  chooseCardRank(prompt: string): Promise<string>;
+
+  /**
+   * プレイヤーの順序を選択（9シャッフル用）
+   * 対戦相手の新しい席順を選択する
+   *
+   * @param players 順序を決めるプレイヤーの配列
+   * @param prompt UIに表示するリード文
+   * @returns 新しい順序で並べられたプレイヤーの配列（nullの場合はキャンセル）
+   */
+  choosePlayerOrder(players: import('./Player').Player[], prompt: string): Promise<import('./Player').Player[] | null>;
+
+  /**
+   * カウントダウン値を選択（終焉のカウントダウン用）
+   * 指定された範囲内から値を選択する
+   *
+   * @param min 最小値
+   * @param max 最大値
+   * @returns 選択されたカウントダウン値
+   */
+  chooseCountdownValue(min: number, max: number): Promise<number>;
 }

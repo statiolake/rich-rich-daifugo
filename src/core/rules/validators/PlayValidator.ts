@@ -90,8 +90,12 @@ export class PlayValidator {
     const strengthResult = this.validateStrength(cards, context);
     if (!strengthResult.valid) return strengthResult;
 
-    // 8. 禁止上がりチェック
-    return this.validateForbiddenFinish(player, cards, context);
+    // 10. 禁止上がりチェック
+    const forbiddenResult = this.validateForbiddenFinish(player, cards, context);
+    if (!forbiddenResult.valid) return forbiddenResult;
+
+    // 強さチェックの理由を保持して返す
+    return strengthResult;
   }
 
   // ========================================
@@ -353,6 +357,12 @@ export class PlayValidator {
       }
     }
 
+    // レッドセブン/ブラックセブン効果のチェック
+    const sevenPowerResult = this.validateStrengthWithSevenPower(fieldPlay, currentPlay, shouldReverse, context);
+    if (sevenPowerResult !== null) {
+      return sevenPowerResult;
+    }
+
     // PlayAnalyzer.canFollow で強さをチェック
     if (!PlayAnalyzer.canFollow(fieldPlay, currentPlay, shouldReverse)) {
       return {
@@ -578,5 +588,157 @@ export class PlayValidator {
       valid: false,
       reason: '場のカードより強くありません',
     };
+  }
+
+  /**
+   * レッドセブン/ブラックセブン効果を考慮した強さチェック
+   * - レッドセブン（通常時）: ♥7/♦7が2より強くジョーカーより弱くなる（強さ13.5）
+   * - ブラックセブン（革命中）: ♠7/♣7が3より強くジョーカーより弱くなる（強さ13.5）
+   * @returns ValidationResult | null（nullの場合は通常の強さチェックを続行）
+   */
+  private validateStrengthWithSevenPower(
+    fieldPlay: Play,
+    currentPlay: Play,
+    shouldReverse: boolean,
+    context: RuleContext
+  ): ValidationResult | null {
+    // レッドセブン/ブラックセブンのどちらかが有効かチェック
+    const redSevenEnabled = context.ruleSettings.redSevenPower;
+    const blackSevenEnabled = context.ruleSettings.blackSevenPower;
+
+    if (!redSevenEnabled && !blackSevenEnabled) {
+      return null;
+    }
+
+    // 特殊7カードを持っているかチェック
+    const currentHasSpecialSeven = this.hasSpecialSeven(currentPlay, shouldReverse, redSevenEnabled, blackSevenEnabled);
+    const fieldHasSpecialSeven = this.hasSpecialSeven(fieldPlay, shouldReverse, redSevenEnabled, blackSevenEnabled);
+
+    // どちらにも特殊7がない場合は通常の処理
+    if (!currentHasSpecialSeven && !fieldHasSpecialSeven) {
+      return null;
+    }
+
+    // タイプが異なる場合は出せない
+    if (fieldPlay.type !== currentPlay.type) {
+      return {
+        valid: false,
+        reason: '場のカードと同じタイプの組み合わせを出してください',
+      };
+    }
+
+    // 階段の場合、枚数が同じでなければならない
+    if (fieldPlay.type === PlayType.STAIR && currentPlay.type === PlayType.STAIR) {
+      if (fieldPlay.cards.length !== currentPlay.cards.length) {
+        return {
+          valid: false,
+          reason: '場のカードと枚数が合いません',
+        };
+      }
+    }
+
+    // 特殊7の強さ（2より強く、ジョーカーより弱い = 13.5）
+    // 特殊7は革命の影響を受けず、常に高い強さを持つ
+    const SPECIAL_SEVEN_STRENGTH = 13.5;
+
+    // 強さを計算
+    // 特殊7は革命の影響を受けないので、常にSPECIAL_SEVEN_STRENGTHを使用
+    // 通常カードは革命時に反転する
+    let effectiveFieldStrength: number;
+    let effectiveCurrentStrength: number;
+
+    if (fieldHasSpecialSeven) {
+      // フィールドが特殊7の場合、革命の影響を受けない
+      effectiveFieldStrength = SPECIAL_SEVEN_STRENGTH;
+    } else {
+      effectiveFieldStrength = shouldReverse ? -fieldPlay.strength : fieldPlay.strength;
+    }
+
+    if (currentHasSpecialSeven) {
+      // 現在のプレイが特殊7の場合、革命の影響を受けない
+      effectiveCurrentStrength = SPECIAL_SEVEN_STRENGTH;
+    } else {
+      effectiveCurrentStrength = shouldReverse ? -currentPlay.strength : currentPlay.strength;
+    }
+
+    if (effectiveCurrentStrength > effectiveFieldStrength) {
+      if (currentHasSpecialSeven) {
+        const reason = this.getSpecialSevenReason(currentPlay, shouldReverse, redSevenEnabled, blackSevenEnabled);
+        return { valid: true, reason };
+      }
+      return { valid: true, reason: '' };
+    } else {
+      return {
+        valid: false,
+        reason: '場のカードより強くありません',
+      };
+    }
+  }
+
+  /**
+   * プレイが特殊7を含むかどうかを判定
+   * - レッドセブン（通常時）: ♥7/♦7
+   * - ブラックセブン（革命中）: ♠7/♣7
+   */
+  private hasSpecialSeven(
+    play: Play,
+    shouldReverse: boolean,
+    redSevenEnabled: boolean,
+    blackSevenEnabled: boolean
+  ): boolean {
+    // 単体出しの場合のみ特殊7の効果が適用される
+    if (play.type !== PlayType.SINGLE) {
+      return false;
+    }
+
+    const card = play.cards[0];
+    if (card.rank !== '7') {
+      return false;
+    }
+
+    // 通常時（shouldReverse = false）でレッドセブンが有効: ♥7/♦7が特殊
+    if (!shouldReverse && redSevenEnabled) {
+      if (card.suit === Suit.HEART || card.suit === Suit.DIAMOND) {
+        return true;
+      }
+    }
+
+    // 革命時（shouldReverse = true）でブラックセブンが有効: ♠7/♣7が特殊
+    if (shouldReverse && blackSevenEnabled) {
+      if (card.suit === Suit.SPADE || card.suit === Suit.CLUB) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 特殊7の効果発動理由を取得
+   */
+  private getSpecialSevenReason(
+    play: Play,
+    shouldReverse: boolean,
+    redSevenEnabled: boolean,
+    blackSevenEnabled: boolean
+  ): string {
+    const card = play.cards[0];
+    if (card.rank !== '7') {
+      return '';
+    }
+
+    if (!shouldReverse && redSevenEnabled) {
+      if (card.suit === Suit.HEART || card.suit === Suit.DIAMOND) {
+        return 'レッドセブン';
+      }
+    }
+
+    if (shouldReverse && blackSevenEnabled) {
+      if (card.suit === Suit.SPADE || card.suit === Suit.CLUB) {
+        return 'ブラックセブン';
+      }
+    }
+
+    return '';
   }
 }

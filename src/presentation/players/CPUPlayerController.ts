@@ -127,4 +127,34 @@ export class CPUPlayerController implements PlayerController {
     if (players.length === 0) return null;
     return players[Math.floor(Math.random() * players.length)];
   }
+
+  async chooseCardRank(_prompt: string): Promise<string> {
+    // CPU思考時間をシミュレート
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // CPUはランダムにランクを選択
+    const ranks = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', 'JOKER'];
+    return ranks[Math.floor(Math.random() * ranks.length)];
+  }
+
+  async choosePlayerOrder(players: Player[], _prompt: string): Promise<Player[] | null> {
+    // CPU思考時間をシミュレート
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // CPUはランダムに順序をシャッフル
+    const shuffled = [...players];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  async chooseCountdownValue(min: number, max: number): Promise<number> {
+    // CPU思考時間をシミュレート
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // CPUはランダムに値を選択
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
 }

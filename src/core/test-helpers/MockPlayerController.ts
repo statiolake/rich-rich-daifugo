@@ -13,12 +13,16 @@ export class MockPlayerController implements PlayerController {
   private playerChoices: string[] = [];
   private opponentCardChoices: Card[][] = [];
   private choosePlayerChoices: Player[] = [];
+  private cardRankChoices: string[] = [];
+  private playerOrderChoices: Player[][] = [];
   private cardChoiceIndex = 0;
   private rankChoiceIndex = 0;
   private discardChoiceIndex = 0;
   private playerChoiceIndex = 0;
   private opponentCardChoiceIndex = 0;
   private choosePlayerChoiceIndex = 0;
+  private cardRankChoiceIndex = 0;
+  private playerOrderChoiceIndex = 0;
 
   /**
    * 次のカード選択時に返すカードを設定
@@ -60,6 +64,20 @@ export class MockPlayerController implements PlayerController {
    */
   setNextChoosePlayerChoice(player: Player): void {
     this.choosePlayerChoices.push(player);
+  }
+
+  /**
+   * 次のカードランク選択時に返すランクを設定（6もらい、9もらい用）
+   */
+  setNextCardRankChoice(rank: string): void {
+    this.cardRankChoices.push(rank);
+  }
+
+  /**
+   * 次のプレイヤー順序選択時に返すプレイヤー配列を設定（9シャッフル用）
+   */
+  setNextPlayerOrderChoice(players: Player[]): void {
+    this.playerOrderChoices.push(players);
   }
 
   async chooseCardsInHand(_validator: Validator, _prompt?: string): Promise<Card[]> {
@@ -129,6 +147,31 @@ export class MockPlayerController implements PlayerController {
     return choice;
   }
 
+  async chooseCardRank(_prompt: string): Promise<string> {
+    if (this.cardRankChoiceIndex >= this.cardRankChoices.length) {
+      // デフォルト: 3を返す
+      return '3';
+    }
+    const choice = this.cardRankChoices[this.cardRankChoiceIndex];
+    this.cardRankChoiceIndex++;
+    return choice;
+  }
+
+  async choosePlayerOrder(players: Player[], _prompt: string): Promise<Player[] | null> {
+    if (this.playerOrderChoiceIndex >= this.playerOrderChoices.length) {
+      // デフォルト: そのままの順序を返す
+      return players;
+    }
+    const choice = this.playerOrderChoices[this.playerOrderChoiceIndex];
+    this.playerOrderChoiceIndex++;
+    return choice;
+  }
+
+  async chooseCountdownValue(min: number, _max: number): Promise<number> {
+    // デフォルト: 最小値を返す
+    return min;
+  }
+
   /**
    * モックをリセット
    */
@@ -139,11 +182,15 @@ export class MockPlayerController implements PlayerController {
     this.playerChoices = [];
     this.opponentCardChoices = [];
     this.choosePlayerChoices = [];
+    this.cardRankChoices = [];
+    this.playerOrderChoices = [];
     this.cardChoiceIndex = 0;
     this.rankChoiceIndex = 0;
     this.discardChoiceIndex = 0;
     this.playerChoiceIndex = 0;
     this.opponentCardChoiceIndex = 0;
     this.choosePlayerChoiceIndex = 0;
+    this.cardRankChoiceIndex = 0;
+    this.playerOrderChoiceIndex = 0;
   }
 }

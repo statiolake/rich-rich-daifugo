@@ -39,6 +39,8 @@ describe('TriggerEffectAnalyzer', () => {
       hotMilkRestriction: null,
       isArthurActive: false,
       deathSentenceTarget: null,
+      endCountdownValue: null,
+      teleforceCountdown: null,
       round: 1,
       previousDaifugoId: null,
       previousDaihinminId: null,

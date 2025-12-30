@@ -1,6 +1,7 @@
 import { Play, PlayType } from '../../domain/card/Play';
 import { GameState } from '../../domain/game/GameState';
 import { Suit } from '../../domain/card/Card';
+import { PlayerRank } from '../../domain/player/PlayerRank';
 
 /**
  * トリガーエフェクトの種類
@@ -93,7 +94,13 @@ export type TriggerEffect =
   | '名誉革命'
   | '産業革命'
   | '死の宣告'
-  | '闇市';
+  | '闇市'
+  | '9賭け'
+  | '9シャッフル'
+  | '6もらい'
+  | '9もらい'
+  | '終焉のカウントダウン'
+  | 'テレフォース';
 
 /**
  * トリガーエフェクトアナライザー
@@ -530,6 +537,36 @@ export class TriggerEffectAnalyzer {
     // 闇市判定（Ax3で指名者と任意2枚⇔最強2枚を交換）
     if (ruleSettings.blackMarket && this.triggersBlackMarket(play)) {
       effects.push('闇市');
+    }
+
+    // 9賭け判定（9を出すと指名者がランダムで自分の手札を1枚捨てる）
+    if (ruleSettings.nineGamble && this.triggersNineGamble(play)) {
+      effects.push('9賭け');
+    }
+
+    // 9シャッフル判定（9x2で対戦相手の席順を自由に変更）
+    if (ruleSettings.nineShuffle && this.triggersNineShuffle(play)) {
+      effects.push('9シャッフル');
+    }
+
+    // 6もらい判定（6を出すと指名者にカード宣言、持っていれば貰える）
+    if (ruleSettings.sixClaim && this.triggersSixClaim(play)) {
+      effects.push('6もらい');
+    }
+
+    // 9もらい判定（9を出すと指名者に欲しいカードを宣言、持っていれば貰う）
+    if (ruleSettings.nineClaim && this.triggersNineClaim(play)) {
+      effects.push('9もらい');
+    }
+
+    // 終焉のカウントダウン判定（大貧民が4x1を出すとカウントダウン開始）
+    if (ruleSettings.endCountdown && this.triggersEndCountdown(play, gameState)) {
+      effects.push('終焉のカウントダウン');
+    }
+
+    // テレフォース判定（4x1を出すと7ターン後に全員敗北）
+    if (ruleSettings.teleforce && this.triggersTeleforce(play)) {
+      effects.push('テレフォース');
     }
 
     return effects;
@@ -1246,5 +1283,60 @@ export class TriggerEffectAnalyzer {
    */
   private triggersDeathSentence(play: Play): boolean {
     return play.type === PlayType.QUAD && play.cards.every(card => card.rank === '4');
+  }
+
+  /**
+   * 9賭け判定（9を出すと指名者がランダムで自分の手札を1枚捨てる）
+   * 条件: 9を含むプレイ
+   */
+  private triggersNineGamble(play: Play): boolean {
+    return play.cards.some(card => card.rank === '9');
+  }
+
+  /**
+   * 9シャッフル判定（9x2で対戦相手の席順を自由に変更）
+   * 条件: PAIRで全て9
+   */
+  private triggersNineShuffle(play: Play): boolean {
+    return play.type === PlayType.PAIR && play.cards.every(card => card.rank === '9');
+  }
+
+  /**
+   * 6もらい判定（6を出すと指名者にカード宣言、持っていれば貰える）
+   * 条件: 6を含むプレイ
+   */
+  private triggersSixClaim(play: Play): boolean {
+    return play.cards.some(card => card.rank === '6');
+  }
+
+  /**
+   * 9もらい判定（9を出すと指名者に欲しいカードを宣言、持っていれば貰う）
+   * 条件: 9を含むプレイ
+   */
+  private triggersNineClaim(play: Play): boolean {
+    return play.cards.some(card => card.rank === '9');
+  }
+
+  /**
+   * 終焉のカウントダウン判定（大貧民が4x1を出すとカウントダウン開始）
+   * 条件: 大貧民がSINGLEで4を出す
+   */
+  private triggersEndCountdown(play: Play, gameState: GameState): boolean {
+    // SINGLEで4を出した場合のみ発動
+    if (play.type !== PlayType.SINGLE) return false;
+    if (play.cards[0].rank !== '4') return false;
+
+    // 現在のプレイヤーが大貧民かどうかをチェック
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    return currentPlayer.rank === PlayerRank.DAIHINMIN;
+  }
+
+  /**
+   * テレフォース判定（4x1を出すと7ターン後に全員敗北）
+   * 条件: SINGLEで4を出す
+   */
+  private triggersTeleforce(play: Play): boolean {
+    if (play.type !== PlayType.SINGLE) return false;
+    return play.cards[0].rank === '4';
   }
 }

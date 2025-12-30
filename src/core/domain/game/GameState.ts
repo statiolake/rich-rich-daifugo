@@ -33,6 +33,8 @@ export interface GameState {
   hotMilkRestriction: 'warm' | null; // ホットミルク制限（warm: ダイヤ/ハートのみ）
   isArthurActive: boolean; // アーサー状態（Kx3でジョーカーの強さが10〜Jの間になる）
   deathSentenceTarget: string | null; // 死の宣告対象プレイヤーID（パスすると敗北）
+  endCountdownValue: number | null; // 終焉のカウントダウン残り値（パスごとに1減少、0でパスした人が敗北）
+  teleforceCountdown: number | null; // テレフォースカウントダウン（7から0へ、ターン終了時に減少）
   passCount: number;
   round: number;
   phase: GamePhaseType;
@@ -65,6 +67,8 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     hotMilkRestriction: null,
     isArthurActive: false,
     deathSentenceTarget: null,
+    endCountdownValue: null,
+    teleforceCountdown: null,
     passCount: 0,
     round: 1,
     phase: GamePhaseType.SETUP,

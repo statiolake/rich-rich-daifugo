@@ -30,6 +30,8 @@ export interface RuleSettings {
   spadeThreeReturn: boolean;   // スぺ3返し（スペードの3がJokerに勝つ）
   spadeTwoReturn: boolean;     // スペ2返し（革命中ジョーカーに対してスペード2で流せる）
   stairs: boolean;             // 階段（同じマークの連番）
+  redSevenPower: boolean;      // レッドセブン（通常時に♥7/♦7が2より強くジョーカーより弱くなる）
+  blackSevenPower: boolean;    // ブラックセブン（革命中に♠7/♣7が3より強くジョーカーより弱くなる）
 
   // フィールド効果
   fourStop: boolean;           // 4止め（4x2で8切りを止める）
@@ -137,6 +139,18 @@ export interface RuleSettings {
 
   // 特殊出しルール
   crossDressing: boolean;      // 女装（Qを出す時、同枚数のKも一緒に出せる）
+
+  // 9系ルール
+  nineGamble: boolean;         // 9賭け（9を出すと指名者がランダムで自分の手札を1枚捨てる）
+  nineShuffle: boolean;        // 9シャッフル（9x2で対戦相手の席順を自由に変更）
+
+  // カード請求ルール
+  sixClaim: boolean;           // 6もらい（6を出すと指名者にカード宣言、持っていれば貰える）
+  nineClaim: boolean;          // 9もらい（9を出すと指名者に欲しいカードを宣言、持っていれば貰う）
+
+  // カウントダウン系ルール
+  endCountdown: boolean;       // 終焉のカウントダウン（大貧民が4x1を出すとカウントダウン開始、0でパスした人が敗北）
+  teleforce: boolean;          // テレフォース（4x1を出すと7ターン後に全員敗北、残り手札で順位決定）
 }
 
 /**
@@ -164,6 +178,8 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   spadeThreeReturn: true,
   spadeTwoReturn: true,
   stairs: true,
+  redSevenPower: false,
+  blackSevenPower: false,
   fourStop: true,
   suitLock: true,
   numberLock: true,
@@ -233,4 +249,10 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   deathSentence: false,
   blackMarket: false,
   crossDressing: false,
+  nineGamble: false,
+  nineShuffle: false,
+  sixClaim: false,
+  nineClaim: false,
+  endCountdown: false,
+  teleforce: false,
 };

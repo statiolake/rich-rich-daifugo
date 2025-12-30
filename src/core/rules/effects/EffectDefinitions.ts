@@ -1087,5 +1087,77 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'gold',
       duration: 300
     }
+  },
+
+  '9賭け': {
+    apply: () => {
+      // 9賭けは後で別途処理するため、ここではイベント発火のみ
+      console.log('9賭けが発動しました！');
+    },
+    cutIn: {
+      getText: () => '9賭け！',
+      variant: 'yellow',
+      duration: 300
+    }
+  },
+
+  '9シャッフル': {
+    apply: () => {
+      // 9シャッフルは後で別途処理するため、ここではイベント発火のみ
+      console.log('9シャッフルが発動しました！');
+    },
+    cutIn: {
+      getText: () => '9シャッフル！',
+      variant: 'blue',
+      duration: 300
+    }
+  },
+
+  '6もらい': {
+    apply: () => {
+      // 6もらいは後で別途処理するため、ここではイベント発火のみ
+      console.log('6もらいが発動しました！');
+    },
+    cutIn: {
+      getText: () => '6もらい！',
+      variant: 'green',
+      duration: 300
+    }
+  },
+
+  '9もらい': {
+    apply: () => {
+      // 9もらいは後で別途処理するため、ここではイベント発火のみ
+      console.log('9もらいが発動しました！');
+    },
+    cutIn: {
+      getText: () => '9もらい！',
+      variant: 'green',
+      duration: 300
+    }
+  },
+
+  '終焉のカウントダウン': {
+    apply: () => {
+      // 終焉のカウントダウンは後で別途処理するため、ここではイベント発火のみ
+      console.log('終焉のカウントダウンが発動しました！');
+    },
+    cutIn: {
+      getText: (_, context) => context?.countdownValue ? `終焉のカウントダウン！残り${context.countdownValue}` : '終焉のカウントダウン！',
+      variant: 'red',
+      duration: 400
+    }
+  },
+
+  'テレフォース': {
+    apply: (gameState) => {
+      gameState.teleforceCountdown = 7;
+      console.log('テレフォースが発動しました！7ターン後に全員敗北');
+    },
+    cutIn: {
+      getText: () => 'テレフォース！7ターン後に全員敗北',
+      variant: 'red',
+      duration: 500
+    }
   }
 };
