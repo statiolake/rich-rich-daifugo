@@ -1,4 +1,4 @@
-import { PresentationRequester, CutIn } from '../../core/domain/presentation/PresentationRequester';
+import { PresentationRequester, CutIn, GameLog } from '../../core/domain/presentation/PresentationRequester';
 import { useGameStore } from '../store/gameStore';
 
 type GameStore = ReturnType<typeof useGameStore.getState>;
@@ -9,6 +9,13 @@ type GameStore = ReturnType<typeof useGameStore.getState>;
  */
 export class GamePresentationRequester implements PresentationRequester {
   constructor(private gameStore: GameStore) {}
+
+  /**
+   * ゲームログを追加
+   */
+  addLog(log: GameLog): void {
+    this.gameStore.addGameLog(log);
+  }
 
   /**
    * エフェクトに応じた表示時間を決定（プレゼンテーション層の責務）

@@ -6,6 +6,7 @@ import { HumanControl } from '../player/HumanControl';
 import { UnifiedCardLayer } from './UnifiedCardLayer';
 import { TurnArrows } from './TurnArrows';
 import { GameStatusPanel } from './GameStatusPanel';
+import { GameLog } from './GameLog';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { getRankName, PlayerRank } from '../../../core/domain/player/PlayerRank';
 import { RuleCutIn } from '../effects/RuleCutIn';
@@ -161,6 +162,9 @@ export const GameBoard: React.FC = () => {
     <div className="relative w-full h-screen game-board-bg overflow-hidden">
       {/* Game Status Panel */}
       <GameStatusPanel gameState={gameState} />
+
+      {/* Game Log (Kill-feed style) */}
+      <GameLog />
 
       {/* Turn Direction Arrows */}
       <TurnArrows

@@ -33,6 +33,17 @@ export interface RuleCutInData {
   onComplete?: () => void; // カットイン完了時のコールバック
 }
 
+// Game log entry type
+export interface GameLogEntry {
+  id: string;
+  timestamp: number;
+  type: 'play' | 'pass' | 'effect' | 'system' | 'finish';
+  playerName?: string;
+  message: string;
+  cards?: Card[];
+  effectName?: string;
+}
+
 interface GameStore {
   engine: GameEngine | null;
   gameState: GameState | null;
@@ -42,6 +53,11 @@ interface GameStore {
   cutInQueue: RuleCutInData[];
   activeCutIns: RuleCutInData[];
   cutInResolve: (() => void) | null;
+
+  // Game log
+  gameLogs: GameLogEntry[];
+  addGameLog: (entry: Omit<GameLogEntry, 'id' | 'timestamp'>) => void;
+  clearGameLogs: () => void;
 
   // Promise-based callbacks for HumanPlayerController
   cardSelectionCallback: ((cards: Card[]) => void) | null;
@@ -152,6 +168,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cutInQueue: [],
   activeCutIns: [],
   cutInResolve: null,
+
+  // Game log
+  gameLogs: [],
+  addGameLog: (entry) => {
+    const newEntry: GameLogEntry = {
+      ...entry,
+      id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: Date.now(),
+    };
+    set((state) => ({
+      gameLogs: [...state.gameLogs.slice(-49), newEntry], // Keep last 50 logs
+    }));
+  },
+  clearGameLogs: () => set({ gameLogs: [] }),
+
   cardSelectionCallback: null,
   queenBomberRankCallback: null,
   discardSelectionCallback: null,

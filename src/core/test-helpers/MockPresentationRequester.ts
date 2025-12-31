@@ -1,14 +1,19 @@
-import { PresentationRequester, CutIn } from '../domain/presentation/PresentationRequester';
+import { PresentationRequester, CutIn, GameLog } from '../domain/presentation/PresentationRequester';
 
 /**
  * テスト用のモック PresentationRequester
- * カットイン表示を記録するだけで実際の表示は行わない
+ * カットイン表示とログを記録するだけで実際の表示は行わない
  */
 export class MockPresentationRequester implements PresentationRequester {
   public cutInHistory: CutIn[][] = [];
+  public logHistory: GameLog[] = [];
 
   async requestCutIns(cutIns: CutIn[]): Promise<void> {
     this.cutInHistory.push([...cutIns]);
+  }
+
+  addLog(log: GameLog): void {
+    this.logHistory.push(log);
   }
 
   /**
@@ -37,5 +42,6 @@ export class MockPresentationRequester implements PresentationRequester {
    */
   reset(): void {
     this.cutInHistory = [];
+    this.logHistory = [];
   }
 }

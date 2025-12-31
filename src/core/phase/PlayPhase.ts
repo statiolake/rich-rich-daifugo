@@ -172,6 +172,14 @@ export class PlayPhase implements GamePhase {
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
+    // ゲームログに記録
+    this.presentationRequester.addLog({
+      type: 'play',
+      playerName: player.name,
+      message: `${cards.length}枚のカードを出した`,
+      cards: cards,
+    });
+
     // 拾い食いチェック（大富豪がカードを出した後、大貧民が拾える）
     if (gameState.ruleSettings.scavenging && !gameState.scavengingUsed && player.rank === PlayerRank.DAIFUGO) {
       const daihinmin = gameState.players.find(p => p.rank === PlayerRank.DAIHINMIN && !p.isFinished);
@@ -211,6 +219,15 @@ export class PlayPhase implements GamePhase {
     // カットインを表示（すべて完了まで待機）
     if (cutIns.length > 0) {
       await this.presentationRequester.requestCutIns(cutIns);
+      // エフェクトをログに記録
+      for (const effect of effects) {
+        this.presentationRequester.addLog({
+          type: 'effect',
+          playerName: player.name,
+          message: `${effect}が発動`,
+          effectName: effect,
+        });
+      }
     }
 
     // ソート
@@ -659,6 +676,13 @@ export class PlayPhase implements GamePhase {
   private async handlePass(gameState: GameState, player: Player): Promise<void> {
     console.log(`${player.name} passed`);
 
+    // ゲームログに記録
+    this.presentationRequester.addLog({
+      type: 'pass',
+      playerName: player.name,
+      message: 'パス',
+    });
+
     // 大富豪の余裕: 大富豪がパスした場合、フラグを立てる
     if (gameState.ruleSettings.daifugoLeisure && player.rank === PlayerRank.DAIFUGO && !gameState.hasDaifugoPassedFirst) {
       gameState.hasDaifugoPassedFirst = true;
@@ -751,6 +775,13 @@ export class PlayPhase implements GamePhase {
     player.finishPosition = finishedCount + 1;
 
     console.log(`${player.name} finished in position ${player.finishPosition}`);
+
+    // ゲームログに記録
+    this.presentationRequester.addLog({
+      type: 'finish',
+      playerName: player.name,
+      message: `${player.finishPosition}位で上がり`,
+    });
 
     // ランクを割り当て
     this.rankAssignmentService.assignRank(gameState, player);

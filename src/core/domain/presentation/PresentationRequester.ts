@@ -1,3 +1,5 @@
+import { Card } from '../card/Card';
+
 /**
  * カットイン情報（コア層の関心事のみ）
  * duration などの表示時間はプレゼンテーション層が決定
@@ -15,6 +17,17 @@ export interface CutIn {
 }
 
 /**
+ * ゲームログ情報
+ */
+export interface GameLog {
+  type: 'play' | 'pass' | 'effect' | 'system' | 'finish';
+  playerName?: string;
+  message: string;
+  cards?: Card[];
+  effectName?: string;
+}
+
+/**
  * プレゼンテーション要求インターフェース
  * コア層からプレゼンテーション層へのUI表示要求を抽象化
  */
@@ -25,4 +38,9 @@ export interface PresentationRequester {
    * 表示時間（duration）や表示テキストはプレゼンテーション層が決定
    */
   requestCutIns(cutIns: CutIn[]): Promise<void>;
+
+  /**
+   * ゲームログを追加
+   */
+  addLog(log: GameLog): void;
 }
