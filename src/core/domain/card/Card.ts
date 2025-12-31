@@ -46,6 +46,13 @@ export class CardFactory {
     };
   }
 
+  /**
+   * ジョーカーを作成するヘルパーメソッド
+   */
+  static createJoker(): Card {
+    return this.create(Suit.JOKER, 'JOKER');
+  }
+
   static createDeck(includeJokers: boolean = true): Card[] {
     const cards: Card[] = [];
     const suits: Suit[] = [Suit.SPADE, Suit.HEART, Suit.DIAMOND, Suit.CLUB];

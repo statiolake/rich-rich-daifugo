@@ -1,6 +1,22 @@
 import { GameState } from '../../domain/game/GameState';
 import { Player } from '../../domain/player/Player';
+import { PlayerRank } from '../../domain/player/PlayerRank';
 import { TriggerEffect } from './TriggerEffectAnalyzer';
+
+/**
+ * 四民平等チェック: 革命が4回以上発生したら全員平民にする
+ */
+function checkShiminByodo(gameState: GameState): void {
+  if (!gameState.ruleSettings.shiminByodo) return;
+  if (gameState.revolutionCount >= 4) {
+    console.log('四民平等発動！革命が4回以上発生したので全員平民になります');
+    gameState.players.forEach(p => {
+      p.rank = PlayerRank.HEIMIN;
+    });
+    // 革命状態をリセット
+    gameState.isRevolution = false;
+  }
+}
 
 /**
  * エフェクト適用時のコンテキスト
@@ -49,7 +65,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '革命': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '革命発生！' : '革命終了',
@@ -61,7 +79,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '革命終了': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '革命発生！' : '革命終了',
@@ -73,7 +93,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '階段革命': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`階段革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`階段革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '階段革命！' : '階段革命終了',
@@ -85,7 +107,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '階段革命終了': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`階段革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`階段革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '階段革命！' : '階段革命終了',
@@ -166,7 +190,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   'エンペラー': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`エンペラーが発動しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`エンペラーが発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'エンペラー発動！' : 'エンペラー終了',
@@ -178,7 +204,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   'エンペラー終了': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`エンペラーが発動しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`エンペラーが発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'エンペラー発動！' : 'エンペラー終了',
@@ -190,7 +218,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   'クーデター': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`クーデターが発動しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`クーデターが発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'クーデター発生！' : 'クーデター終了',
@@ -202,7 +232,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   'クーデター終了': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`クーデターが発動しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`クーデターが発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'クーデター発生！' : 'クーデター終了',
@@ -214,8 +246,10 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   'オーメン': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
       gameState.isOmenActive = true;
-      console.log(`オーメンが発動しました！ isRevolution: ${gameState.isRevolution}, 以後革命なし`);
+      console.log(`オーメンが発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}, 以後革命なし`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: () => 'オーメン発動！以後革命なし',
@@ -227,7 +261,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '大革命＋即勝利': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`大革命が発動しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`大革命が発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: () => '大革命発生！即勝利！',
@@ -419,7 +455,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   'ナナサン革命': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`ナナサン革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`ナナサン革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'ナナサン革命！' : 'ナナサン革命終了',
@@ -431,7 +469,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   'ナナサン革命終了': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`ナナサン革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`ナナサン革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'ナナサン革命！' : 'ナナサン革命終了',
@@ -527,7 +567,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   'ジョーカー革命': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`ジョーカー革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`ジョーカー革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'ジョーカー革命！' : 'ジョーカー革命終了',
@@ -539,7 +581,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   'ジョーカー革命終了': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`ジョーカー革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`ジョーカー革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? 'ジョーカー革命！' : 'ジョーカー革命終了',
@@ -1177,7 +1221,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     apply: (gameState) => {
       // 十字軍は革命も発動する
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`十字軍が発動しました！革命発動 isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`十字軍が発動しました！革命発動 isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '十字軍！革命発生＋全ジョーカー奪取' : '十字軍！革命終了＋全ジョーカー奪取',
@@ -1297,7 +1343,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '飛び連番革命': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`飛び連番革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`飛び連番革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '飛び連番革命！' : '飛び連番革命終了',
@@ -1309,7 +1357,9 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '飛び連番革命終了': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
-      console.log(`飛び連番革命が発生しました！ isRevolution: ${gameState.isRevolution}`);
+      gameState.revolutionCount++;
+      console.log(`飛び連番革命が発生しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '飛び連番革命！' : '飛び連番革命終了',
@@ -1321,9 +1371,11 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '宗教革命': {
     apply: (gameState) => {
       gameState.isReligiousRevolutionActive = true;
+      gameState.revolutionCount++;
       // 偶奇縛りは最初に出されたKのランクに基づく（Kは13で奇数）
       gameState.oddEvenRestriction = 'odd';
-      console.log('宗教革命が発動しました！Q最強、A最弱、偶奇縛り発生');
+      console.log(`宗教革命が発動しました！Q最強、A最弱、偶奇縛り発生、革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: () => '宗教革命！Q最強、奇数のみ',
@@ -1335,8 +1387,10 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '超革命': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
       gameState.isSuperRevolutionActive = true;
-      console.log(`超革命が発動しました！以降革命不可 isRevolution: ${gameState.isRevolution}`);
+      console.log(`超革命が発動しました！以降革命不可 isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '超革命！以降革命不可' : '超革命終了！以降革命不可',
@@ -1348,8 +1402,10 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
   '超革命終了': {
     apply: (gameState) => {
       gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
       gameState.isSuperRevolutionActive = true;
-      console.log(`超革命が発動しました！以降革命不可 isRevolution: ${gameState.isRevolution}`);
+      console.log(`超革命が発動しました！以降革命不可 isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
     },
     cutIn: {
       getText: (gameState) => gameState.isRevolution ? '超革命！以降革命不可' : '超革命終了！以降革命不可',
@@ -1379,6 +1435,208 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       getText: () => 'スペ階！',
       variant: 'gold',
       duration: 300
+    }
+  },
+
+  'テポドン': {
+    apply: (gameState) => {
+      // テポドンは革命効果も発動する
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`テポドンが発動しました！革命発生 isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}、即上がり！`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: () => 'テポドン！革命＋即上がり！',
+      variant: 'gold',
+      duration: 500
+    }
+  },
+
+  'どかん': {
+    apply: () => {
+      // どかんの処理はPlayPhase側で行う
+      console.log('どかんが発動しました！無条件で勝利！');
+    },
+    cutIn: {
+      getText: () => 'どかん！即勝利！',
+      variant: 'gold',
+      duration: 500
+    }
+  },
+
+  // 語呂合わせ革命
+
+  'サザンクロス': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`サザンクロスが発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? 'サザンクロス！革命発生' : 'サザンクロス終了',
+      variant: 'gold',
+      duration: 400
+    }
+  },
+
+  'サザンクロス終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`サザンクロスが発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? 'サザンクロス！革命発生' : 'サザンクロス終了',
+      variant: 'gold',
+      duration: 400
+    }
+  },
+
+  '平安京流し': {
+    apply: (gameState) => {
+      gameState.isEightCutPending = true;
+      console.log('平安京流しが発動しました！場が流れます');
+    },
+    cutIn: {
+      getText: () => '平安京流し！794',
+      variant: 'blue',
+      duration: 400
+    }
+  },
+
+  'サイクロン': {
+    apply: () => {
+      // サイクロンの手札再配布はPlayPhase側で行う
+      console.log('サイクロンが発動しました！全員の手札を混ぜて再配布します');
+    },
+    cutIn: {
+      getText: () => 'サイクロン！手札再配布',
+      variant: 'red',
+      duration: 500
+    }
+  },
+
+  '粉々革命': {
+    apply: () => {
+      // 粉々革命の即上がり処理はPlayPhase側で行う
+      console.log('粉々革命が発動しました！出した人が大富豪！');
+    },
+    cutIn: {
+      getText: () => '粉々革命！5757',
+      variant: 'gold',
+      duration: 500
+    }
+  },
+
+  '世露死苦革命': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`世露死苦革命が発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '世露死苦革命！4649' : '世露死苦革命終了',
+      variant: 'red',
+      duration: 400
+    }
+  },
+
+  '世露死苦革命終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`世露死苦革命が発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '世露死苦革命！4649' : '世露死苦革命終了',
+      variant: 'red',
+      duration: 400
+    }
+  },
+
+  '死になさい革命': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      // 指名者を大貧民にする処理はPlayPhase側で行う
+      console.log(`死になさい革命が発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '死になさい革命！42731' : '死になさい革命終了',
+      variant: 'red',
+      duration: 500
+    }
+  },
+
+  '死になさい革命終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`死になさい革命が発動しました！ isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '死になさい革命！42731' : '死になさい革命終了',
+      variant: 'red',
+      duration: 500
+    }
+  },
+
+  // 都落ち派生ルール
+
+  'ババ落ち': {
+    apply: () => {
+      // ババ落ちの処理はPlayPhase側で行う（もう1枚のジョーカー所持者を敗北させる）
+      console.log('ババ落ちが発動しました！もう1枚のジョーカー所持者は敗北！');
+    },
+    cutIn: {
+      getText: () => 'ババ落ち！',
+      variant: 'red',
+      duration: 400
+    }
+  },
+
+  '核爆弾': {
+    apply: (gameState) => {
+      gameState.isNuclearBombActive = true;
+      console.log('核爆弾が発動しました！ゲーム終了まで革命状態が固定されます');
+    },
+    cutIn: {
+      getText: () => '核爆弾！革命固定！',
+      variant: 'red',
+      duration: 500
+    }
+  },
+
+  // 即勝利条件ルール
+
+  '天和': {
+    apply: () => {
+      // 天和の処理はSetupPhase側で行う
+      console.log('天和が発動しました！手札が全てペア！即上がり！');
+    },
+    cutIn: {
+      getText: () => '天和！全てペア！即上がり！',
+      variant: 'gold',
+      duration: 500
+    }
+  },
+
+  'モノポリー': {
+    apply: () => {
+      // モノポリーの処理はExchangePhase側で行う
+      console.log('モノポリーが発動しました！同スートA〜K全13枚！即勝利！');
+    },
+    cutIn: {
+      getText: () => 'モノポリー！即勝利！',
+      variant: 'gold',
+      duration: 500
     }
   }
 };

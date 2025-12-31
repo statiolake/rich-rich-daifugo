@@ -49,6 +49,14 @@ export interface GameState {
   ruleSettings: RuleSettings;
   previousDaifugoId: string | null; // 前ラウンドの大富豪のプレイヤーID（都落ち用）
   previousDaihinminId: string | null; // 前ラウンドの大貧民のプレイヤーID（下剋上用）
+  previousFugoId: string | null; // 前ラウンドの富豪のプレイヤーID（京落ち・府落ち用）
+  consecutiveDaifugoWins: number; // 大富豪の連続勝利数（京落ち用）
+  cityFallOccurred: boolean; // 今ラウンドで都落ちが発生したか（府落ち用）
+  isNuclearBombActive: boolean; // 核爆弾発動後、革命状態が固定される
+  revolutionCount: number; // 現ラウンドの革命回数（四民平等用）
+  miyakoOchiAttackerId: string | null; // 都落ちさせたプレイヤーID（仇討ち禁止令用）
+  isFirstTurn: boolean; // 最初のターンかどうか（大富豪の余裕用）
+  hasDaifugoPassedFirst: boolean; // 大富豪が最初にパスしたか（大富豪の余裕用）
 }
 
 export function createGameState(players: Player[], ruleSettings: RuleSettings = DEFAULT_RULE_SETTINGS): GameState {
@@ -91,5 +99,13 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     ruleSettings,
     previousDaifugoId: null,
     previousDaihinminId: null,
+    previousFugoId: null,
+    consecutiveDaifugoWins: 0,
+    cityFallOccurred: false,
+    isNuclearBombActive: false,
+    revolutionCount: 0,
+    miyakoOchiAttackerId: null,
+    isFirstTurn: true,
+    hasDaifugoPassedFirst: false,
   };
 }

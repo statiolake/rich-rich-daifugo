@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { TriggerEffectAnalyzer } from './TriggerEffectAnalyzer';
-import { PlayAnalyzer } from '../../domain/card/Play';
+import { PlayAnalyzer, PlayType, Play } from '../../domain/card/Play';
 import { CardFactory, Suit } from '../../domain/card/Card';
 import { GameState, GamePhaseType } from '../../domain/game/GameState';
 import { createPlayer, PlayerType } from '../../domain/player/Player';
@@ -44,6 +44,14 @@ describe('TriggerEffectAnalyzer', () => {
       round: 1,
       previousDaifugoId: null,
       previousDaihinminId: null,
+      previousFugoId: null,
+      consecutiveDaifugoWins: 0,
+      cityFallOccurred: false,
+      isNuclearBombActive: false,
+      revolutionCount: 0,
+      miyakoOchiAttackerId: null,
+      isFirstTurn: true,
+      hasDaifugoPassedFirst: false,
       partialLockSuits: null,
       excludedCards: [],
       supplyAidUsed: false,
@@ -785,6 +793,71 @@ describe('TriggerEffectAnalyzer', () => {
       expect(effects).toContain('9戻し'); // 9を出すと9戻しも発動
       expect(effects).toContain('弱見せ'); // 9を出すと弱見せも発動
       expect(effects).toHaveLength(7);
+    });
+  });
+
+  describe('テポドン', () => {
+    it('同数4枚＋ジョーカー2枚でテポドンが発動', () => {
+      const cards = [
+        CardFactory.create(Suit.SPADE, '5'),
+        CardFactory.create(Suit.HEART, '5'),
+        CardFactory.create(Suit.DIAMOND, '5'),
+        CardFactory.create(Suit.CLUB, '5'),
+        CardFactory.createJoker(),
+        CardFactory.createJoker(),
+      ];
+      const play = PlayAnalyzer.analyze(cards, false, false, { enableTaepodong: true })!;
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, taepodong: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).toContain('テポドン');
+    });
+
+    it('ジョーカーが1枚ではテポドンは発動しない', () => {
+      const cards = [
+        CardFactory.create(Suit.SPADE, '5'),
+        CardFactory.create(Suit.HEART, '5'),
+        CardFactory.create(Suit.DIAMOND, '5'),
+        CardFactory.create(Suit.CLUB, '5'),
+        CardFactory.createJoker(),
+      ];
+      // 5枚の組み合わせはテポドンにならないので、通常のQUAD + Jokerとして扱う
+      // PlayAnalyzerでは5枚の同数+Joker1枚は認識されないのでnullが返る
+      // この場合はテポドンではないことを確認するため、QUADとして作成
+      const play: Play = {
+        cards,
+        type: PlayType.QUAD,
+        strength: cards[0].strength,
+      };
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, taepodong: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('テポドン');
+    });
+
+    it('taepodongルールがOFFの場合は発動しない', () => {
+      const cards = [
+        CardFactory.create(Suit.SPADE, '5'),
+        CardFactory.create(Suit.HEART, '5'),
+        CardFactory.create(Suit.DIAMOND, '5'),
+        CardFactory.create(Suit.CLUB, '5'),
+        CardFactory.createJoker(),
+        CardFactory.createJoker(),
+      ];
+      const play = PlayAnalyzer.analyze(cards, false, false, { enableTaepodong: true })!;
+      const gameState = createMockGameState({
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, taepodong: false },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('テポドン');
     });
   });
 });

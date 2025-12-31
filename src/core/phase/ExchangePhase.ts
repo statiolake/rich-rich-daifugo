@@ -2,7 +2,7 @@ import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { Player } from '../domain/player/Player';
 import { PlayerRank } from '../domain/player/PlayerRank';
-import { Card } from '../domain/card/Card';
+import { Card, Suit } from '../domain/card/Card';
 import { PlayerController } from '../domain/player/PlayerController';
 import { PresentationRequester } from '../domain/presentation/PresentationRequester';
 
@@ -18,6 +18,7 @@ import { PresentationRequester } from '../domain/presentation/PresentationReques
  */
 export class ExchangePhase implements GamePhase {
   readonly type = GamePhaseType.EXCHANGE;
+  private monopolyWinners: Player[] = [];
 
   constructor(
     private playerControllers: Map<string, PlayerController>,
@@ -26,23 +27,50 @@ export class ExchangePhase implements GamePhase {
 
   async enter(gameState: GameState): Promise<void> {
     console.log('=== Exchange Phase ===');
+    this.monopolyWinners = [];
 
     // 1ラウンド目は交換なし
     if (gameState.round === 1) {
       console.log('1ラウンド目のため交換はスキップ');
-      return;
+    } else {
+      // 大富豪と大貧民の交換（2枚）
+      await this.performExchange(gameState, PlayerRank.DAIFUGO, PlayerRank.DAIHINMIN, 2);
+
+      // 富豪と貧民の交換（1枚）
+      await this.performExchange(gameState, PlayerRank.FUGO, PlayerRank.HINMIN, 1);
+
+      // 賠償金（都落ち後も継続参加で先に上がった全員と追加1枚交換）
+      await this.performReparations(gameState);
     }
 
-    // 大富豪と大貧民の交換（2枚）
-    await this.performExchange(gameState, PlayerRank.DAIFUGO, PlayerRank.DAIHINMIN, 2);
-
-    // 富豪と貧民の交換（1枚）
-    await this.performExchange(gameState, PlayerRank.FUGO, PlayerRank.HINMIN, 1);
+    // モノポリーチェック（同スートA〜K全13枚を所持で即勝利）
+    // 交換後に判定（1ラウンド目でも初期配布で発動する可能性あり）
+    if (gameState.ruleSettings.monopoly) {
+      for (const player of gameState.players) {
+        if (!player.isFinished && this.checkMonopolyCondition(player)) {
+          console.log(`モノポリー！${player.name} が同スートA〜K全13枚を所持！即勝利！`);
+          this.monopolyWinners.push(player);
+          await this.presentationRequester.requestCutIns([{ effect: 'モノポリー', variant: 'gold' }]);
+        }
+      }
+    }
 
     console.log('======================');
   }
 
-  async update(_gameState: GameState): Promise<GamePhaseType | null> {
+  async update(gameState: GameState): Promise<GamePhaseType | null> {
+    // モノポリーによる即勝利処理
+    if (this.monopolyWinners.length > 0) {
+      for (const winner of this.monopolyWinners) {
+        const finishedCount = gameState.players.filter(p => p.isFinished).length;
+        winner.isFinished = true;
+        winner.finishPosition = finishedCount + 1;
+        console.log(`モノポリー: ${winner.name} finished in position ${winner.finishPosition}`);
+        // 手札を空にする
+        winner.hand.remove([...winner.hand.getCards()]);
+      }
+    }
+
     // 交換が終わったらPLAYフェーズへ
     return GamePhaseType.PLAY;
   }
@@ -177,5 +205,89 @@ export class ExchangePhase implements GamePhase {
     const shouldReverse = gameState.isRevolution;
     highPlayer.hand.sort(shouldReverse);
     lowPlayer.hand.sort(shouldReverse);
+  }
+
+  /**
+   * 賠償金（都税）処理
+   * 都落ち後も継続参加で先に上がった全員と追加1枚交換
+   */
+  private async performReparations(gameState: GameState): Promise<void> {
+    if (!gameState.ruleSettings.reparations) return;
+    if (!gameState.cityFallOccurred) return;
+    if (!gameState.previousDaifugoId) return;
+
+    // 前の大富豪（都落ちした人）を見つける
+    const fallenDaifugo = gameState.players.find(
+      p => p.id.value === gameState.previousDaifugoId
+    );
+    if (!fallenDaifugo) return;
+
+    // 都落ちした人より先に上がったプレイヤー（前ラウンドのfinishPositionで判定）
+    // 都落ちしたということは、前の大富豪が1位でなかったということ
+    // つまり前ラウンドで1位になったプレイヤーと交換
+    const winner = gameState.players.find(p => p.rank === PlayerRank.DAIFUGO);
+    if (!winner || winner.id.value === fallenDaifugo.id.value) return;
+
+    console.log(`賠償金発動！${fallenDaifugo.name} は都落ちのため ${winner.name} と追加1枚交換`);
+
+    // 都落ちした人から最強カード1枚を取得
+    const strongestCard = this.getStrongestCards(fallenDaifugo, 1, gameState.isRevolution);
+    if (strongestCard.length === 0) {
+      console.log(`${fallenDaifugo.name} から交換するカードがありません`);
+      return;
+    }
+
+    // 勝者から最弱カード1枚を取得
+    const weakestCard = this.getWeakestCards(winner, 1, gameState.isRevolution);
+    if (weakestCard.length === 0) {
+      console.log(`${winner.name} から交換するカードがありません`);
+      return;
+    }
+
+    // カード交換を実行
+    this.swapCards(winner, fallenDaifugo, weakestCard, strongestCard, gameState);
+    console.log(`賠償金: ${fallenDaifugo.name} → ${winner.name}: ${strongestCard.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+    console.log(`賠償金: ${winner.name} → ${fallenDaifugo.name}: ${weakestCard.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+  }
+
+  /**
+   * モノポリー条件判定（同スートA〜K全13枚を所持）
+   * いずれかのスートでA, 2, 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K の13枚全てを持っている
+   */
+  private checkMonopolyCondition(player: Player): boolean {
+    const cards = player.hand.getCards();
+
+    // スートごとにランクをセットで管理
+    const suitRanks: Record<string, Set<string>> = {
+      [Suit.SPADE]: new Set(),
+      [Suit.HEART]: new Set(),
+      [Suit.DIAMOND]: new Set(),
+      [Suit.CLUB]: new Set(),
+    };
+
+    // 全ランクのリスト
+    const allRanks = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+
+    for (const card of cards) {
+      // ジョーカーはスキップ
+      if (card.rank === 'JOKER') continue;
+      if (suitRanks[card.suit]) {
+        suitRanks[card.suit].add(card.rank);
+      }
+    }
+
+    // いずれかのスートで13枚全て持っているかチェック
+    for (const suit of [Suit.SPADE, Suit.HEART, Suit.DIAMOND, Suit.CLUB]) {
+      if (suitRanks[suit].size === 13) {
+        // 全ランクが含まれているか確認
+        const hasAllRanks = allRanks.every(rank => suitRanks[suit].has(rank));
+        if (hasAllRanks) {
+          console.log(`${player.name} は ${suit} の全13枚を持っています！`);
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 }

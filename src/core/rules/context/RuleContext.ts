@@ -26,6 +26,11 @@ export interface RuleContext {
   hotMilkRestriction: 'warm' | null; // ホットミルク制限（warm: ダイヤ/ハートのみ）
   partialLockSuits: string[] | null; // 片縛り（複数枚で一部スートが一致した時のロックスート）
 
+  // 開始・終了ルール用
+  miyakoOchiAttackerId: string | null; // 都落ちさせたプレイヤーID（仇討ち禁止令用）
+  previousDaifugoId: string | null; // 前ラウンドの大富豪ID（仇討ち禁止令用）
+  isPlayerCityFallen: boolean; // 現在のプレイヤーが都落ちしたか（治安維持法用）
+
   // ルール設定
   ruleSettings: RuleSettings;
 }

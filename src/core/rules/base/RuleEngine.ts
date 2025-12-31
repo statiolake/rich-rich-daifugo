@@ -42,6 +42,13 @@ export class RuleEngine {
       return { valid: true };
     }
 
+    // プレイヤーが都落ちしたかを判定（治安維持法用）
+    // 都落ちは前回大富豪だったプレイヤーが今回1位でないと発生
+    // ここでは一時的に、現在のプレイヤーが前回の大富豪だったかをチェック
+    const isPlayerCityFallen = gameState.ruleSettings.cityFall &&
+      gameState.previousDaifugoId === player.id.value &&
+      gameState.cityFallOccurred;
+
     // RuleContext を生成
     const context: RuleContext = {
       isRevolution: gameState.isRevolution,
@@ -58,6 +65,9 @@ export class RuleEngine {
       isDoubleDigitSealActive: gameState.isDoubleDigitSealActive,
       hotMilkRestriction: gameState.hotMilkRestriction,
       partialLockSuits: gameState.partialLockSuits,
+      miyakoOchiAttackerId: gameState.miyakoOchiAttackerId,
+      previousDaifugoId: gameState.previousDaifugoId,
+      isPlayerCityFallen,
       ruleSettings: gameState.ruleSettings,
     };
 

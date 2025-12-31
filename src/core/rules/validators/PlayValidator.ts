@@ -96,9 +96,17 @@ export class PlayValidator {
     const strengthResult = this.validateStrength(cards, context);
     if (!strengthResult.valid) return strengthResult;
 
-    // 10. 禁止上がりチェック
+    // 11. 禁止上がりチェック
     const forbiddenResult = this.validateForbiddenFinish(player, cards, context);
     if (!forbiddenResult.valid) return forbiddenResult;
+
+    // 12. 仇討ち禁止令チェック
+    const adauchiBanResult = this.validateAdauchiBan(player, cards, context);
+    if (!adauchiBanResult.valid) return adauchiBanResult;
+
+    // 13. 治安維持法チェック（革命を起こせるかどうか）
+    const securityLawResult = this.validateSecurityLaw(cards, context);
+    if (!securityLawResult.valid) return securityLawResult;
 
     // 強さチェックの理由を保持して返す
     return strengthResult;
@@ -133,6 +141,12 @@ export class PlayValidator {
     // 女装ルールチェック（QとKの混合出し）
     if (context.ruleSettings.crossDressing && this.isCrossDressing(cards)) {
       return { valid: true, reason: '女装' };
+    }
+
+    // 語呂合わせ革命チェック
+    const goroawaseResult = this.validateGoroawaseCombination(cards, context);
+    if (goroawaseResult) {
+      return goroawaseResult;
     }
 
     const play = PlayAnalyzer.analyze(
@@ -882,5 +896,312 @@ export class PlayValidator {
     }
 
     return '';
+  }
+
+  /**
+   * 仇討ち禁止令チェック
+   * 都落ちさせた相手を都落ちさせる形で上がることはできない
+   *
+   * 発動条件:
+   * - 仇討ち禁止令ルールがON
+   * - このプレイで手札が空になる（上がり）
+   * - 前回の大富豪（都落ち対象）が自分を都落ちさせた人である
+   */
+  private validateAdauchiBan(
+    player: Player,
+    cards: Card[],
+    context: RuleContext
+  ): ValidationResult {
+    if (!context.ruleSettings.adauchiBan) {
+      return { valid: true, reason: '' };
+    }
+
+    // このプレイで上がりになるかチェック
+    const remainingCards = player.hand.size() - cards.length;
+    if (remainingCards !== 0) {
+      return { valid: true, reason: '' };
+    }
+
+    // 都落ちさせた人がいて、かつ前回の大富豪が都落ちさせた人ならNG
+    // miyakoOchiAttackerId: 自分を都落ちさせたプレイヤーID
+    // previousDaifugoId: 今回都落ちになる可能性があるプレイヤーID
+    if (
+      context.miyakoOchiAttackerId &&
+      context.previousDaifugoId &&
+      context.miyakoOchiAttackerId === context.previousDaifugoId
+    ) {
+      return {
+        valid: false,
+        reason: '仇討ち禁止令：都落ちさせた相手を都落ちさせて上がることはできません',
+      };
+    }
+
+    return { valid: true, reason: '' };
+  }
+
+  /**
+   * 治安維持法チェック
+   * 都落ちしたプレイヤーは革命を起こせない
+   *
+   * 発動条件:
+   * - 治安維持法ルールがON
+   * - プレイヤーが都落ちした（前回の大富豪だが今回1位でない）
+   * - 革命が起きるプレイ（4枚同数、階段革命など）
+   */
+  private validateSecurityLaw(
+    cards: Card[],
+    context: RuleContext
+  ): ValidationResult {
+    if (!context.ruleSettings.securityLaw) {
+      return { valid: true, reason: '' };
+    }
+
+    // プレイヤーが都落ちしていなければチェック不要
+    if (!context.isPlayerCityFallen) {
+      return { valid: true, reason: '' };
+    }
+
+    // 革命が起きるかどうかをチェック
+    const play = PlayAnalyzer.analyze(
+      cards,
+      context.ruleSettings.skipStair,
+      context.ruleSettings.doubleStair,
+      {
+        enableTunnel: context.ruleSettings.tunnel,
+        enableSpadeStair: context.ruleSettings.spadeStair,
+      }
+    );
+
+    if (!play) {
+      return { valid: true, reason: '' };
+    }
+
+    // 革命が起きるプレイかどうかを判定
+    const triggersRevolution = this.wouldTriggerRevolution(play, context);
+
+    if (triggersRevolution) {
+      return {
+        valid: false,
+        reason: '治安維持法：都落ちしたプレイヤーは革命を起こせません',
+      };
+    }
+
+    return { valid: true, reason: '' };
+  }
+
+  /**
+   * このプレイが革命を起こすかどうかを判定
+   */
+  private wouldTriggerRevolution(play: Play, context: RuleContext): boolean {
+    // 4枚同数（QUAD）は革命
+    if (play.type === PlayType.QUAD) {
+      return true;
+    }
+
+    // 4枚以上の階段で階段革命
+    if (context.ruleSettings.stairRevolution && play.type === PlayType.STAIR && play.cards.length >= 4) {
+      return true;
+    }
+
+    // 7x3でナナサン革命
+    if (context.ruleSettings.nanasanRevolution && play.type === PlayType.TRIPLE && play.cards.every(c => c.rank === '7')) {
+      return true;
+    }
+
+    // 9x3でクーデター
+    if (context.ruleSettings.coup && play.type === PlayType.TRIPLE && play.cards.every(c => c.rank === '9')) {
+      return true;
+    }
+
+    // 6x3でオーメン
+    if (context.ruleSettings.omen && play.type === PlayType.TRIPLE && play.cards.every(c => c.rank === '6')) {
+      return true;
+    }
+
+    // ジョーカー2枚でジョーカー革命
+    if (context.ruleSettings.jokerRevolution && play.type === PlayType.PAIR && play.cards.every(c => c.rank === 'JOKER')) {
+      return true;
+    }
+
+    // エンペラー
+    if (context.ruleSettings.emperor && play.type === PlayType.EMPEROR) {
+      return true;
+    }
+
+    // 飛び連番革命（4枚以上の飛び階段）
+    if (context.ruleSettings.skipStairRevolution && play.type === PlayType.SKIP_STAIR && play.cards.length >= 4) {
+      return true;
+    }
+
+    // 超革命（5枚以上）
+    if (context.ruleSettings.superRevolution && play.cards.length >= 5) {
+      return true;
+    }
+
+    // 語呂合わせ革命のチェック
+    if (context.ruleSettings.southernCross && this.isSouthernCross(play.cards)) {
+      return true;
+    }
+    if (context.ruleSettings.yoroshikuRevolution && this.isYoroshikuRevolution(play.cards)) {
+      return true;
+    }
+    if (context.ruleSettings.shininasaiRevolution && this.isShininasaiRevolution(play.cards)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // ========================================
+  // Private: 語呂合わせ革命の組み合わせチェック
+  // ========================================
+
+  /**
+   * 語呂合わせ革命の組み合わせチェック
+   * @returns ValidationResult | null（nullの場合は通常の組み合わせチェックを続行）
+   */
+  private validateGoroawaseCombination(cards: Card[], context: RuleContext): ValidationResult | null {
+    // サザンクロス（3,3,9,6）
+    if (context.ruleSettings.southernCross && this.isSouthernCross(cards)) {
+      return { valid: true, reason: 'サザンクロス' };
+    }
+
+    // 平安京流し（同スート7,9,4）
+    if (context.ruleSettings.heiankyoFlow && this.isHeiankyoFlow(cards)) {
+      return { valid: true, reason: '平安京流し' };
+    }
+
+    // サイクロン（同スート3,A,9,6）
+    if (context.ruleSettings.cyclone && this.isCyclone(cards)) {
+      return { valid: true, reason: 'サイクロン' };
+    }
+
+    // 粉々革命（同色5×2枚、7×2枚）
+    if (context.ruleSettings.konagonaRevolution && this.isKonagonaRevolution(cards)) {
+      return { valid: true, reason: '粉々革命' };
+    }
+
+    // 世露死苦革命（4,6,4,9）
+    if (context.ruleSettings.yoroshikuRevolution && this.isYoroshikuRevolution(cards)) {
+      return { valid: true, reason: '世露死苦革命' };
+    }
+
+    // 死になさい革命（♠4,2,7,3,A）
+    if (context.ruleSettings.shininasaiRevolution && this.isShininasaiRevolution(cards)) {
+      return { valid: true, reason: '死になさい革命' };
+    }
+
+    return null;
+  }
+
+  /**
+   * サザンクロス判定（3,3,9,6を同時出しで革命）- 南十字星「3396」
+   * 条件: 4枚で、3が2枚、9が1枚、6が1枚
+   */
+  private isSouthernCross(cards: Card[]): boolean {
+    if (cards.length !== 4) return false;
+
+    const ranks = cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
+    const threes = ranks.filter(r => r === '3').length;
+    const nines = ranks.filter(r => r === '9').length;
+    const sixes = ranks.filter(r => r === '6').length;
+
+    return threes === 2 && nines === 1 && sixes === 1;
+  }
+
+  /**
+   * 平安京流し判定（同スート7,9,4を出すといつでも出せて場が流れる）- 「794」年
+   * 条件: 3枚で、同スートの7,9,4
+   */
+  private isHeiankyoFlow(cards: Card[]): boolean {
+    if (cards.length !== 3) return false;
+
+    const nonJokers = cards.filter(c => c.rank !== 'JOKER');
+    if (nonJokers.length !== 3) return false;
+
+    const suit = nonJokers[0].suit;
+    if (!nonJokers.every(c => c.suit === suit)) return false;
+
+    const ranks = nonJokers.map(c => c.rank);
+    return ranks.includes('7') && ranks.includes('9') && ranks.includes('4');
+  }
+
+  /**
+   * サイクロン判定（同スート3,A,9,6を出すと全員の手札を混ぜて再配布）- 「3196」
+   * 条件: 4枚で、同スートの3,A,9,6
+   */
+  private isCyclone(cards: Card[]): boolean {
+    if (cards.length !== 4) return false;
+
+    const nonJokers = cards.filter(c => c.rank !== 'JOKER');
+    if (nonJokers.length !== 4) return false;
+
+    const suit = nonJokers[0].suit;
+    if (!nonJokers.every(c => c.suit === suit)) return false;
+
+    const ranks = nonJokers.map(c => c.rank);
+    return ranks.includes('3') && ranks.includes('A') && ranks.includes('9') && ranks.includes('6');
+  }
+
+  /**
+   * 粉々革命判定（同色5×2枚、7×2枚を出すと出した人が大富豪）- 「5757」
+   * 条件: 4枚で、同色の5が2枚、7が2枚
+   */
+  private isKonagonaRevolution(cards: Card[]): boolean {
+    if (cards.length !== 4) return false;
+
+    const nonJokers = cards.filter(c => c.rank !== 'JOKER');
+    if (nonJokers.length !== 4) return false;
+
+    const color = this.getSuitColor(nonJokers[0].suit);
+    if (!color) return false;
+    if (!nonJokers.every(c => this.getSuitColor(c.suit) === color)) return false;
+
+    const fives = nonJokers.filter(c => c.rank === '5').length;
+    const sevens = nonJokers.filter(c => c.rank === '7').length;
+
+    return fives === 2 && sevens === 2;
+  }
+
+  /**
+   * 世露死苦革命判定（4,6,4,9を出すと革命）- 「4649」
+   * 条件: 4枚で、4が2枚、6が1枚、9が1枚
+   */
+  private isYoroshikuRevolution(cards: Card[]): boolean {
+    if (cards.length !== 4) return false;
+
+    const ranks = cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
+    if (ranks.length !== 4) return false;
+
+    const fours = ranks.filter(r => r === '4').length;
+    const sixes = ranks.filter(r => r === '6').length;
+    const nines = ranks.filter(r => r === '9').length;
+
+    return fours === 2 && sixes === 1 && nines === 1;
+  }
+
+  /**
+   * 死になさい革命判定（♠4,2,7,3,Aを出すと革命＋指名者を大貧民に）- 「42731」
+   * 条件: 5枚で、すべてスペードの4,2,7,3,A
+   */
+  private isShininasaiRevolution(cards: Card[]): boolean {
+    if (cards.length !== 5) return false;
+
+    const nonJokers = cards.filter(c => c.rank !== 'JOKER');
+    if (nonJokers.length !== 5) return false;
+
+    if (!nonJokers.every(c => c.suit === Suit.SPADE)) return false;
+
+    const ranks = nonJokers.map(c => c.rank);
+    return ranks.includes('4') && ranks.includes('2') && ranks.includes('7') && ranks.includes('3') && ranks.includes('A');
+  }
+
+  /**
+   * スートから色を取得
+   */
+  private getSuitColor(suit: Suit): 'red' | 'black' | null {
+    if (suit === Suit.HEART || suit === Suit.DIAMOND) return 'red';
+    if (suit === Suit.SPADE || suit === Suit.CLUB) return 'black';
+    return null;
   }
 }

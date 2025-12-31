@@ -118,7 +118,22 @@ export type TriggerEffect =
   | '拾い食い'
   | 'カルテル'
   | 'ギロチン時計'
-  | 'スペ階';
+  | 'スペ階'
+  | 'テポドン'
+  | 'どかん'
+  | 'ババ落ち'
+  | '核爆弾'
+  | 'サザンクロス'
+  | 'サザンクロス終了'
+  | '平安京流し'
+  | 'サイクロン'
+  | '粉々革命'
+  | '世露死苦革命'
+  | '世露死苦革命終了'
+  | '死になさい革命'
+  | '死になさい革命終了'
+  | '天和'
+  | 'モノポリー';
 
 /**
  * トリガーエフェクトアナライザー
@@ -656,6 +671,55 @@ export class TriggerEffectAnalyzer {
     // スペ階判定（♠2→Joker→♠3の最強階段で場が流れる）
     if (ruleSettings.spadeStair && this.triggersSpadeStair(play)) {
       effects.push('スペ階');
+    }
+
+    // テポドン判定（同数4枚＋ジョーカー2枚で革命＋即上がり）
+    if (ruleSettings.taepodong && this.triggersTaepodong(play)) {
+      effects.push('テポドン');
+    }
+
+    // どかん判定（場のカード合計=手札合計で無条件勝利）
+    // 注意: この判定は PlayPhase 側で currentPlayer の手札情報が必要なため、
+    // ここではフラグのみ立てて、実際の判定は PlayPhase で行う
+
+    // サザンクロス判定（3,3,9,6を同時出しで革命）- 南十字星「3396」
+    if (ruleSettings.southernCross && this.triggersSouthernCross(play) && !gameState.isOmenActive && !gameState.isSuperRevolutionActive) {
+      effects.push(gameState.isRevolution ? 'サザンクロス終了' : 'サザンクロス');
+    }
+
+    // 平安京流し判定（同スート7,9,4を出すといつでも出せて場が流れる）- 「794」年
+    if (ruleSettings.heiankyoFlow && this.triggersHeiankyoFlow(play)) {
+      effects.push('平安京流し');
+    }
+
+    // サイクロン判定（同スート3,A,9,6を出すと全員の手札を混ぜて再配布）- 「3196」
+    if (ruleSettings.cyclone && this.triggersCyclone(play)) {
+      effects.push('サイクロン');
+    }
+
+    // 粉々革命判定（同色5×2枚、7×2枚を出すと出した人が大富豪）- 「5757」
+    if (ruleSettings.konagonaRevolution && this.triggersKonagonaRevolution(play)) {
+      effects.push('粉々革命');
+    }
+
+    // 世露死苦革命判定（4,6,4,9を出すと革命）- 「4649」
+    if (ruleSettings.yoroshikuRevolution && this.triggersYoroshikuRevolution(play) && !gameState.isOmenActive && !gameState.isSuperRevolutionActive) {
+      effects.push(gameState.isRevolution ? '世露死苦革命終了' : '世露死苦革命');
+    }
+
+    // 死になさい革命判定（♠4,2,7,3,Aを出すと革命＋指名者を大貧民に）- 「42731」
+    if (ruleSettings.shininasaiRevolution && this.triggersShininasaiRevolution(play) && !gameState.isOmenActive && !gameState.isSuperRevolutionActive) {
+      effects.push(gameState.isRevolution ? '死になさい革命終了' : '死になさい革命');
+    }
+
+    // ババ落ち判定（ジョーカー含む5枚で革命→もう1枚のジョーカー所持者は敗北）
+    if (ruleSettings.babaOchi && this.triggersBabaOchi(play)) {
+      effects.push('ババ落ち');
+    }
+
+    // 核爆弾判定（6枚以上で革命→ゲーム終了まで革命固定）
+    if (ruleSettings.nuclearBomb && this.triggersNuclearBomb(play) && !gameState.isNuclearBombActive) {
+      effects.push('核爆弾');
     }
 
     return effects;
@@ -1583,5 +1647,162 @@ export class TriggerEffectAnalyzer {
    */
   private triggersSpadeStair(play: Play): boolean {
     return play.type === PlayType.SPADE_STAIR;
+  }
+
+  /**
+   * テポドン判定（同数4枚＋ジョーカー2枚で革命＋即上がり）
+   * 条件: 6枚で、ジョーカーが2枚、残り4枚が同じランク
+   */
+  private triggersTaepodong(play: Play): boolean {
+    // 6枚でなければ発動しない
+    if (play.cards.length !== 6) return false;
+
+    // ジョーカーの枚数をカウント
+    const jokers = play.cards.filter(card => card.rank === 'JOKER');
+    if (jokers.length !== 2) return false;
+
+    // 残り4枚が同じランクか確認
+    const nonJokers = play.cards.filter(card => card.rank !== 'JOKER');
+    if (nonJokers.length !== 4) return false;
+
+    const rank = nonJokers[0].rank;
+    return nonJokers.every(card => card.rank === rank);
+  }
+
+  /**
+   * ババ落ち判定（ジョーカー含む5枚で革命→もう1枚のジョーカー所持者は敗北）
+   * 条件: 5枚以上で革命が発動し、ジョーカーが1枚含まれている
+   */
+  private triggersBabaOchi(play: Play): boolean {
+    // 5枚以上でなければ発動しない
+    if (play.cards.length < 5) return false;
+
+    // ジョーカーが1枚だけ含まれているか確認
+    const jokerCount = play.cards.filter(card => card.rank === 'JOKER').length;
+    return jokerCount === 1;
+  }
+
+  /**
+   * 核爆弾判定（6枚以上で革命→ゲーム終了まで革命固定）
+   * 条件: 6枚以上のプレイ
+   */
+  private triggersNuclearBomb(play: Play): boolean {
+    return play.cards.length >= 6;
+  }
+
+  // ========== 語呂合わせ革命のトリガー判定メソッド ==========
+
+  /**
+   * サザンクロス判定（3,3,9,6を同時出しで革命）- 南十字星「3396」
+   * 条件: 4枚で、3が2枚、9が1枚、6が1枚
+   */
+  private triggersSouthernCross(play: Play): boolean {
+    if (play.cards.length !== 4) return false;
+
+    const ranks = play.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
+    const threes = ranks.filter(r => r === '3').length;
+    const nines = ranks.filter(r => r === '9').length;
+    const sixes = ranks.filter(r => r === '6').length;
+
+    return threes === 2 && nines === 1 && sixes === 1;
+  }
+
+  /**
+   * 平安京流し判定（同スート7,9,4を出すといつでも出せて場が流れる）- 「794」年
+   * 条件: 3枚で、同スートの7,9,4
+   */
+  private triggersHeiankyoFlow(play: Play): boolean {
+    if (play.cards.length !== 3) return false;
+
+    // ジョーカー以外のカードを取得
+    const nonJokers = play.cards.filter(c => c.rank !== 'JOKER');
+    if (nonJokers.length !== 3) return false;
+
+    // すべて同スートか確認
+    const suit = nonJokers[0].suit;
+    if (!nonJokers.every(c => c.suit === suit)) return false;
+
+    // 7,9,4が含まれているか確認
+    const ranks = nonJokers.map(c => c.rank);
+    return ranks.includes('7') && ranks.includes('9') && ranks.includes('4');
+  }
+
+  /**
+   * サイクロン判定（同スート3,A,9,6を出すと全員の手札を混ぜて再配布）- 「3196」
+   * 条件: 4枚で、同スートの3,A,9,6
+   */
+  private triggersCyclone(play: Play): boolean {
+    if (play.cards.length !== 4) return false;
+
+    // ジョーカー以外のカードを取得
+    const nonJokers = play.cards.filter(c => c.rank !== 'JOKER');
+    if (nonJokers.length !== 4) return false;
+
+    // すべて同スートか確認
+    const suit = nonJokers[0].suit;
+    if (!nonJokers.every(c => c.suit === suit)) return false;
+
+    // 3,A,9,6が含まれているか確認
+    const ranks = nonJokers.map(c => c.rank);
+    return ranks.includes('3') && ranks.includes('A') && ranks.includes('9') && ranks.includes('6');
+  }
+
+  /**
+   * 粉々革命判定（同色5×2枚、7×2枚を出すと出した人が大富豪）- 「5757」
+   * 条件: 4枚で、同色の5が2枚、7が2枚
+   */
+  private triggersKonagonaRevolution(play: Play): boolean {
+    if (play.cards.length !== 4) return false;
+
+    // ジョーカー以外のカードを取得
+    const nonJokers = play.cards.filter(c => c.rank !== 'JOKER');
+    if (nonJokers.length !== 4) return false;
+
+    // すべて同色か確認
+    const color = this.getSuitColor(nonJokers[0].suit);
+    if (!color) return false;
+    if (!nonJokers.every(c => this.getSuitColor(c.suit) === color)) return false;
+
+    // 5が2枚、7が2枚か確認
+    const fives = nonJokers.filter(c => c.rank === '5').length;
+    const sevens = nonJokers.filter(c => c.rank === '7').length;
+
+    return fives === 2 && sevens === 2;
+  }
+
+  /**
+   * 世露死苦革命判定（4,6,4,9を出すと革命）- 「4649」
+   * 条件: 4枚で、4が2枚、6が1枚、9が1枚
+   */
+  private triggersYoroshikuRevolution(play: Play): boolean {
+    if (play.cards.length !== 4) return false;
+
+    const ranks = play.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
+    if (ranks.length !== 4) return false;
+
+    const fours = ranks.filter(r => r === '4').length;
+    const sixes = ranks.filter(r => r === '6').length;
+    const nines = ranks.filter(r => r === '9').length;
+
+    return fours === 2 && sixes === 1 && nines === 1;
+  }
+
+  /**
+   * 死になさい革命判定（♠4,2,7,3,Aを出すと革命＋指名者を大貧民に）- 「42731」
+   * 条件: 5枚で、すべてスペードの4,2,7,3,A
+   */
+  private triggersShininasaiRevolution(play: Play): boolean {
+    if (play.cards.length !== 5) return false;
+
+    // ジョーカー以外のカードを取得
+    const nonJokers = play.cards.filter(c => c.rank !== 'JOKER');
+    if (nonJokers.length !== 5) return false;
+
+    // すべてスペードか確認
+    if (!nonJokers.every(c => c.suit === Suit.SPADE)) return false;
+
+    // 4,2,7,3,Aが含まれているか確認
+    const ranks = nonJokers.map(c => c.rank);
+    return ranks.includes('4') && ranks.includes('2') && ranks.includes('7') && ranks.includes('3') && ranks.includes('A');
   }
 }

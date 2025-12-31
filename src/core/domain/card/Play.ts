@@ -11,6 +11,7 @@ export enum PlayType {
   EMPEROR = 'EMPEROR',          // エンペラー（4種類のスートの連番4枚）
   TUNNEL = 'TUNNEL',            // トンネル（A→2→3の階段、最弱の階段）
   SPADE_STAIR = 'SPADE_STAIR',  // スペ階（♠2→Joker→♠3の階段、最強で場が流れる）
+  TAEPODONG = 'TAEPODONG',      // テポドン（同数4枚＋ジョーカー2枚、革命＋即上がり）
 }
 
 export interface Play {
@@ -26,6 +27,7 @@ export interface AnalyzeOptions {
   enableDoubleStair?: boolean;
   enableTunnel?: boolean;
   enableSpadeStair?: boolean;
+  enableTaepodong?: boolean;
 }
 
 export class PlayAnalyzer {
@@ -39,8 +41,20 @@ export class PlayAnalyzer {
   static analyze(cards: Card[], enableSkipStair: boolean = false, enableDoubleStair: boolean = false, options?: AnalyzeOptions): Play | null {
     const enableTunnel = options?.enableTunnel ?? false;
     const enableSpadeStair = options?.enableSpadeStair ?? false;
+    const enableTaepodong = options?.enableTaepodong ?? false;
     if (cards.length === 0) {
       return null;
+    }
+
+    // テポドンチェック（6枚: 同数4枚＋ジョーカー2枚）
+    if (cards.length === 6 && enableTaepodong && this.isTaepodong(cards)) {
+      // テポドンの強さは最強（どのプレイよりも強い）
+      const nonJokers = cards.filter(c => c.rank !== 'JOKER');
+      return {
+        cards,
+        type: PlayType.TAEPODONG,
+        strength: nonJokers.length > 0 ? nonJokers[0].strength : 14,
+      };
     }
 
     // 1枚出し
@@ -482,5 +496,23 @@ export class PlayAnalyzer {
     }
 
     return hasSpadeTwo && hasJoker && hasSpadeThree;
+  }
+
+  /**
+   * テポドン判定（同数4枚＋ジョーカー2枚）
+   */
+  static isTaepodong(cards: Card[]): boolean {
+    if (cards.length !== 6) return false;
+
+    // ジョーカーの枚数をカウント
+    const jokers = cards.filter(card => card.rank === 'JOKER');
+    if (jokers.length !== 2) return false;
+
+    // 残り4枚が同じランクか確認
+    const nonJokers = cards.filter(card => card.rank !== 'JOKER');
+    if (nonJokers.length !== 4) return false;
+
+    const rank = nonJokers[0].rank;
+    return nonJokers.every(card => card.rank === rank);
   }
 }

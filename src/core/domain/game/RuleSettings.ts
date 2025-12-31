@@ -105,6 +105,13 @@ export interface RuleSettings {
   luckySeven: boolean;         // ラッキーセブン
   catastrophe: boolean;        // 天変地異
 
+  // 都落ち派生ルール
+  kyoOchi: boolean;            // 京落ち（大富豪が連続1着で富豪が大貧民に転落）
+  fuOchi: boolean;             // 府落ち（都落ち発生＋富豪が2着でない→富豪も貧民に降格）
+  reparations: boolean;        // 賠償金（都落ち後も継続参加で先に上がった全員と追加1枚交換）
+  babaOchi: boolean;           // ババ落ち（ジョーカー含む5枚で革命→もう1枚のジョーカー所持者は敗北）
+  nuclearBomb: boolean;        // 核爆弾（6枚以上で革命→ゲーム終了まで革命固定）
+
   // 情報公開ルール
   fivePick: boolean;           // 5ピック（5を出すと枚数分だけ好きなプレイヤーの手札を見れる）
   weakShow: boolean;           // 弱見せ（9を出すと次のプレイヤーの最弱カードを公開）
@@ -164,6 +171,12 @@ export interface RuleSettings {
   // 片縛りルール
   partialLock: boolean;        // 片縛り（複数枚で一部スートが一致すると、そのスートを含む組み合わせのみ出せる）
 
+  // 即勝利条件ルール
+  taepodong: boolean;          // テポドン（同数4枚＋ジョーカー2枚で革命＋即上がり）
+  monopoly: boolean;           // モノポリー（同スートA〜K全13枚を所持で即勝利）
+  dokan: boolean;              // どかん（場のカード合計=手札合計で即勝利）
+  tenho: boolean;              // 天和（配布時に手札が全てペアで即上がり）
+
   // 10系ルール（ジョーカー関連）
   crusade: boolean;            // 十字軍（10x4で革命＋ジョーカー保持者から全ジョーカーを奪う）
   auction: boolean;            // オークション（10x3でジョーカー所持者から1枚ジョーカーを奪う）
@@ -183,6 +196,21 @@ export interface RuleSettings {
   supplyAid: boolean;          // 物資救援
   scavenging: boolean;         // 拾い食い
   cartel: boolean;             // カルテル（大貧民が3-4-5の階段で発動）
+
+  // 語呂合わせ革命
+  southernCross: boolean;      // サザンクロス（3,3,9,6を同時出しで革命）- 南十字星「3396」
+  heiankyoFlow: boolean;       // 平安京流し（同スート7,9,4を出すといつでも出せて場が流れる）- 「794」年
+  cyclone: boolean;            // サイクロン（同スート3,A,9,6を出すと全員の手札を混ぜて再配布）- 「3196」
+  konagonaRevolution: boolean; // 粉々革命（同色5×2枚、7×2枚を出すと出した人が大富豪）- 「5757」
+  yoroshikuRevolution: boolean; // 世露死苦革命（4,6,4,9を出すと革命）- 「4649」
+  shininasaiRevolution: boolean; // 死になさい革命（♠4,2,7,3,Aを出すと革命＋指名者を大貧民に）- 「42731」
+
+  // 開始・終了ルール
+  diamond3Start: boolean;      // ダイヤ3スタート（ダイヤ3所持者が親、最初にダイヤ3を含める）
+  daifugoLeisure: boolean;     // 大富豪の余裕（大富豪は最初の1手で必ずパス）
+  adauchiBan: boolean;         // 仇討ち禁止令（都落ちさせた相手を都落ちさせて上がれない）
+  securityLaw: boolean;        // 治安維持法（都落ちプレイヤーは革命を起こせない）
+  shiminByodo: boolean;        // 四民平等（1ゲーム中に革命が4回以上で全員平民に）
 }
 
 /**
@@ -268,6 +296,11 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   gekokujou: true,
   luckySeven: true,
   catastrophe: true,
+  kyoOchi: false,
+  fuOchi: false,
+  reparations: false,
+  babaOchi: false,
+  nuclearBomb: false,
   fivePick: true,
   weakShow: true,
   strongShow: true,
@@ -295,6 +328,10 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   teleforce: false,
   aceJanaiKa: false,
   partialLock: false,
+  taepodong: false,
+  monopoly: false,
+  dokan: false,
+  tenho: false,
   crusade: false,
   auction: false,
   yagiriNoWatashi: false,
@@ -307,4 +344,15 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   supplyAid: false,
   scavenging: false,
   cartel: false,
+  southernCross: false,
+  heiankyoFlow: false,
+  cyclone: false,
+  konagonaRevolution: false,
+  yoroshikuRevolution: false,
+  shininasaiRevolution: false,
+  diamond3Start: false,
+  daifugoLeisure: false,
+  adauchiBan: false,
+  securityLaw: false,
+  shiminByodo: false,
 };

@@ -35,10 +35,14 @@ export class PlayPhase implements GamePhase {
   async enter(gameState: GameState): Promise<void> {
     await this.clearFieldAndResetState(gameState, true);
     gameState.isReversed = false; // リバースをリセット
+    gameState.isFirstTurn = true; // 最初のターンフラグをセット
+    gameState.hasDaifugoPassedFirst = false; // 大富豪の余裕フラグをリセット
 
-    // 初回ラウンドはランダムなプレイヤーから開始
-    // 2回目以降は大富豪から開始（まだ実装していないので常にランダム）
-    gameState.currentPlayerIndex = Math.floor(Math.random() * gameState.players.length);
+    // ダイヤ3スタートの場合はSetupPhaseで設定済み
+    // それ以外は初回ランダム、2回目以降は大富豪から
+    if (!gameState.ruleSettings.diamond3Start) {
+      gameState.currentPlayerIndex = Math.floor(Math.random() * gameState.players.length);
+    }
 
     console.log(`Play phase started. Starting player: ${gameState.players[gameState.currentPlayerIndex].name}`);
 
@@ -86,6 +90,26 @@ export class PlayPhase implements GamePhase {
     // RuleEngine.validate() は空配列でパス判定を行う
     const validator: Validator = {
       validate: (cards: Card[]) => {
+        // ダイヤ3スタート: 最初のターンはダイヤ3を含める必要がある
+        if (gameState.ruleSettings.diamond3Start && gameState.isFirstTurn && gameState.field.isEmpty()) {
+          if (cards.length > 0) {
+            const hasDiamond3 = cards.some(c => c.suit === Suit.DIAMOND && c.rank === '3');
+            if (!hasDiamond3) {
+              return { valid: false, reason: 'ダイヤ3スタート：最初のプレイにはダイヤ3を含める必要があります' };
+            }
+          }
+        }
+
+        // 大富豪の余裕: 大富豪は最初の1手で必ずパス
+        if (gameState.ruleSettings.daifugoLeisure && !gameState.hasDaifugoPassedFirst) {
+          if (currentPlayer.rank === PlayerRank.DAIFUGO) {
+            if (cards.length > 0) {
+              return { valid: false, reason: '大富豪の余裕：大富豪は最初の1手は必ずパスです' };
+            }
+            // パスの場合は valid: true を返すが、後続処理でフラグを立てる
+          }
+        }
+
         return this.ruleEngine.validate(currentPlayer, cards, gameState.field, gameState);
       }
     };
@@ -140,6 +164,11 @@ export class PlayPhase implements GamePhase {
     player.hand.remove(cards);
     gameState.field.addPlay(play, player.id);
     gameState.passCount = 0;
+
+    // ダイヤ3スタート: 最初のプレイが完了したらフラグを解除
+    if (gameState.isFirstTurn) {
+      gameState.isFirstTurn = false;
+    }
 
     console.log(`${player.name} played ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
@@ -302,6 +331,34 @@ export class PlayPhase implements GamePhase {
       return;
     }
 
+    // テポドンの即勝利処理（同数4枚＋ジョーカー2枚で革命＋即上がり）
+    if (effects.includes('テポドン')) {
+      const remainingCards = player.hand.getCards();
+      if (remainingCards.length > 0) {
+        player.hand.remove([...remainingCards]);
+      }
+      this.handlePlayerFinish(gameState, player);
+      if (!shouldKeepTurn) {
+        this.nextPlayer(gameState);
+      }
+      return;
+    }
+
+    // どかんの即勝利処理（場のカード合計=手札合計で無条件勝利）
+    if (gameState.ruleSettings.dokan && this.checkDokanCondition(gameState, player)) {
+      console.log(`どかんが発動しました！${player.name} が即勝利！`);
+      await this.presentationRequester.requestCutIns([{ effect: 'どかん', variant: 'gold' }]);
+      const remainingCards = player.hand.getCards();
+      if (remainingCards.length > 0) {
+        player.hand.remove([...remainingCards]);
+      }
+      this.handlePlayerFinish(gameState, player);
+      if (!shouldKeepTurn) {
+        this.nextPlayer(gameState);
+      }
+      return;
+    }
+
     // 特殊ルール処理（await で待機）
     // 注意: 手札が空になる前に処理する必要があるルール（Qボンバー）と、
     //       手札が空でない場合のみ処理するルール（7渡し、10捨て）がある
@@ -418,6 +475,11 @@ export class PlayPhase implements GamePhase {
     // カルテル（大貧民が3-4-5の階段を出すと大富豪以外は手札を見せ合える）
     if (effects.includes('カルテル')) {
       this.handleCartel(gameState, player);
+    }
+
+    // ババ落ち（ジョーカー含む5枚で革命→もう1枚のジョーカー所持者は敗北）
+    if (effects.includes('ババ落ち')) {
+      await this.handleBabaOchi(gameState, player);
     }
 
     // 片縛りの発動判定と適用
@@ -568,6 +630,12 @@ export class PlayPhase implements GamePhase {
 
   private async handlePass(gameState: GameState, player: Player): Promise<void> {
     console.log(`${player.name} passed`);
+
+    // 大富豪の余裕: 大富豪がパスした場合、フラグを立てる
+    if (gameState.ruleSettings.daifugoLeisure && player.rank === PlayerRank.DAIFUGO && !gameState.hasDaifugoPassedFirst) {
+      gameState.hasDaifugoPassedFirst = true;
+      console.log('大富豪の余裕：大富豪がパスしました');
+    }
 
     // ダミアン発動中はパスしたプレイヤーが敗北
     if (gameState.isDamianActive) {
@@ -933,6 +1001,8 @@ export class PlayPhase implements GamePhase {
       '超革命': { effect: '超革命', variant: 'gold' },
       '超革命終了': { effect: '超革命終了', variant: 'blue' },
       '革命流し': { effect: '革命流し', variant: 'green' },
+      'テポドン': { effect: 'テポドン', variant: 'gold' },
+      'どかん': { effect: 'どかん', variant: 'gold' },
     };
 
     return cutInMap[effect] || null;
@@ -3041,5 +3111,94 @@ export class PlayPhase implements GamePhase {
     const count = Math.floor(Math.random() * 41) + 10; // 10〜50
     gameState.guillotineClockCount = count;
     console.log(`${player.name} がギロチン時計を設定しました：${count}回パスで敗北`);
+  }
+
+  /**
+   * どかん条件判定（場のカード合計 = 手札合計）
+   * カードの合計値を計算し、場と手札が一致するかを判定
+   * - 数字カード: そのままの数値（3〜10）
+   * - J: 11, Q: 12, K: 13, A: 14（または1）
+   * - 2: 15（または2）
+   * - JOKER: 0（計算から除外するか、任意の値とするか要検討）
+   *
+   * 注意: このルールの仕様が曖昧なため、シンプルに以下の定義を採用:
+   * - 数字カード 3〜10 はその数値
+   * - J=11, Q=12, K=13, A=14, 2=15
+   * - JOKER=0
+   */
+  private checkDokanCondition(gameState: GameState, player: Player): boolean {
+    // 場にカードがなければ発動しない
+    if (gameState.field.isEmpty()) return false;
+
+    // 場のカード合計を計算
+    const fieldHistory = gameState.field.getHistory();
+    let fieldSum = 0;
+    for (const history of fieldHistory) {
+      for (const card of history.play.cards) {
+        fieldSum += this.getCardValue(card);
+      }
+    }
+
+    // 手札合計を計算
+    const handCards = player.hand.getCards();
+    let handSum = 0;
+    for (const card of handCards) {
+      handSum += this.getCardValue(card);
+    }
+
+    console.log(`どかん判定: 場の合計=${fieldSum}, 手札の合計=${handSum}`);
+    return fieldSum === handSum && handSum > 0;
+  }
+
+  /**
+   * カードの数値を取得（どかん用）
+   */
+  private getCardValue(card: Card): number {
+    switch (card.rank) {
+      case '3': return 3;
+      case '4': return 4;
+      case '5': return 5;
+      case '6': return 6;
+      case '7': return 7;
+      case '8': return 8;
+      case '9': return 9;
+      case '10': return 10;
+      case 'J': return 11;
+      case 'Q': return 12;
+      case 'K': return 13;
+      case 'A': return 14;
+      case '2': return 15;
+      case 'JOKER': return 0;
+      default: return 0;
+    }
+  }
+
+  /**
+   * ババ落ち処理
+   * ジョーカー含む5枚で革命を起こすと、もう1枚のジョーカーを持っているプレイヤーは敗北
+   */
+  private async handleBabaOchi(gameState: GameState, player: Player): Promise<void> {
+    console.log(`ババ落ち発動！${player.name} がジョーカー含む5枚革命を発動しました`);
+
+    // ジョーカーを持っている他のプレイヤーを探す
+    for (const targetPlayer of gameState.players) {
+      // 自分と既に上がったプレイヤーはスキップ
+      if (targetPlayer.id.value === player.id.value || targetPlayer.isFinished) continue;
+
+      // ジョーカーを持っているか確認
+      const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
+      if (jokers.length > 0) {
+        console.log(`ババ落ち：${targetPlayer.name} はジョーカーを持っているため敗北！`);
+
+        // プレイヤーを敗北扱いにする（最下位）
+        targetPlayer.isFinished = true;
+        targetPlayer.finishPosition = gameState.players.filter(p => p.isFinished).length;
+
+        // ランクを大貧民に設定
+        targetPlayer.rank = PlayerRank.DAIHINMIN;
+
+        break; // 1人だけ敗北させる（もう1枚のジョーカーは1枚しかないはず）
+      }
+    }
   }
 }
