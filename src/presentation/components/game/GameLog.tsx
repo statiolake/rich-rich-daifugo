@@ -49,11 +49,21 @@ export const GameLog: React.FC = () => {
 
     return (
       <span className="inline-flex items-center gap-0.5 ml-1">
-        {cards.map((card, idx) => (
-          <span key={idx} className={`font-bold ${getSuitColor(card.suit)}`}>
-            {card.rank}{getSuitSymbol(card.suit)}
-          </span>
-        ))}
+        {cards.map((card, idx) => {
+          // ジョーカーは絵文字で表示
+          if (card.rank === 'JOKER') {
+            return (
+              <span key={idx} className="font-bold text-yellow-400">
+                🃏
+              </span>
+            );
+          }
+          return (
+            <span key={idx} className={`font-bold ${getSuitColor(card.suit)}`}>
+              {card.rank}{getSuitSymbol(card.suit)}
+            </span>
+          );
+        })}
       </span>
     );
   };
