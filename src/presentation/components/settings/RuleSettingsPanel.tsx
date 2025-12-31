@@ -15,6 +15,7 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
   const ruleCategories = [
     {
       title: '場をクリアするルール',
+      icon: '🔥',
       rules: [
         { key: 'eightCut', label: '8切り', description: '8を出すと場が流れる' },
         { key: 'fiveCut', label: '5切り', description: '革命中に5を出すと場が流れる' },
@@ -27,6 +28,7 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
     },
     {
       title: '革命バリエーション',
+      icon: '⚔️',
       rules: [
         { key: 'stairRevolution', label: '階段革命', description: '4枚以上の階段で革命' },
         { key: 'nanasanRevolution', label: 'ナナサン革命', description: '7x3で革命' },
@@ -39,12 +41,14 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
     },
     {
       title: '特殊勝利条件',
+      icon: '🏆',
       rules: [
         { key: 'forbiddenFinish', label: '禁止上がり', description: 'J/2/8/Jokerで上がれない' },
       ]
     },
     {
       title: 'カード強度ルール',
+      icon: '💪',
       rules: [
         { key: 'sandstorm', label: '砂嵐', description: '3x3が何にでも勝つ' },
         { key: 'tripleThreeReturn', label: '33返し', description: '3x3がジョーカー1枚を切れる' },
@@ -55,6 +59,7 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
     },
     {
       title: 'フィールド効果',
+      icon: '🌀',
       rules: [
         { key: 'fourStop', label: '4止め', description: '4x2で8切りを止める' },
         { key: 'suitLock', label: 'マークしばり', description: '同じマークで縛り' },
@@ -67,6 +72,7 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
     },
     {
       title: 'ターン操作',
+      icon: '🔄',
       rules: [
         { key: 'fiveSkip', label: '5スキップ', description: '5で次のプレイヤーをスキップ' },
         { key: 'sevenPass', label: '7渡し', description: '7でカードを次のプレイヤーに渡す' },
@@ -78,6 +84,7 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
     },
     {
       title: '特殊効果',
+      icon: '✨',
       rules: [
         { key: 'queenBomber', label: 'クイーンボンバー', description: 'Qで全員がカードを捨てる' },
         { key: 'downNumber', label: 'ダウンナンバー', description: '同じマークで1つ下を出せる' },
@@ -87,6 +94,7 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
     },
     {
       title: '捨て札回収ルール',
+      icon: '♻️',
       rules: [
         { key: 'salvage', label: 'サルベージ', description: '3で場が流れると捨て札から1枚回収' },
         { key: 'kingsMarch', label: 'キングの行進', description: 'Kを出すと枚数分捨て札から回収' },
@@ -94,12 +102,14 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
     },
     {
       title: '親権ルール',
+      icon: '👑',
       rules: [
         { key: 'nextAce', label: '次期エース', description: 'Aで場が流れた時に親になる' },
       ]
     },
     {
       title: 'ゲーム終了後のルール',
+      icon: '🎮',
       rules: [
         { key: 'cityFall', label: '都落ち', description: '大富豪が勝たないと大貧民に' },
         { key: 'gekokujou', label: '下剋上', description: '大貧民が勝つと全員のランクが逆転' },
@@ -109,79 +119,128 @@ export const RuleSettingsPanel: React.FC<RuleSettingsPanelProps> = ({ isOpen, on
     },
   ];
 
+  // Count enabled rules
+  const enabledCount = Object.values(settings).filter(Boolean).length;
+  const totalCount = Object.keys(settings).length;
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* 背景オーバーレイ */}
+          {/* Background overlay */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/70 backdrop-blur-md z-50"
           />
 
-          {/* パネル */}
+          {/* Panel */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+            className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none p-4"
           >
-            <div className="bg-gradient-to-br from-green-900 to-green-700 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden pointer-events-auto">
-              {/* ヘッダー */}
-              <div className="bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-4 flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white">ルール設定</h2>
+            <div className="game-panel w-full max-w-4xl max-h-[90vh] overflow-hidden pointer-events-auto">
+              {/* Header */}
+              <div className="game-panel-header flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-black text-white tracking-wide">ルール設定</h2>
+                  <span className="px-3 py-1 bg-white/10 rounded-full text-sm text-white/80">
+                    {enabledCount}/{totalCount} 有効
+                  </span>
+                </div>
                 <div className="flex gap-3">
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={resetToDefault}
-                    className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors text-sm font-bold"
+                    className="game-btn-secondary text-sm py-2"
                   >
                     デフォルトに戻す
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={onClose}
-                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-bold"
+                    className="game-btn-danger text-sm py-2"
                   >
                     閉じる
-                  </button>
+                  </motion.button>
                 </div>
               </div>
 
-              {/* スクロール可能なコンテンツ */}
-              <div className="overflow-y-auto max-h-[calc(90vh-80px)] p-6">
+              {/* Scrollable content */}
+              <div className="overflow-y-auto max-h-[calc(90vh-100px)] p-6 custom-scrollbar">
                 <div className="space-y-6">
                   {ruleCategories.map((category, categoryIndex) => (
-                    <div key={categoryIndex} className="bg-white/10 rounded-lg p-4">
-                      <h3 className="text-xl font-bold text-yellow-300 mb-3">
+                    <motion.div
+                      key={categoryIndex}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: categoryIndex * 0.05 }}
+                      className="game-card"
+                    >
+                      <h3 className="text-xl font-bold text-yellow-400 mb-4 flex items-center gap-3">
+                        <span className="text-2xl">{category.icon}</span>
                         {category.title}
+                        <span className="text-sm font-normal text-white/50">
+                          ({category.rules.filter(r => settings[r.key as keyof RuleSettings]).length}/{category.rules.length})
+                        </span>
                       </h3>
-                      <div className="space-y-2">
-                        {category.rules.map((rule) => (
-                          <label
-                            key={rule.key}
-                            className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <div className="flex-1">
-                              <div className="text-white font-bold">{rule.label}</div>
-                              <div className="text-white/70 text-sm">{rule.description}</div>
-                            </div>
-                            <div className="ml-4">
-                              <input
-                                type="checkbox"
-                                checked={settings[rule.key as keyof RuleSettings]}
-                                onChange={(e) => updateSetting(rule.key as keyof RuleSettings, e.target.checked)}
-                                className="w-6 h-6 text-yellow-500 bg-white/20 border-white/30 rounded focus:ring-2 focus:ring-yellow-500 cursor-pointer"
-                              />
-                            </div>
-                          </label>
-                        ))}
+                      <div className="grid gap-2">
+                        {category.rules.map((rule, ruleIndex) => {
+                          const isEnabled = settings[rule.key as keyof RuleSettings];
+                          return (
+                            <motion.label
+                              key={rule.key}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: categoryIndex * 0.05 + ruleIndex * 0.02 }}
+                              className={`
+                                flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer
+                                ${isEnabled
+                                  ? 'bg-gradient-to-r from-yellow-500/20 to-transparent border border-yellow-500/30'
+                                  : 'bg-white/5 hover:bg-white/10 border border-transparent'
+                                }
+                              `}
+                            >
+                              <div className="flex-1">
+                                <div className={`font-bold ${isEnabled ? 'text-yellow-300' : 'text-white'}`}>
+                                  {rule.label}
+                                </div>
+                                <div className="text-white/60 text-sm">{rule.description}</div>
+                              </div>
+                              <div className="ml-4 flex-shrink-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isEnabled}
+                                  onChange={(e) => updateSetting(rule.key as keyof RuleSettings, e.target.checked)}
+                                  className="game-checkbox"
+                                />
+                              </div>
+                            </motion.label>
+                          );
+                        })}
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
+
+                {/* Footer note */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="mt-8 p-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30"
+                >
+                  <p className="text-center text-white/80 text-sm">
+                    <span className="text-purple-300 font-bold">ヒント:</span> ルールを多く有効にするほどカオスで楽しくなります！
+                  </p>
+                </motion.div>
               </div>
             </div>
           </motion.div>

@@ -1,3 +1,517 @@
+/* Custom Fonts - must be first */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ============================================
+   Rich Rich Daifugo - Game UI Styles
+   ============================================ */
+
+:root {
+  /* Color Palette */
+  --color-gold: #ffd700;
+  --color-gold-dark: #b8860b;
+  --color-gold-light: #ffe55c;
+  --color-crimson: #dc143c;
+  --color-crimson-dark: #8b0000;
+  --color-neon-blue: #00d4ff;
+  --color-neon-green: #39ff14;
+  --color-neon-purple: #bf00ff;
+
+  /* Shadows */
+  --shadow-gold: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.3);
+  --shadow-neon: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+  --shadow-deep: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: #0a0a0a;
+  overflow: hidden;
+}
+
+/* Selection */
+::selection {
+  background: var(--color-gold);
+  color: black;
+}
+
+/* ============================================
+   Gaming Button Styles
+   ============================================ */
+@layer components {
+  /* Primary Game Button - Gold/Yellow */
+  .game-btn {
+    @apply relative px-8 py-4 font-bold text-xl rounded-lg overflow-hidden;
+    @apply transition-all duration-300 ease-out;
+    @apply border-2 border-transparent;
+    font-family: 'Noto Sans JP', sans-serif;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+
+  .game-btn-primary {
+    @apply game-btn text-black;
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4a 50%, #ffd700 100%);
+    box-shadow:
+      0 0 20px rgba(255, 215, 0, 0.4),
+      0 4px 15px rgba(0, 0, 0, 0.3),
+      inset 0 2px 0 rgba(255, 255, 255, 0.3),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+  }
+
+  .game-btn-primary:hover {
+    @apply scale-105;
+    background: linear-gradient(135deg, #ffe55c 0%, #fff176 50%, #ffe55c 100%);
+    box-shadow:
+      0 0 30px rgba(255, 215, 0, 0.6),
+      0 6px 20px rgba(0, 0, 0, 0.4),
+      inset 0 2px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+  }
+
+  .game-btn-primary:active {
+    @apply scale-95;
+    box-shadow:
+      0 0 15px rgba(255, 215, 0, 0.3),
+      0 2px 10px rgba(0, 0, 0, 0.3),
+      inset 0 2px 5px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Secondary Game Button - Blue */
+  .game-btn-secondary {
+    @apply game-btn text-white;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #1e3a5f 100%);
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow:
+      0 0 15px rgba(59, 130, 246, 0.3),
+      0 4px 15px rgba(0, 0, 0, 0.3),
+      inset 0 2px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .game-btn-secondary:hover {
+    @apply scale-105;
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #2563eb 100%);
+    box-shadow:
+      0 0 25px rgba(59, 130, 246, 0.5),
+      0 6px 20px rgba(0, 0, 0, 0.4),
+      inset 0 2px 0 rgba(255, 255, 255, 0.15),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  /* Success Game Button - Green */
+  .game-btn-success {
+    @apply game-btn text-white;
+    background: linear-gradient(135deg, #065f46 0%, #10b981 50%, #065f46 100%);
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow:
+      0 0 15px rgba(16, 185, 129, 0.3),
+      0 4px 15px rgba(0, 0, 0, 0.3),
+      inset 0 2px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .game-btn-success:hover {
+    @apply scale-105;
+    background: linear-gradient(135deg, #10b981 0%, #34d399 50%, #10b981 100%);
+    box-shadow:
+      0 0 25px rgba(16, 185, 129, 0.5),
+      0 6px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Danger Game Button - Red */
+  .game-btn-danger {
+    @apply game-btn text-white;
+    background: linear-gradient(135deg, #7f1d1d 0%, #ef4444 50%, #7f1d1d 100%);
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow:
+      0 0 15px rgba(239, 68, 68, 0.3),
+      0 4px 15px rgba(0, 0, 0, 0.3),
+      inset 0 2px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .game-btn-danger:hover {
+    @apply scale-105;
+    background: linear-gradient(135deg, #ef4444 0%, #f87171 50%, #ef4444 100%);
+    box-shadow:
+      0 0 25px rgba(239, 68, 68, 0.5),
+      0 6px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Disabled State */
+  .game-btn:disabled {
+    @apply cursor-not-allowed opacity-50 scale-100;
+    background: linear-gradient(135deg, #374151 0%, #4b5563 50%, #374151 100%);
+    box-shadow: none;
+  }
+
+  /* ============================================
+     Gaming Checkbox Styles
+     ============================================ */
+  .game-checkbox {
+    @apply appearance-none w-7 h-7 rounded-md cursor-pointer relative;
+    @apply transition-all duration-200 ease-out;
+    background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.3),
+      0 0 0 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .game-checkbox:hover {
+    border-color: rgba(255, 215, 0, 0.5);
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.3),
+      0 0 10px rgba(255, 215, 0, 0.3);
+  }
+
+  .game-checkbox:checked {
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+    border-color: #ffd700;
+    box-shadow:
+      0 0 15px rgba(255, 215, 0, 0.5),
+      0 0 0 2px rgba(255, 215, 0, 0.2);
+  }
+
+  .game-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 4px;
+    width: 6px;
+    height: 12px;
+    border: solid #000;
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg);
+  }
+
+  .game-checkbox:focus {
+    outline: none;
+    box-shadow:
+      0 0 0 3px rgba(255, 215, 0, 0.4),
+      0 0 20px rgba(255, 215, 0, 0.3);
+  }
+
+  /* Toggle Switch Style */
+  .game-toggle {
+    @apply relative w-14 h-8 rounded-full cursor-pointer;
+    @apply transition-all duration-300 ease-out;
+    background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+  }
+
+  .game-toggle::after {
+    content: '';
+    @apply absolute w-6 h-6 rounded-full top-0.5 left-0.5;
+    @apply transition-all duration-300 ease-out;
+    background: linear-gradient(135deg, #9ca3af 0%, #d1d5db 100%);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  }
+
+  .game-toggle:checked {
+    background: linear-gradient(135deg, #065f46 0%, #10b981 100%);
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow:
+      inset 0 2px 10px rgba(0, 0, 0, 0.3),
+      0 0 15px rgba(16, 185, 129, 0.4);
+  }
+
+  .game-toggle:checked::after {
+    transform: translateX(24px);
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+    box-shadow:
+      0 0 10px rgba(255, 215, 0, 0.5),
+      0 2px 5px rgba(0, 0, 0, 0.3);
+  }
+
+  /* ============================================
+     Gaming Panel Styles
+     ============================================ */
+  .game-panel {
+    @apply rounded-2xl overflow-hidden;
+    background: linear-gradient(
+      135deg,
+      rgba(15, 23, 42, 0.95) 0%,
+      rgba(30, 41, 59, 0.95) 50%,
+      rgba(15, 23, 42, 0.95) 100%
+    );
+    border: 2px solid rgba(255, 215, 0, 0.3);
+    box-shadow:
+      0 0 30px rgba(0, 0, 0, 0.5),
+      0 0 60px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .game-panel-header {
+    @apply px-6 py-4 font-bold text-2xl;
+    background: linear-gradient(
+      90deg,
+      rgba(255, 215, 0, 0.2) 0%,
+      rgba(255, 215, 0, 0.1) 50%,
+      rgba(255, 215, 0, 0.2) 100%
+    );
+    border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+  }
+
+  /* ============================================
+     Gaming Card (UI Card, not Playing Card)
+     ============================================ */
+  .game-card {
+    @apply rounded-xl p-4;
+    @apply transition-all duration-200 ease-out;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .game-card:hover {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
+    border-color: rgba(255, 215, 0, 0.3);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.1);
+  }
+
+  /* ============================================
+     Gaming Input Styles
+     ============================================ */
+  .game-input {
+    @apply w-full px-4 py-3 rounded-lg;
+    @apply text-white placeholder-gray-500;
+    @apply transition-all duration-200;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.2) 100%);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
+  }
+
+  .game-input:focus {
+    outline: none;
+    border-color: rgba(255, 215, 0, 0.5);
+    box-shadow:
+      inset 0 2px 5px rgba(0, 0, 0, 0.3),
+      0 0 15px rgba(255, 215, 0, 0.2);
+  }
+
+  /* ============================================
+     Rank Badge Styles
+     ============================================ */
+  .rank-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full font-bold text-sm;
+    @apply transition-all duration-200;
+  }
+
+  .rank-badge-daifugo {
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+    color: #000;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    text-shadow: none;
+  }
+
+  .rank-badge-fugo {
+    background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+    color: #000;
+    box-shadow: 0 0 10px rgba(192, 192, 192, 0.5);
+  }
+
+  .rank-badge-heimin {
+    background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+    color: #fff;
+  }
+
+  .rank-badge-hinmin {
+    background: linear-gradient(135deg, #78350f 0%, #a16207 100%);
+    color: #fff;
+  }
+
+  .rank-badge-daihinmin {
+    background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+    color: #9ca3af;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.4);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes rotate-border {
+  0% {
+    border-color: rgba(255, 215, 0, 0.5);
+  }
+  33% {
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+  66% {
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+  100% {
+    border-color: rgba(255, 215, 0, 0.5);
+  }
+}
+
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-rotate-border {
+  animation: rotate-border 4s linear infinite;
+}
+
+/* ============================================
+   Scrollbar Styles
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ffe55c 0%, #ffd700 100%);
+}
+
+/* ============================================
+   Game Board Background
+   ============================================ */
+.game-board-bg {
+  background:
+    radial-gradient(ellipse at center, rgba(22, 101, 52, 0.8) 0%, rgba(20, 83, 45, 0.9) 50%, rgba(6, 78, 59, 1) 100%),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(0, 0, 0, 0.03) 10px,
+      rgba(0, 0, 0, 0.03) 20px
+    );
+}
+
+/* Center felt texture */
+.game-board-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* ============================================
+   Status Indicator
+   ============================================ */
+.status-indicator {
+  @apply w-3 h-3 rounded-full;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+.status-indicator-active {
+  @apply bg-green-400;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.8);
+}
+
+.status-indicator-waiting {
+  @apply bg-yellow-400;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.8);
+}
+
+.status-indicator-inactive {
+  @apply bg-gray-500;
+  box-shadow: none;
+  animation: none;
+}
+
+/* ============================================
+   Title Screen
+   ============================================ */
+.title-text {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 900;
+  background: linear-gradient(
+    135deg,
+    #ffd700 0%,
+    #fff 25%,
+    #ffd700 50%,
+    #fff 75%,
+    #ffd700 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+  text-shadow: none;
+  filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.5));
+}
+
+.subtitle-text {
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.7);
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
