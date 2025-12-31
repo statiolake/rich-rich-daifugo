@@ -1638,5 +1638,101 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
       variant: 'gold',
       duration: 500
     }
+  },
+
+  // 革命バリエーション
+
+  '融合革命': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`融合革命が発動しました！場札＋手札で4枚以上 isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '融合革命！両者ターン休み' : '融合革命終了！両者ターン休み',
+      variant: 'red',
+      duration: 400
+    }
+  },
+
+  '融合革命終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`融合革命が発動しました！場札＋手札で4枚以上 isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '融合革命！両者ターン休み' : '融合革命終了！両者ターン休み',
+      variant: 'red',
+      duration: 400
+    }
+  },
+
+  '追革': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`追革が発動しました！場のペアと同数字ペアを重ねて4枚 isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '追革！子は全員パス' : '追革終了！子は全員パス',
+      variant: 'red',
+      duration: 400
+    }
+  },
+
+  '追革終了': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`追革が発動しました！場のペアと同数字ペアを重ねて4枚 isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? '追革！子は全員パス' : '追革終了！子は全員パス',
+      variant: 'red',
+      duration: 400
+    }
+  },
+
+  // カード操作系ルール
+
+  'カタパルト革命': {
+    apply: (gameState) => {
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      console.log(`カタパルト革命が発動しました！場の同数字に追加して4枚以上 isRevolution: ${gameState.isRevolution}, 革命回数: ${gameState.revolutionCount}`);
+      checkShiminByodo(gameState);
+    },
+    cutIn: {
+      getText: (gameState) => gameState.isRevolution ? 'カタパルト革命！' : 'カタパルト革命終了',
+      variant: 'red',
+      duration: 400
+    }
+  },
+
+  'スペード返し': {
+    apply: () => {
+      console.log('スペード返しが発動しました！特殊効果をキャンセル！');
+    },
+    cutIn: {
+      getText: () => 'スペード返し！効果キャンセル',
+      variant: 'blue',
+      duration: 300
+    }
+  },
+
+  'バナナアイス': {
+    apply: () => {
+      console.log('バナナアイスが発動しました！同色6枚の階段を捨て札に！');
+    },
+    cutIn: {
+      getText: () => 'バナナアイス！',
+      variant: 'yellow',
+      duration: 400
+    }
   }
 };

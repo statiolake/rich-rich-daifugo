@@ -68,6 +68,7 @@ export class RuleEngine {
       miyakoOchiAttackerId: gameState.miyakoOchiAttackerId,
       previousDaifugoId: gameState.previousDaifugoId,
       isPlayerCityFallen,
+      trumpRank: gameState.trumpRank,
       ruleSettings: gameState.ruleSettings,
     };
 

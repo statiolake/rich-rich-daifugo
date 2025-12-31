@@ -133,7 +133,14 @@ export type TriggerEffect =
   | '死になさい革命'
   | '死になさい革命終了'
   | '天和'
-  | 'モノポリー';
+  | 'モノポリー'
+  | '融合革命'
+  | '融合革命終了'
+  | '追革'
+  | '追革終了'
+  | 'カタパルト革命'
+  | 'スペード返し'
+  | 'バナナアイス';
 
 /**
  * トリガーエフェクトアナライザー
@@ -720,6 +727,16 @@ export class TriggerEffectAnalyzer {
     // 核爆弾判定（6枚以上で革命→ゲーム終了まで革命固定）
     if (ruleSettings.nuclearBomb && this.triggersNuclearBomb(play) && !gameState.isNuclearBombActive) {
       effects.push('核爆弾');
+    }
+
+    // 融合革命判定（場札＋手札で4枚以上で革命、両者ターン休み）
+    if (ruleSettings.fusionRevolution && this.triggersFusionRevolution(play, gameState) && !gameState.isOmenActive && !gameState.isSuperRevolutionActive) {
+      effects.push(gameState.isRevolution ? '融合革命終了' : '融合革命');
+    }
+
+    // 追革判定（場のペアと同数字ペアを重ねると革命、子は全員パス）
+    if (ruleSettings.tsuiKaku && this.triggersTsuiKaku(play, gameState) && !gameState.isOmenActive && !gameState.isSuperRevolutionActive) {
+      effects.push(gameState.isRevolution ? '追革終了' : '追革');
     }
 
     return effects;
@@ -1804,5 +1821,81 @@ export class TriggerEffectAnalyzer {
     // 4,2,7,3,Aが含まれているか確認
     const ranks = nonJokers.map(c => c.rank);
     return ranks.includes('4') && ranks.includes('2') && ranks.includes('7') && ranks.includes('3') && ranks.includes('A');
+  }
+
+  // ========== 革命バリエーションのトリガー判定メソッド ==========
+
+  /**
+   * 融合革命判定（場札＋手札で4枚以上で革命、両者ターン休み）
+   * 条件:
+   * - 場に同ランクのカードがある
+   * - 出すカードが場のカードと同じランク
+   * - 場のカード + 出すカード >= 4枚
+   *
+   * 例: 場に3が2枚、手札から3を2枚追加 → 合計4枚で革命発生
+   */
+  private triggersFusionRevolution(play: Play, gameState: GameState): boolean {
+    // 場が空なら発動しない
+    if (gameState.field.isEmpty()) return false;
+
+    // 場のカードを取得
+    const lastPlayHistory = gameState.field.getLastPlay();
+    if (!lastPlayHistory) return false;
+
+    const fieldPlay = lastPlayHistory.play;
+
+    // 場のカードが単一ランクでなければ発動しない（ペア、トリプル、クアッド）
+    const fieldRanks = new Set(fieldPlay.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank));
+    if (fieldRanks.size !== 1) return false;
+
+    const fieldRank = [...fieldRanks][0];
+
+    // 出すカードが同じランクかチェック
+    const playRanks = new Set(play.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank));
+    if (playRanks.size !== 1) return false;
+
+    const playRank = [...playRanks][0];
+    if (fieldRank !== playRank) return false;
+
+    // 合計枚数が4枚以上で革命
+    const totalCards = fieldPlay.cards.length + play.cards.length;
+    return totalCards >= 4;
+  }
+
+  /**
+   * 追革判定（場のペアと同数字ペアを重ねると革命、子は全員パス）
+   * 条件:
+   * - 場にペア（2枚）がある
+   * - 出すカードもペア（2枚）で、同じランク
+   * - 合計4枚で革命が発生
+   */
+  private triggersTsuiKaku(play: Play, gameState: GameState): boolean {
+    // 場が空なら発動しない
+    if (gameState.field.isEmpty()) return false;
+
+    // 場のカードを取得
+    const lastPlayHistory = gameState.field.getLastPlay();
+    if (!lastPlayHistory) return false;
+
+    const fieldPlay = lastPlayHistory.play;
+
+    // 場がペア（2枚）でなければ発動しない
+    if (fieldPlay.type !== PlayType.PAIR) return false;
+
+    // 出すカードもペア（2枚）でなければ発動しない
+    if (play.type !== PlayType.PAIR) return false;
+
+    // 場のカードのランクを取得（ジョーカー以外）
+    const fieldRanks = fieldPlay.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
+    if (fieldRanks.length === 0) return false;
+    const fieldRank = fieldRanks[0];
+
+    // 出すカードのランクを取得（ジョーカー以外）
+    const playRanks = play.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
+    if (playRanks.length === 0) return false;
+    const playRank = playRanks[0];
+
+    // 同じランクなら追革発動
+    return fieldRank === playRank;
   }
 }

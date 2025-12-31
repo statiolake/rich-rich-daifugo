@@ -376,6 +376,24 @@ export class PlayValidator {
       return { valid: true, reason: '10フリ' };
     }
 
+    // 切り札/ドラチェック: 切り札のランクは最強（場にある他のカードに勝つ）
+    if (context.ruleSettings.trump && context.trumpRank) {
+      const trumpResult = this.validateTrumpStrength(cards, context);
+      if (trumpResult !== null) {
+        return trumpResult;
+      }
+    }
+
+    // 融合革命チェック（場札＋手札で4枚以上で革命）
+    if (context.ruleSettings.fusionRevolution && this.isFusionRevolution(cards, context)) {
+      return { valid: true, reason: '融合革命' };
+    }
+
+    // 追革チェック（場のペアと同数字ペアを重ねると革命）
+    if (context.ruleSettings.tsuiKaku && this.isTsuiKaku(cards, context)) {
+      return { valid: true, reason: '追革' };
+    }
+
     // 女装の場合は特別な強さチェック
     if (context.ruleSettings.crossDressing && this.isCrossDressing(cards)) {
       return this.validateCrossDressingStrength(cards, context);
@@ -1202,6 +1220,152 @@ export class PlayValidator {
   private getSuitColor(suit: Suit): 'red' | 'black' | null {
     if (suit === Suit.HEART || suit === Suit.DIAMOND) return 'red';
     if (suit === Suit.SPADE || suit === Suit.CLUB) return 'black';
+    return null;
+  }
+
+  // ========================================
+  // Private: 融合革命・追革の検証
+  // ========================================
+
+  /**
+   * 融合革命判定（場札＋手札で4枚以上で革命）
+   * 条件:
+   * - 場に同ランクのカードがある
+   * - 出すカードが場のカードと同じランク
+   * - 場のカード + 出すカード >= 4枚
+   */
+  private isFusionRevolution(cards: Card[], context: RuleContext): boolean {
+    // 場が空なら発動しない
+    if (context.field.isEmpty()) return false;
+
+    // 場のカードを取得
+    const fieldPlay = context.field.getCurrentPlay();
+    if (!fieldPlay) return false;
+
+    // 場のカードが単一ランクでなければ発動しない（ペア、トリプル、クアッド）
+    const fieldRanks = new Set(fieldPlay.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank));
+    if (fieldRanks.size !== 1) return false;
+
+    const fieldRank = [...fieldRanks][0];
+
+    // 出すカードが同じランクかチェック
+    const playRanks = new Set(cards.filter(c => c.rank !== 'JOKER').map(c => c.rank));
+    if (playRanks.size !== 1) return false;
+
+    const playRank = [...playRanks][0];
+    if (fieldRank !== playRank) return false;
+
+    // 合計枚数が4枚以上で革命
+    const totalCards = fieldPlay.cards.length + cards.length;
+    return totalCards >= 4;
+  }
+
+  /**
+   * 追革判定（場のペアと同数字ペアを重ねると革命）
+   * 条件:
+   * - 場にペア（2枚）がある
+   * - 出すカードもペア（2枚）で、同じランク
+   * - 合計4枚で革命が発生
+   */
+  private isTsuiKaku(cards: Card[], context: RuleContext): boolean {
+    // 場が空なら発動しない
+    if (context.field.isEmpty()) return false;
+
+    // 場のカードを取得
+    const fieldPlay = context.field.getCurrentPlay();
+    if (!fieldPlay) return false;
+
+    // 場がペア（2枚）でなければ発動しない
+    if (fieldPlay.type !== PlayType.PAIR) return false;
+
+    // 出すカードを分析
+    const currentPlay = PlayAnalyzer.analyze(
+      cards,
+      context.ruleSettings.skipStair,
+      context.ruleSettings.doubleStair,
+      {
+        enableTunnel: context.ruleSettings.tunnel,
+        enableSpadeStair: context.ruleSettings.spadeStair,
+      }
+    );
+    if (!currentPlay) return false;
+
+    // 出すカードもペア（2枚）でなければ発動しない
+    if (currentPlay.type !== PlayType.PAIR) return false;
+
+    // 場のカードのランクを取得（ジョーカー以外）
+    const fieldRanks = fieldPlay.cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
+    if (fieldRanks.length === 0) return false;
+    const fieldRank = fieldRanks[0];
+
+    // 出すカードのランクを取得（ジョーカー以外）
+    const playRanks = cards.filter(c => c.rank !== 'JOKER').map(c => c.rank);
+    if (playRanks.length === 0) return false;
+    const playRank = playRanks[0];
+
+    // 同じランクなら追革発動
+    return fieldRank === playRank;
+  }
+
+  // ========================================
+  // Private: 切り札/ドラ強さチェック
+  // ========================================
+
+  /**
+   * 切り札/ドラの強さチェック
+   * 切り札のランクは最強（ジョーカーと同等）で、場にある他のカードに必ず勝つ
+   * @returns ValidationResult | null（nullの場合は通常の強さチェックを続行）
+   */
+  private validateTrumpStrength(cards: Card[], context: RuleContext): ValidationResult | null {
+    if (!context.trumpRank) return null;
+
+    const fieldPlay = context.field.getCurrentPlay();
+    if (!fieldPlay) return null;
+
+    // 出すカードに切り札ランクが含まれているか
+    const hasTrumpCard = cards.some(c => c.rank === context.trumpRank);
+
+    // 場のカードに切り札ランクが含まれているか
+    const fieldHasTrumpCard = fieldPlay.cards.some(c => c.rank === context.trumpRank);
+
+    // 両方に切り札がある場合は、通常のルールに従う（同等なので枚数や他の条件で判定）
+    if (hasTrumpCard && fieldHasTrumpCard) {
+      return null; // 通常の強さチェックを続行
+    }
+
+    // 自分が切り札を持っている場合は勝つ（場のカードの種類が同じなら）
+    if (hasTrumpCard) {
+      const currentPlay = PlayAnalyzer.analyze(
+        cards,
+        context.ruleSettings.skipStair,
+        context.ruleSettings.doubleStair,
+        {
+          enableTunnel: context.ruleSettings.tunnel,
+          enableSpadeStair: context.ruleSettings.spadeStair,
+        }
+      );
+
+      if (currentPlay && currentPlay.type === fieldPlay.type) {
+        // タイプが同じなら切り札で勝利
+        return { valid: true, reason: `切り札（${context.trumpRank}）` };
+      }
+
+      // タイプが異なる場合は出せない
+      return {
+        valid: false,
+        reason: '場のカードと同じタイプの組み合わせを出してください',
+      };
+    }
+
+    // 場に切り札がある場合、切り札を持っていなければ通常のカードでは勝てない
+    if (fieldHasTrumpCard) {
+      return {
+        valid: false,
+        reason: `場には切り札（${context.trumpRank}）があります`,
+      };
+    }
+
+    // どちらにも切り札がない場合は通常の強さチェックを続行
     return null;
   }
 }

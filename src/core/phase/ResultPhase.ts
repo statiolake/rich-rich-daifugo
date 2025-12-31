@@ -1,6 +1,7 @@
 import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { PlayerRank, getRankName } from '../domain/player/PlayerRank';
+import { Card } from '../domain/card/Card';
 
 export class ResultPhase implements GamePhase {
   readonly type = GamePhaseType.RESULT;
@@ -11,6 +12,9 @@ export class ResultPhase implements GamePhase {
     // 都落ち判定
     const cityFallOccurred = this.applyCityFall(gameState);
     gameState.cityFallOccurred = cityFallOccurred;
+
+    // 村八分判定（都落ち後、9以上のカード没収）
+    this.applyMurahachibu(gameState);
 
     // 京落ち判定（大富豪が連続1着で富豪が大貧民に転落）
     this.applyKyoOchi(gameState);
@@ -192,5 +196,28 @@ export class ResultPhase implements GamePhase {
         player.rank = reverseRankOrder[currentIndex];
       }
     }
+  }
+
+  /**
+   * 村八分判定
+   * 都落ち後、9以上のカード（9, 10, J, Q, K, A, 2, Joker）を没収し、残りでプレイ
+   * 次ラウンド開始前に効果を記録し、SetupPhaseで適用
+   */
+  private applyMurahachibu(gameState: GameState): void {
+    if (!gameState.ruleSettings.murahachibu) return;
+    if (!gameState.cityFallOccurred) return;
+    if (!gameState.previousDaifugoId) return;
+
+    // 都落ちしたプレイヤーを見つける
+    const fallenDaifugo = gameState.players.find(
+      p => p.id.value === gameState.previousDaifugoId
+    );
+    if (!fallenDaifugo) return;
+
+    console.log(`村八分！${fallenDaifugo.name} は都落ちのため次ラウンドで9以上のカードが没収されます`);
+
+    // 村八分対象としてマーク（次ラウンドのSetupPhaseで適用）
+    // GameStateに村八分対象者を記録
+    gameState.murahachibuTargetId = fallenDaifugo.id.value;
   }
 }

@@ -57,6 +57,9 @@ export interface GameState {
   miyakoOchiAttackerId: string | null; // 都落ちさせたプレイヤーID（仇討ち禁止令用）
   isFirstTurn: boolean; // 最初のターンかどうか（大富豪の余裕用）
   hasDaifugoPassedFirst: boolean; // 大富豪が最初にパスしたか（大富豪の余裕用）
+  murahachibuTargetId: string | null; // 村八分対象プレイヤーID（次ラウンドで9以上のカード没収）
+  trumpRank: string | null; // 切り札/ドラの数字（配布時に決定、その数字が最強になる）
+  blindCards: Card[]; // ブラインドカード（端数分のカードを伏せておく）
 }
 
 export function createGameState(players: Player[], ruleSettings: RuleSettings = DEFAULT_RULE_SETTINGS): GameState {
@@ -107,5 +110,8 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
     miyakoOchiAttackerId: null,
     isFirstTurn: true,
     hasDaifugoPassedFirst: false,
+    murahachibuTargetId: null,
+    trumpRank: null,
+    blindCards: [],
   };
 }

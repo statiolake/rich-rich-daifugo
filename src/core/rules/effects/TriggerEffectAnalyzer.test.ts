@@ -60,6 +60,9 @@ describe('TriggerEffectAnalyzer', () => {
       isSuperRevolutionActive: false,
       isReligiousRevolutionActive: false,
       oddEvenRestriction: null,
+      murahachibuTargetId: null,
+      trumpRank: null,
+      blindCards: [],
       ...overrides,
     };
   }
@@ -858,6 +861,236 @@ describe('TriggerEffectAnalyzer', () => {
       const effects = analyzer.analyze(play, gameState);
 
       expect(effects).not.toContain('テポドン');
+    });
+  });
+
+  describe('融合革命', () => {
+    it('場のペアに同ランクのペアを追加して4枚で融合革命が発動', () => {
+      const field = new Field();
+      // 場に3のペアを出す
+      const fieldCards = [
+        CardFactory.create(Suit.SPADE, '3'),
+        CardFactory.create(Suit.HEART, '3'),
+      ];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+
+      // 手札から3のペアを出す
+      const handCards = [
+        CardFactory.create(Suit.DIAMOND, '3'),
+        CardFactory.create(Suit.CLUB, '3'),
+      ];
+      const play = PlayAnalyzer.analyze(handCards)!;
+      const gameState = createMockGameState({
+        field,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, fusionRevolution: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).toContain('融合革命');
+    });
+
+    it('場のシングルに3枚を追加して4枚で融合革命が発動', () => {
+      const field = new Field();
+      // 場に3のシングルを出す
+      const fieldCards = [CardFactory.create(Suit.SPADE, '5')];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+
+      // 手札から5のトリプルを出す
+      const handCards = [
+        CardFactory.create(Suit.HEART, '5'),
+        CardFactory.create(Suit.DIAMOND, '5'),
+        CardFactory.create(Suit.CLUB, '5'),
+      ];
+      const play = PlayAnalyzer.analyze(handCards)!;
+      const gameState = createMockGameState({
+        field,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, fusionRevolution: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).toContain('融合革命');
+    });
+
+    it('異なるランクでは融合革命が発動しない', () => {
+      const field = new Field();
+      // 場に3のペアを出す
+      const fieldCards = [
+        CardFactory.create(Suit.SPADE, '3'),
+        CardFactory.create(Suit.HEART, '3'),
+      ];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+
+      // 手札から5のペアを出す（ランクが違う）
+      const handCards = [
+        CardFactory.create(Suit.DIAMOND, '5'),
+        CardFactory.create(Suit.CLUB, '5'),
+      ];
+      const play = PlayAnalyzer.analyze(handCards)!;
+      const gameState = createMockGameState({
+        field,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, fusionRevolution: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('融合革命');
+    });
+
+    it('合計3枚では融合革命が発動しない', () => {
+      const field = new Field();
+      // 場に3のシングルを出す
+      const fieldCards = [CardFactory.create(Suit.SPADE, '3')];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+
+      // 手札から3のペアを出す（合計3枚）
+      const handCards = [
+        CardFactory.create(Suit.HEART, '3'),
+        CardFactory.create(Suit.DIAMOND, '3'),
+      ];
+      const play = PlayAnalyzer.analyze(handCards)!;
+      const gameState = createMockGameState({
+        field,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, fusionRevolution: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('融合革命');
+    });
+
+    it('fusionRevolutionルールがOFFの場合は発動しない', () => {
+      const field = new Field();
+      const fieldCards = [
+        CardFactory.create(Suit.SPADE, '3'),
+        CardFactory.create(Suit.HEART, '3'),
+      ];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+
+      const handCards = [
+        CardFactory.create(Suit.DIAMOND, '3'),
+        CardFactory.create(Suit.CLUB, '3'),
+      ];
+      const play = PlayAnalyzer.analyze(handCards)!;
+      const gameState = createMockGameState({
+        field,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, fusionRevolution: false },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('融合革命');
+    });
+  });
+
+  describe('追革', () => {
+    it('場のペアと同ランクのペアで追革が発動', () => {
+      const field = new Field();
+      // 場に5のペアを出す
+      const fieldCards = [
+        CardFactory.create(Suit.SPADE, '5'),
+        CardFactory.create(Suit.HEART, '5'),
+      ];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+
+      // 手札から5のペアを出す
+      const handCards = [
+        CardFactory.create(Suit.DIAMOND, '5'),
+        CardFactory.create(Suit.CLUB, '5'),
+      ];
+      const play = PlayAnalyzer.analyze(handCards)!;
+      const gameState = createMockGameState({
+        field,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, tsuiKaku: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).toContain('追革');
+    });
+
+    it('場がペアでない場合は追革が発動しない', () => {
+      const field = new Field();
+      // 場に5のトリプルを出す
+      const fieldCards = [
+        CardFactory.create(Suit.SPADE, '5'),
+        CardFactory.create(Suit.HEART, '5'),
+        CardFactory.create(Suit.DIAMOND, '5'),
+      ];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+
+      // 手札から5のペアを出す
+      const handCards = [
+        CardFactory.create(Suit.CLUB, '5'),
+        CardFactory.createJoker(),
+      ];
+      const play = PlayAnalyzer.analyze(handCards)!;
+      const gameState = createMockGameState({
+        field,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, tsuiKaku: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('追革');
+    });
+
+    it('異なるランクでは追革が発動しない', () => {
+      const field = new Field();
+      // 場に5のペアを出す
+      const fieldCards = [
+        CardFactory.create(Suit.SPADE, '5'),
+        CardFactory.create(Suit.HEART, '5'),
+      ];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+
+      // 手札から7のペアを出す（ランクが違う）
+      const handCards = [
+        CardFactory.create(Suit.DIAMOND, '7'),
+        CardFactory.create(Suit.CLUB, '7'),
+      ];
+      const play = PlayAnalyzer.analyze(handCards)!;
+      const gameState = createMockGameState({
+        field,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, tsuiKaku: true },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('追革');
+    });
+
+    it('tsuiKakuルールがOFFの場合は発動しない', () => {
+      const field = new Field();
+      const fieldCards = [
+        CardFactory.create(Suit.SPADE, '5'),
+        CardFactory.create(Suit.HEART, '5'),
+      ];
+      const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
+      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+
+      const handCards = [
+        CardFactory.create(Suit.DIAMOND, '5'),
+        CardFactory.create(Suit.CLUB, '5'),
+      ];
+      const play = PlayAnalyzer.analyze(handCards)!;
+      const gameState = createMockGameState({
+        field,
+        ruleSettings: { ...DEFAULT_RULE_SETTINGS, tsuiKaku: false },
+      });
+
+      const effects = analyzer.analyze(play, gameState);
+
+      expect(effects).not.toContain('追革');
     });
   });
 });

@@ -31,6 +31,9 @@ export interface RuleContext {
   previousDaifugoId: string | null; // 前ラウンドの大富豪ID（仇討ち禁止令用）
   isPlayerCityFallen: boolean; // 現在のプレイヤーが都落ちしたか（治安維持法用）
 
+  // 切り札/ドラ用
+  trumpRank: string | null; // 切り札のランク（その数字が最強になる）
+
   // ルール設定
   ruleSettings: RuleSettings;
 }

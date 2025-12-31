@@ -23,6 +23,8 @@ export interface RuleSettings {
   religiousRevolution: boolean; // 宗教革命（Kx4でQ最強、A最弱＋偶奇縛り）
   superRevolution: boolean;     // 超革命（5枚以上で革命、以降革命不可）
   revolutionFlow: boolean;      // 革命流し（革命カードに8が含まれると8切り効果）
+  fusionRevolution: boolean;    // 融合革命（場札＋手札で4枚以上で革命、両者ターン休み）
+  tsuiKaku: boolean;            // 追革（場のペアと同数字ペアを重ねると革命、子は全員パス）
 
   // 特殊勝利条件
   forbiddenFinish: boolean;    // 禁止上がり（J/2/8/Jokerで上がれない）
@@ -111,6 +113,14 @@ export interface RuleSettings {
   reparations: boolean;        // 賠償金（都落ち後も継続参加で先に上がった全員と追加1枚交換）
   babaOchi: boolean;           // ババ落ち（ジョーカー含む5枚で革命→もう1枚のジョーカー所持者は敗北）
   nuclearBomb: boolean;        // 核爆弾（6枚以上で革命→ゲーム終了まで革命固定）
+  murahachibu: boolean;        // 村八分（都落ち後、9以上のカード没収、残りでプレイ）
+
+  // 交換枚数バリエーション
+  absoluteMonarchy: boolean;   // 絶対王政（富豪1枚、貧民2枚、大貧民3枚を大富豪に献上）
+  monarchyDefense: boolean;    // 王政防衛（連続大富豪で交換枚数が連続回数＋1枚に増加）
+  antiMonopoly: boolean;       // 独占禁止法（大富豪に2とJokerが5枚以上で2を他プレイヤーに配布）
+  inheritanceTax: boolean;     // 相続税（連続大富豪で交換枚数が3→4→5枚と増加）
+  blindExchange: boolean;      // 伏せ交換（貧民が裏向きで並べ、富豪が任意位置から抜く）
 
   // 情報公開ルール
   fivePick: boolean;           // 5ピック（5を出すと枚数分だけ好きなプレイヤーの手札を見れる）
@@ -211,6 +221,17 @@ export interface RuleSettings {
   adauchiBan: boolean;         // 仇討ち禁止令（都落ちさせた相手を都落ちさせて上がれない）
   securityLaw: boolean;        // 治安維持法（都落ちプレイヤーは革命を起こせない）
   shiminByodo: boolean;        // 四民平等（1ゲーム中に革命が4回以上で全員平民に）
+
+  // 開始ルール（配布系）
+  discriminatoryDeal: boolean; // 差別配り（階級に応じて配布枚数を増減：大富豪-2枚、富豪-1枚、貧民+1枚、大貧民+2枚）
+  blindCard: boolean;          // ブラインドカード（端数分のカードを抜いて伏せておく）
+  trump: boolean;              // 切り札/ドラ（配布時に1枚伏せてその数字が最強に）
+
+  // カード操作系ルール
+  guerrilla: boolean;          // ゲリラ兵（場のカードと同数字をより多く持つ時、手札から捨て札に直接送れる）
+  catapult: boolean;           // カタパルト（場のカードと同数字を追加で出し、4枚以上で革命発動）
+  spadeCounter: boolean;       // スペード返し（特殊効果発動時に同数字スペードで効果キャンセル）
+  bananaIce: boolean;          // バナナアイス（同色6枚の階段は直接捨て札に送れる）
 }
 
 /**
@@ -235,6 +256,8 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   religiousRevolution: false,
   superRevolution: false,
   revolutionFlow: false,
+  fusionRevolution: false,
+  tsuiKaku: false,
   forbiddenFinish: true,
   sandstorm: true,
   tripleThreeReturn: true,
@@ -301,6 +324,12 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   reparations: false,
   babaOchi: false,
   nuclearBomb: false,
+  murahachibu: false,
+  absoluteMonarchy: false,
+  monarchyDefense: false,
+  antiMonopoly: false,
+  inheritanceTax: false,
+  blindExchange: false,
   fivePick: true,
   weakShow: true,
   strongShow: true,
@@ -355,4 +384,11 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   adauchiBan: false,
   securityLaw: false,
   shiminByodo: false,
+  discriminatoryDeal: false,
+  blindCard: false,
+  trump: false,
+  guerrilla: false,
+  catapult: false,
+  spadeCounter: false,
+  bananaIce: false,
 };

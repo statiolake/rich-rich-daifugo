@@ -33,11 +33,23 @@ export class ExchangePhase implements GamePhase {
     if (gameState.round === 1) {
       console.log('1ラウンド目のため交換はスキップ');
     } else {
-      // 大富豪と大貧民の交換（2枚）
-      await this.performExchange(gameState, PlayerRank.DAIFUGO, PlayerRank.DAIHINMIN, 2);
+      // 交換枚数を計算
+      const exchangeCount = this.calculateExchangeCount(gameState);
 
-      // 富豪と貧民の交換（1枚）
-      await this.performExchange(gameState, PlayerRank.FUGO, PlayerRank.HINMIN, 1);
+      // 絶対王政または通常交換
+      if (gameState.ruleSettings.absoluteMonarchy) {
+        // 絶対王政: 富豪1枚、貧民2枚、大貧民3枚を大富豪に献上
+        await this.performAbsoluteMonarchyExchange(gameState);
+      } else {
+        // 大富豪と大貧民の交換
+        await this.performExchange(gameState, PlayerRank.DAIFUGO, PlayerRank.DAIHINMIN, exchangeCount.daifugo);
+
+        // 富豪と貧民の交換
+        await this.performExchange(gameState, PlayerRank.FUGO, PlayerRank.HINMIN, exchangeCount.fugo);
+      }
+
+      // 独占禁止法: 大富豪に2とJokerが5枚以上で2を他プレイヤーに配布
+      await this.performAntiMonopoly(gameState);
 
       // 賠償金（都落ち後も継続参加で先に上がった全員と追加1枚交換）
       await this.performReparations(gameState);
@@ -106,9 +118,19 @@ export class ExchangePhase implements GamePhase {
       return;
     }
 
-    // 低ランクプレイヤーから最強カードを取得
-    const strongestCards = this.getStrongestCards(lowPlayer, cardCount, gameState.isRevolution);
-    if (strongestCards.length === 0) {
+    // 伏せ交換チェック: 貧民が裏向きで並べ、富豪が任意位置から抜く
+    // 簡易実装: 富豪がランダムに選ぶ（実質同じ効果）
+    let cardsFromLow: Card[];
+    if (gameState.ruleSettings.blindExchange) {
+      cardsFromLow = this.getRandomCards(lowPlayer, cardCount);
+      console.log(`伏せ交換！${highPlayer.name} が ${lowPlayer.name} の手札からランダムに選択`);
+      await this.presentationRequester.requestCutIns([{ effect: '伏せ交換', variant: 'gold' }]);
+    } else {
+      // 通常: 低ランクプレイヤーから最強カードを取得
+      cardsFromLow = this.getStrongestCards(lowPlayer, cardCount, gameState.isRevolution);
+    }
+
+    if (cardsFromLow.length === 0) {
       console.log(`${lowPlayer.name} から交換するカードがありません`);
       return;
     }
@@ -117,19 +139,19 @@ export class ExchangePhase implements GamePhase {
     const controller = this.playerControllers.get(highPlayer.id.value);
     if (!controller) {
       // CPUの場合は最弱カードを自動選択
-      const weakestCards = this.getWeakestCards(highPlayer, strongestCards.length, gameState.isRevolution);
-      this.swapCards(highPlayer, lowPlayer, weakestCards, strongestCards, gameState);
+      const weakestCards = this.getWeakestCards(highPlayer, cardsFromLow.length, gameState.isRevolution);
+      this.swapCards(highPlayer, lowPlayer, weakestCards, cardsFromLow, gameState);
       return;
     }
 
     // 人間プレイヤーの場合、カードを選択させる
     const selectedCards = await controller.chooseCardsForExchange(
       [...highPlayer.hand.getCards()],
-      strongestCards.length,
-      `${lowPlayer.name} に渡すカードを${strongestCards.length}枚選んでください`
+      cardsFromLow.length,
+      `${lowPlayer.name} に渡すカードを${cardsFromLow.length}枚選んでください`
     );
 
-    this.swapCards(highPlayer, lowPlayer, selectedCards, strongestCards, gameState);
+    this.swapCards(highPlayer, lowPlayer, selectedCards, cardsFromLow, gameState);
   }
 
   /**
@@ -176,6 +198,21 @@ export class ExchangePhase implements GamePhase {
       const diff = a.strength - b.strength;
       return isRevolution ? -diff : diff;
     });
+
+    return cards.slice(0, count);
+  }
+
+  /**
+   * ランダムにカードを取得（伏せ交換用）
+   */
+  private getRandomCards(player: Player, count: number): Card[] {
+    const cards = [...player.hand.getCards()];
+
+    // Fisher-Yatesシャッフル
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
 
     return cards.slice(0, count);
   }
@@ -248,6 +285,114 @@ export class ExchangePhase implements GamePhase {
     this.swapCards(winner, fallenDaifugo, weakestCard, strongestCard, gameState);
     console.log(`賠償金: ${fallenDaifugo.name} → ${winner.name}: ${strongestCard.map(c => `${c.rank}${c.suit}`).join(', ')}`);
     console.log(`賠償金: ${winner.name} → ${fallenDaifugo.name}: ${weakestCard.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+  }
+
+  /**
+   * 交換枚数を計算
+   * 王政防衛/相続税ルールによる増加を考慮
+   */
+  private calculateExchangeCount(gameState: GameState): { daifugo: number; fugo: number } {
+    let daifugoCount = 2;
+    let fugoCount = 1;
+
+    // 王政防衛: 連続大富豪で交換枚数が連続回数＋1枚に増加
+    if (gameState.ruleSettings.monarchyDefense && gameState.consecutiveDaifugoWins > 0) {
+      daifugoCount = gameState.consecutiveDaifugoWins + 1;
+      console.log(`王政防衛発動！交換枚数が${daifugoCount}枚に増加`);
+    }
+
+    // 相続税: 連続大富豪で交換枚数が3→4→5枚と増加
+    if (gameState.ruleSettings.inheritanceTax && gameState.consecutiveDaifugoWins > 0) {
+      daifugoCount = Math.min(2 + gameState.consecutiveDaifugoWins, 5);
+      console.log(`相続税発動！交換枚数が${daifugoCount}枚に増加`);
+    }
+
+    return { daifugo: daifugoCount, fugo: fugoCount };
+  }
+
+  /**
+   * 絶対王政による交換処理
+   * 富豪1枚、貧民2枚、大貧民3枚を大富豪に献上
+   */
+  private async performAbsoluteMonarchyExchange(gameState: GameState): Promise<void> {
+    const daifugo = gameState.players.find(p => p.rank === PlayerRank.DAIFUGO);
+    if (!daifugo) {
+      console.log('大富豪が見つかりません');
+      return;
+    }
+
+    console.log('絶対王政発動！全員が大富豪に献上');
+    await this.presentationRequester.requestCutIns([{ effect: '絶対王政', variant: 'gold' }]);
+
+    // 富豪から1枚
+    const fugo = gameState.players.find(p => p.rank === PlayerRank.FUGO);
+    if (fugo) {
+      const cards = this.getStrongestCards(fugo, 1, gameState.isRevolution);
+      if (cards.length > 0) {
+        fugo.hand.remove(cards);
+        daifugo.hand.add(cards);
+        console.log(`${fugo.name} → ${daifugo.name}: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+      }
+    }
+
+    // 貧民から2枚
+    const hinmin = gameState.players.find(p => p.rank === PlayerRank.HINMIN);
+    if (hinmin) {
+      const cards = this.getStrongestCards(hinmin, 2, gameState.isRevolution);
+      if (cards.length > 0) {
+        hinmin.hand.remove(cards);
+        daifugo.hand.add(cards);
+        console.log(`${hinmin.name} → ${daifugo.name}: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+      }
+    }
+
+    // 大貧民から3枚
+    const daihinmin = gameState.players.find(p => p.rank === PlayerRank.DAIHINMIN);
+    if (daihinmin) {
+      const cards = this.getStrongestCards(daihinmin, 3, gameState.isRevolution);
+      if (cards.length > 0) {
+        daihinmin.hand.remove(cards);
+        daifugo.hand.add(cards);
+        console.log(`${daihinmin.name} → ${daifugo.name}: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+      }
+    }
+
+    // ソート
+    const shouldReverse = gameState.isRevolution;
+    daifugo.hand.sort(shouldReverse);
+  }
+
+  /**
+   * 独占禁止法による処理
+   * 大富豪に2とJokerが5枚以上で2を他プレイヤーに配布
+   */
+  private async performAntiMonopoly(gameState: GameState): Promise<void> {
+    if (!gameState.ruleSettings.antiMonopoly) return;
+
+    const daifugo = gameState.players.find(p => p.rank === PlayerRank.DAIFUGO);
+    if (!daifugo) return;
+
+    // 2とJokerの枚数をカウント
+    const cards = daifugo.hand.getCards();
+    const twosAndJokers = cards.filter(c => c.rank === '2' || c.rank === 'JOKER');
+    const twos = cards.filter(c => c.rank === '2');
+
+    if (twosAndJokers.length >= 5 && twos.length > 0) {
+      console.log('独占禁止法発動！大富豪の2を他プレイヤーに配布');
+      await this.presentationRequester.requestCutIns([{ effect: '独占禁止法', variant: 'gold' }]);
+
+      // 2を1枚ずつ他のプレイヤーに配布
+      const otherPlayers = gameState.players.filter(p => p.id.value !== daifugo.id.value);
+      for (let i = 0; i < Math.min(twos.length, otherPlayers.length); i++) {
+        const cardToGive = twos[i];
+        const targetPlayer = otherPlayers[i];
+        daifugo.hand.remove([cardToGive]);
+        targetPlayer.hand.add([cardToGive]);
+        console.log(`${daifugo.name} → ${targetPlayer.name}: ${cardToGive.rank}${cardToGive.suit}`);
+        targetPlayer.hand.sort(gameState.isRevolution);
+      }
+      daifugo.hand.sort(gameState.isRevolution);
+    }
   }
 
   /**

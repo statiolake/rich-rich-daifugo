@@ -312,6 +312,34 @@ export class PlayPhase implements GamePhase {
       }
     }
 
+    // 融合革命: 場札＋手札で4枚以上で革命、両者ターン休み（場が流れる）
+    if (effects.includes('融合革命') || effects.includes('融合革命終了')) {
+      console.log('融合革命が発動しました！両者ターン休み');
+      // 場のカードを出したプレイヤーを特定
+      const lastPlayHistory = gameState.field.getLastPlay();
+      if (lastPlayHistory) {
+        const fieldPlayer = gameState.players.find(p => p.id.value === lastPlayHistory.playerId.value);
+        if (fieldPlayer && !fieldPlayer.isFinished && fieldPlayer.id.value !== player.id.value) {
+          console.log(`${fieldPlayer.name} と ${player.name} はターン休みです`);
+        }
+      }
+      // 場を流す
+      await this.clearFieldAndResetState(gameState, true);
+      // 次のプレイヤーに移動（融合革命を発動したプレイヤーの次の次）
+      this.nextPlayer(gameState);
+      this.nextPlayer(gameState);
+      return;
+    }
+
+    // 追革: 場のペアと同数字ペアを重ねると革命、子は全員パス（場が流れる）
+    if (effects.includes('追革') || effects.includes('追革終了')) {
+      console.log('追革が発動しました！子は全員パス、場が流れます');
+      // 場を流す
+      await this.clearFieldAndResetState(gameState, true);
+      // 追革を発動したプレイヤーがそのまま親になる（場が流れるのでshouldKeepTurnは自動的にtrue）
+      return;
+    }
+
     // 9クイック: 9を出すと続けてもう1回出せる（ターンを維持）
     const shouldKeepTurnForNineQuick = effects.includes('9クイック');
     // Qラブ: Q（階段以外）を出すと続けてもう1回出せる（ターンを維持）
@@ -1003,6 +1031,10 @@ export class PlayPhase implements GamePhase {
       '革命流し': { effect: '革命流し', variant: 'green' },
       'テポドン': { effect: 'テポドン', variant: 'gold' },
       'どかん': { effect: 'どかん', variant: 'gold' },
+      '融合革命': { effect: '融合革命', variant: 'red' },
+      '融合革命終了': { effect: '融合革命終了', variant: 'blue' },
+      '追革': { effect: '追革', variant: 'red' },
+      '追革終了': { effect: '追革終了', variant: 'blue' },
     };
 
     return cutInMap[effect] || null;
@@ -3200,5 +3232,199 @@ export class PlayPhase implements GamePhase {
         break; // 1人だけ敗北させる（もう1枚のジョーカーは1枚しかないはず）
       }
     }
+  }
+
+  // ==================================================
+  // カード操作系ルール
+  // ==================================================
+
+  /**
+   * ゲリラ兵処理
+   * 場のカードと同数字をより多く持つ時、手札から捨て札に直接送れる（手札圧縮）
+   * @param player カードを出したプレイヤー
+   * @param fieldRank 場のカードのランク
+   * @returns 捨て札に送ったカード
+   */
+  async handleGuerrilla(gameState: GameState, player: Player, fieldRank: string): Promise<Card[]> {
+    if (!gameState.ruleSettings.guerrilla) return [];
+
+    // 場のカードと同じランクのカードを手札から取得
+    const matchingCards = player.hand.getCards().filter(c => c.rank === fieldRank);
+
+    // 場のカードの枚数（現在の場のプレイ）
+    const currentPlay = gameState.field.getCurrentPlay();
+    if (!currentPlay) return [];
+
+    const fieldCardCount = currentPlay.cards.length;
+
+    // より多く持っている場合のみ発動
+    if (matchingCards.length <= fieldCardCount) return [];
+
+    // プレイヤーにどのカードを捨てるか選択させる（簡易実装：自動で全て捨てる）
+    console.log(`ゲリラ兵発動！${player.name} は ${fieldRank} を ${matchingCards.length} 枚持っています（場は ${fieldCardCount} 枚）`);
+
+    // 手札から削除して捨て札に送る
+    player.hand.remove(matchingCards);
+    gameState.discardPile.push(...matchingCards);
+
+    console.log(`  ${matchingCards.map(c => `${c.rank}${c.suit}`).join(', ')} を捨て札に送りました`);
+
+    return matchingCards;
+  }
+
+  /**
+   * カタパルト処理
+   * 場のカードと同数字を追加で出し、4枚以上になったら革命発動
+   * @param player カードを出したプレイヤー
+   * @param fieldRank 場のカードのランク
+   * @returns 追加で出したカード
+   */
+  async handleCatapult(gameState: GameState, player: Player, fieldRank: string): Promise<Card[]> {
+    if (!gameState.ruleSettings.catapult) return [];
+
+    // 場のカードと同じランクのカードを手札から取得
+    const matchingCards = player.hand.getCards().filter(c => c.rank === fieldRank);
+    if (matchingCards.length === 0) return [];
+
+    // プレイヤーにどのカードを追加するか選択させる（簡易実装：自動で全て追加）
+    console.log(`カタパルト発動！${player.name} は ${fieldRank} を ${matchingCards.length} 枚追加できます`);
+
+    // 手札から削除して場のカードに追加
+    player.hand.remove(matchingCards);
+
+    // 場のカードの枚数を計算
+    const currentPlay = gameState.field.getCurrentPlay();
+    if (!currentPlay) return [];
+
+    const totalCards = currentPlay.cards.length + matchingCards.length;
+
+    console.log(`  ${matchingCards.map(c => `${c.rank}${c.suit}`).join(', ')} を追加（合計 ${totalCards} 枚）`);
+
+    // 4枚以上で革命発動
+    if (totalCards >= 4) {
+      console.log('カタパルト革命！4枚以上になったため革命発動！');
+      gameState.isRevolution = !gameState.isRevolution;
+      gameState.revolutionCount++;
+      await this.presentationRequester.requestCutIns([{ effect: 'カタパルト革命', variant: 'red' }]);
+    }
+
+    // 捨て札に送る（場には追加しない＝前プレイヤーのカード扱い）
+    gameState.discardPile.push(...matchingCards);
+
+    return matchingCards;
+  }
+
+  /**
+   * スペード返し処理
+   * 特殊効果発動時に同数字スペードで効果キャンセル
+   * @param triggeredEffect キャンセル対象のエフェクト
+   * @param fieldRank 場のカードのランク
+   * @returns キャンセルに使ったカード
+   */
+  async checkSpadeCounter(gameState: GameState, triggeredEffect: TriggerEffect, fieldRank: string): Promise<Card | null> {
+    if (!gameState.ruleSettings.spadeCounter) return null;
+
+    // キャンセル可能なエフェクトのリスト
+    const cancellableEffects: TriggerEffect[] = [
+      '8切り', '革命', '階段革命', 'イレブンバック', '5スキップ', '10飛び', '7渡し',
+      '10捨て', 'クイーンボンバー', '9リバース', 'Qリバース', 'Kリバース'
+    ];
+
+    if (!cancellableEffects.includes(triggeredEffect)) return null;
+
+    // すべてのプレイヤー（現在のプレイヤーを除く）で同数字スペードを持っているか確認
+    for (const player of gameState.players) {
+      if (player.isFinished) continue;
+
+      const spadeCard = player.hand.getCards().find(
+        c => c.suit === Suit.SPADE && c.rank === fieldRank
+      );
+
+      if (spadeCard) {
+        console.log(`スペード返し発動！${player.name} が ♠${fieldRank} で ${triggeredEffect} をキャンセル！`);
+
+        // 手札から削除して捨て札に送る
+        player.hand.remove([spadeCard]);
+        gameState.discardPile.push(spadeCard);
+
+        await this.presentationRequester.requestCutIns([{ effect: 'スペード返し', variant: 'blue' }]);
+
+        return spadeCard;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * バナナアイス判定
+   * 同色6枚の階段は直接捨て札に送れる
+   * @param cards チェックするカード
+   * @returns バナナアイス条件を満たすかどうか
+   */
+  isBananaIce(cards: Card[]): boolean {
+    if (cards.length !== 6) return false;
+
+    // すべて同じ色か確認
+    const firstCard = cards.find(c => c.rank !== 'JOKER');
+    if (!firstCard) return false;
+
+    const firstColor = this.getSuitColor(firstCard.suit);
+    if (!firstColor) return false;
+
+    const allSameColor = cards.every(c => {
+      if (c.rank === 'JOKER') return true;
+      return this.getSuitColor(c.suit) === firstColor;
+    });
+
+    if (!allSameColor) return false;
+
+    // 階段（連番）になっているか確認
+    const sortedCards = [...cards]
+      .filter(c => c.rank !== 'JOKER')
+      .sort((a, b) => a.strength - b.strength);
+
+    const jokerCount = cards.filter(c => c.rank === 'JOKER').length;
+
+    // 連番チェック（ジョーカーで補完可能）
+    let gaps = 0;
+    for (let i = 1; i < sortedCards.length; i++) {
+      const diff = sortedCards[i].strength - sortedCards[i - 1].strength;
+      if (diff === 1) continue;
+      if (diff > 1) gaps += diff - 1;
+    }
+
+    return gaps <= jokerCount;
+  }
+
+  /**
+   * バナナアイス処理
+   * 同色6枚の階段を直接捨て札に送る
+   * @param player カードを出したプレイヤー
+   * @param cards バナナアイスのカード
+   */
+  async handleBananaIce(gameState: GameState, player: Player, cards: Card[]): Promise<void> {
+    if (!gameState.ruleSettings.bananaIce) return;
+
+    if (!this.isBananaIce(cards)) return;
+
+    console.log(`バナナアイス発動！${player.name} が同色6枚の階段を宣言！`);
+
+    // 手札から削除して捨て札に送る
+    player.hand.remove(cards);
+    gameState.discardPile.push(...cards);
+
+    console.log(`  ${cards.map(c => `${c.rank}${c.suit}`).join(', ')} を捨て札に送りました`);
+
+    await this.presentationRequester.requestCutIns([{ effect: 'バナナアイス', variant: 'yellow' }]);
+  }
+
+  /**
+   * スートから色を取得（バナナアイス用）
+   */
+  private getSuitColor(suit: Suit): 'red' | 'black' | null {
+    if (suit === Suit.HEART || suit === Suit.DIAMOND) return 'red';
+    if (suit === Suit.SPADE || suit === Suit.CLUB) return 'black';
+    return null;
   }
 }

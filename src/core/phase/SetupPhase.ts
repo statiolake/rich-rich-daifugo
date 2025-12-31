@@ -3,6 +3,7 @@ import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { CardFactory, Card, Suit } from '../domain/card/Card';
 import { Hand } from '../domain/card/Hand';
 import { Player } from '../domain/player/Player';
+import { PlayerRank } from '../domain/player/PlayerRank';
 import { PresentationRequester } from '../domain/presentation/PresentationRequester';
 
 export class SetupPhase implements GamePhase {
@@ -14,17 +15,52 @@ export class SetupPhase implements GamePhase {
   async enter(gameState: GameState): Promise<void> {
     this.tenhoWinners = [];
 
+    // 前ラウンドの状態をリセット
+    gameState.trumpRank = null;
+    gameState.blindCards = [];
+
     // デッキを作成してシャッフル
     const deck = CardFactory.createDeck(true);
     this.shuffle(deck);
 
-    // プレイヤーに配布
-    const cardsPerPlayer = Math.floor(deck.length / gameState.players.length);
-
-    for (let i = 0; i < gameState.players.length; i++) {
-      const playerCards = deck.slice(i * cardsPerPlayer, (i + 1) * cardsPerPlayer);
-      gameState.players[i].hand = new Hand(playerCards);
+    // 切り札/ドラルール: 配布前に1枚伏せてその数字が最強に
+    if (gameState.ruleSettings.trump) {
+      const trumpCard = deck.pop();
+      if (trumpCard) {
+        gameState.trumpRank = trumpCard.rank;
+        gameState.blindCards.push(trumpCard); // 切り札カード自体はブラインドカードとして扱う
+        console.log(`切り札/ドラ: ${trumpCard.rank} が最強になりました`);
+      }
     }
+
+    // 配布枚数の計算（差別配りを考慮）
+    const playerCardCounts = this.calculateCardCounts(gameState, deck.length);
+
+    // ブラインドカードルール: 端数分のカードを抜いて伏せておく
+    if (gameState.ruleSettings.blindCard) {
+      const totalToDistribute = playerCardCounts.reduce((sum, count) => sum + count, 0);
+      const blindCardCount = deck.length - totalToDistribute;
+      if (blindCardCount > 0) {
+        for (let i = 0; i < blindCardCount; i++) {
+          const blindCard = deck.pop();
+          if (blindCard) {
+            gameState.blindCards.push(blindCard);
+          }
+        }
+        console.log(`ブラインドカード: ${blindCardCount} 枚を伏せました`);
+      }
+    }
+
+    // プレイヤーに配布
+    let deckIndex = 0;
+    for (let i = 0; i < gameState.players.length; i++) {
+      const playerCards = deck.slice(deckIndex, deckIndex + playerCardCounts[i]);
+      gameState.players[i].hand = new Hand(playerCards);
+      deckIndex += playerCardCounts[i];
+    }
+
+    // 村八分適用（9以上のカードを没収）
+    this.applyMurahachibu(gameState);
 
     // 各プレイヤーの手札をソート（革命XOR11バック）
     const shouldReverseStrength = gameState.isRevolution !== gameState.isElevenBack;
@@ -85,6 +121,55 @@ export class SetupPhase implements GamePhase {
   }
 
   /**
+   * 各プレイヤーの配布枚数を計算
+   * 差別配りルール: 階級に応じて配布枚数を増減
+   * - 大富豪: -2枚
+   * - 富豪: -1枚
+   * - 平民: 0枚
+   * - 貧民: +1枚
+   * - 大貧民: +2枚
+   */
+  private calculateCardCounts(gameState: GameState, deckSize: number): number[] {
+    const playerCount = gameState.players.length;
+    const baseCardsPerPlayer = Math.floor(deckSize / playerCount);
+
+    // 差別配りルールが有効でない場合は均等に配布
+    if (!gameState.ruleSettings.discriminatoryDeal) {
+      return gameState.players.map(() => baseCardsPerPlayer);
+    }
+
+    // 差別配り: 階級に応じて配布枚数を調整
+    const cardCounts = gameState.players.map(player => {
+      let adjustment = 0;
+      switch (player.rank) {
+        case PlayerRank.DAIFUGO:
+          adjustment = -2;
+          break;
+        case PlayerRank.FUGO:
+          adjustment = -1;
+          break;
+        case PlayerRank.HEIMIN:
+          adjustment = 0;
+          break;
+        case PlayerRank.HINMIN:
+          adjustment = 1;
+          break;
+        case PlayerRank.DAIHINMIN:
+          adjustment = 2;
+          break;
+      }
+      return Math.max(1, baseCardsPerPlayer + adjustment); // 最低1枚は配布
+    });
+
+    console.log('差別配り適用:');
+    gameState.players.forEach((player, i) => {
+      console.log(`  ${player.name} (${player.rank}): ${cardCounts[i]} 枚`);
+    });
+
+    return cardCounts;
+  }
+
+  /**
    * ダイヤ3を持っているプレイヤーのインデックスを取得
    */
   private findDiamond3Holder(players: Player[]): number {
@@ -97,6 +182,34 @@ export class SetupPhase implements GamePhase {
       }
     }
     return -1; // 見つからない場合（通常はあり得ない）
+  }
+
+  /**
+   * 村八分適用
+   * 都落ち後のプレイヤーから9以上のカード（9, 10, J, Q, K, A, 2, Joker）を没収
+   */
+  private applyMurahachibu(gameState: GameState): void {
+    if (!gameState.murahachibuTargetId) return;
+
+    const targetPlayer = gameState.players.find(
+      p => p.id.value === gameState.murahachibuTargetId
+    );
+    if (!targetPlayer) return;
+
+    // 9以上のカード（strength >= 9）を没収
+    // 9=9, 10=10, J=11, Q=12, K=13, A=14, 2=15, JOKER=16
+    const cardsToConfiscate = targetPlayer.hand.getCards().filter(card => {
+      return card.strength >= 9;
+    });
+
+    if (cardsToConfiscate.length > 0) {
+      targetPlayer.hand.remove(cardsToConfiscate);
+      console.log(`村八分: ${targetPlayer.name} から ${cardsToConfiscate.length} 枚のカードを没収しました`);
+      console.log(`没収されたカード: ${cardsToConfiscate.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+    }
+
+    // 村八分フラグをクリア
+    gameState.murahachibuTargetId = null;
   }
 
   /**
