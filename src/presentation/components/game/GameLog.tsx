@@ -50,11 +50,11 @@ export const GameLog: React.FC = () => {
     return (
       <span className="inline-flex items-center gap-0.5 ml-1">
         {cards.map((card, idx) => {
-          // ジョーカーは絵文字で表示
+          // ジョーカーはピエロ絵文字で表示
           if (card.rank === 'JOKER') {
             return (
-              <span key={idx} className="font-bold text-yellow-400">
-                🃏
+              <span key={idx} className="font-bold">
+                🤡
               </span>
             );
           }
@@ -109,10 +109,14 @@ export const GameLog: React.FC = () => {
                 {/* Cards */}
                 {formatCards(log.cards)}
 
-                {/* Effect name badge */}
-                {log.effectName && (
-                  <span className="px-1.5 py-0.5 text-xs font-bold bg-purple-500/30 text-purple-200 rounded border border-purple-400/30">
-                    {log.effectName}
+                {/* Effect name badges */}
+                {log.effectNames && log.effectNames.length > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    {log.effectNames.map((name, idx) => (
+                      <span key={idx} className="px-1.5 py-0.5 text-xs font-bold bg-purple-500/30 text-purple-200 rounded border border-purple-400/30">
+                        {name}
+                      </span>
+                    ))}
                   </span>
                 )}
               </motion.div>

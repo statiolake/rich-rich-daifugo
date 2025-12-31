@@ -219,15 +219,13 @@ export class PlayPhase implements GamePhase {
     // カットインを表示（すべて完了まで待機）
     if (cutIns.length > 0) {
       await this.presentationRequester.requestCutIns(cutIns);
-      // エフェクトをログに記録
-      for (const effect of effects) {
-        this.presentationRequester.addLog({
-          type: 'effect',
-          playerName: player.name,
-          message: `${effect}が発動`,
-          effectName: effect,
-        });
-      }
+      // エフェクトをまとめてログに記録
+      this.presentationRequester.addLog({
+        type: 'effect',
+        playerName: player.name,
+        message: '発動',
+        effectNames: effects,
+      });
     }
 
     // ソート

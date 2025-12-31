@@ -24,7 +24,7 @@ export interface GameLog {
   playerName?: string;
   message: string;
   cards?: Card[];
-  effectName?: string;
+  effectNames?: string[]; // 発動したエフェクト名の配列
 }
 
 /**
