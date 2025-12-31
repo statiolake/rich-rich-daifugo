@@ -17,6 +17,7 @@ export const GameBoard: React.FC = () => {
   const [autoCPU, setAutoCPU] = useState(false);
   const gameState = useGameStore(state => state.gameState);
   const startGame = useGameStore(state => state.startGame);
+  const continueGame = useGameStore(state => state.continueGame);
   const reset = useGameStore(state => state.reset);
   const activeCutIns = useGameStore(state => state.activeCutIns);
   const removeCutIn = useGameStore(state => state.removeCutIn);
@@ -257,14 +258,30 @@ export const GameBoard: React.FC = () => {
                       );
                     })}
                 </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => reset()}
-                  className="game-btn-primary w-full"
-                >
-                  タイトルに戻る
-                </motion.button>
+                <div className="flex flex-col gap-3">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => continueGame()}
+                    className="game-btn-primary w-full"
+                  >
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      次のラウンドへ
+                      <span className="text-sm opacity-75">(Round {gameState.round + 1})</span>
+                    </span>
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => reset()}
+                    className="game-btn-secondary w-full"
+                  >
+                    タイトルに戻る
+                  </motion.button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

@@ -1,5 +1,6 @@
 import { GameConfig } from './GameConfig';
 import { GameState, GamePhaseType, createGameState } from '../domain/game/GameState';
+import { Field } from '../domain/game/Field';
 import { GamePhase } from '../phase/GamePhase';
 import { SetupPhase } from '../phase/SetupPhase';
 import { ExchangePhase } from '../phase/ExchangePhase';
@@ -78,27 +79,7 @@ export class GameEngine {
     await this.transitionPhase(GamePhaseType.PLAY);
 
     // ゲームループ
-    while (this.gameState.phase === GamePhaseType.PLAY) {
-      await this.currentPhase.update(this.gameState);
-
-      // フェーズ遷移チェック
-      const remainingPlayers = this.gameState.players.filter(p => !p.isFinished).length;
-      if (remainingPlayers <= 1) {
-        // 最後のプレイヤーにランクを割り当て
-        const lastPlayer = this.gameState.players.find(p => !p.isFinished);
-        if (lastPlayer) {
-          const finishedCount = this.gameState.players.filter(p => p.isFinished).length;
-          lastPlayer.isFinished = true;
-          lastPlayer.finishPosition = finishedCount + 1;
-          const rankService = new RankAssignmentService();
-          rankService.assignRank(this.gameState, lastPlayer);
-        }
-        await this.transitionPhase(GamePhaseType.RESULT);
-      }
-
-      // 状態更新イベント
-      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
-    }
+    await this.runPlayLoop();
 
     this.eventEmitter.emit('game:ended', { gameState: this.getState() });
   }
@@ -126,5 +107,121 @@ export class GameEngine {
 
   getRuleEngine(): RuleEngine {
     return this.ruleEngine;
+  }
+
+  /**
+   * 次のラウンドを開始
+   * ランクを引き継いで新しいラウンドを開始する
+   */
+  async startNextRound(): Promise<void> {
+    // ラウンド数を増やす
+    this.gameState.round++;
+
+    // プレイヤーの状態をリセット（ランクは引き継ぎ）
+    for (const player of this.gameState.players) {
+      player.isFinished = false;
+      player.finishPosition = null;
+      // ランクはそのまま（都落ち等で変更されたものを含む）
+    }
+
+    // ゲーム状態をリセット（ランクや都落ち情報は維持）
+    this.resetGameStateForNextRound();
+
+    // SETUP フェーズからやり直し
+    this.gameState.phase = GamePhaseType.SETUP;
+    this.currentPhase = this.phases.get(GamePhaseType.SETUP)!;
+    await this.currentPhase.enter(this.gameState);
+
+    // EXCHANGE フェーズに移行（2ラウンド目以降なのでカード交換が発生）
+    await this.transitionPhase(GamePhaseType.EXCHANGE);
+
+    // PLAY フェーズに移行
+    await this.transitionPhase(GamePhaseType.PLAY);
+
+    // ゲームループ（startメソッドと同じロジック）
+    await this.runPlayLoop();
+
+    this.eventEmitter.emit('game:ended', { gameState: this.getState() });
+  }
+
+  /**
+   * PLAYフェーズのゲームループを実行
+   */
+  private async runPlayLoop(): Promise<void> {
+    while (this.gameState.phase === GamePhaseType.PLAY) {
+      await this.currentPhase.update(this.gameState);
+
+      // フェーズ遷移チェック
+      const remainingPlayers = this.gameState.players.filter(p => !p.isFinished).length;
+      if (remainingPlayers <= 1) {
+        // 最後のプレイヤーにランクを割り当て
+        const lastPlayer = this.gameState.players.find(p => !p.isFinished);
+        if (lastPlayer) {
+          const finishedCount = this.gameState.players.filter(p => p.isFinished).length;
+          lastPlayer.isFinished = true;
+          lastPlayer.finishPosition = finishedCount + 1;
+          const rankService = new RankAssignmentService();
+          rankService.assignRank(this.gameState, lastPlayer);
+        }
+        await this.transitionPhase(GamePhaseType.RESULT);
+      }
+
+      // 状態更新イベント
+      this.eventEmitter.emit('state:updated', { gameState: this.getState() });
+    }
+  }
+
+  /**
+   * 次のラウンド用にゲーム状態をリセット
+   */
+  private resetGameStateForNextRound(): void {
+    // フィールドをクリア
+    this.gameState.field = new Field();
+    this.gameState.discardPile = [];
+
+    // 動的ルール状態をリセット
+    this.gameState.isRevolution = false;
+    this.gameState.isElevenBack = false;
+    this.gameState.elevenBackDuration = 0;
+    this.gameState.isOmenActive = false;
+    this.gameState.isSuperRevolutionActive = false;
+    this.gameState.isReligiousRevolutionActive = false;
+    this.gameState.oddEvenRestriction = null;
+    this.gameState.isEightCutPending = false;
+    this.gameState.suitLock = null;
+    this.gameState.numberLock = false;
+    this.gameState.colorLock = null;
+    this.gameState.isReversed = false;
+    this.gameState.isTwoBack = false;
+    this.gameState.isDamianActive = false;
+    this.gameState.luckySeven = null;
+    this.gameState.parityRestriction = null;
+    this.gameState.isTenFreeActive = false;
+    this.gameState.isDoubleDigitSealActive = false;
+    this.gameState.hotMilkRestriction = null;
+    this.gameState.isArthurActive = false;
+    this.gameState.deathSentenceTarget = null;
+    this.gameState.endCountdownValue = null;
+    this.gameState.teleforceCountdown = null;
+    this.gameState.partialLockSuits = null;
+    this.gameState.excludedCards = [];
+    this.gameState.supplyAidUsed = false;
+    this.gameState.scavengingUsed = false;
+    this.gameState.guillotineClockCount = null;
+    this.gameState.passCount = 0;
+    this.gameState.isNuclearBombActive = false;
+    this.gameState.revolutionCount = 0;
+    this.gameState.miyakoOchiAttackerId = null;
+    this.gameState.isFirstTurn = true;
+    this.gameState.hasDaifugoPassedFirst = false;
+    // murahachibuTargetId は ResultPhase で設定され、SetupPhase で消費されるので保持
+
+    // 最初のプレイヤーを設定（大貧民が親になる場合がある）
+    const daihinmin = this.gameState.players.find(p => p.rank === 'DAIHINMIN');
+    if (daihinmin) {
+      this.gameState.currentPlayerIndex = this.gameState.players.indexOf(daihinmin);
+    } else {
+      this.gameState.currentPlayerIndex = 0;
+    }
   }
 }

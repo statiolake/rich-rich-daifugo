@@ -96,6 +96,7 @@ interface GameStore {
 
   // Actions
   startGame: (options?: { playerName?: string; autoCPU?: boolean }) => void;
+  continueGame: () => void;
   toggleCardSelection: (card: Card) => void;
   clearSelection: () => void;
   clearError: () => void;
@@ -361,6 +362,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       exchangeSelectionCount: 0,
       exchangeSelectionPrompt: null,
       selectedExchangeCards: [],
+    });
+  },
+
+  continueGame: () => {
+    const { engine } = get();
+    if (!engine) {
+      console.error('Engine not initialized');
+      return;
+    }
+
+    // ゲームログをクリア
+    get().clearGameLogs();
+
+    // 次のラウンドを開始（非同期）
+    engine.startNextRound().catch((error) => {
+      console.error('Game error:', error);
+      set({ error: error.message });
     });
   },
 
