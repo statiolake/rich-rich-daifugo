@@ -5,6 +5,7 @@ import { PlayerArea } from '../player/PlayerArea';
 import { HumanControl } from '../player/HumanControl';
 import { UnifiedCardLayer } from './UnifiedCardLayer';
 import { TurnArrows } from './TurnArrows';
+import { GameStatusPanel } from './GameStatusPanel';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { getRankName, PlayerRank } from '../../../core/domain/player/PlayerRank';
 import { RuleCutIn } from '../effects/RuleCutIn';
@@ -158,40 +159,8 @@ export const GameBoard: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen game-board-bg overflow-hidden">
-      {/* Game Info Panel */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="absolute top-4 left-4 z-20"
-      >
-        <div className="game-panel">
-          <div className="px-4 py-3">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="status-indicator status-indicator-active" />
-              <span className="text-white/60 text-sm">ラウンド</span>
-              <span className="text-white font-bold text-lg">{gameState.round}</span>
-            </div>
-            <div className="text-white/50 text-xs uppercase tracking-wider">
-              {gameState.phase}
-            </div>
-            {gameState.isRevolution && (
-              <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 0.5, repeat: Infinity }}
-                className="mt-2 px-3 py-1 bg-red-500/30 border border-red-400/50 rounded-lg"
-              >
-                <span className="text-red-300 font-bold text-sm flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
-                  </svg>
-                  革命中！
-                </span>
-              </motion.div>
-            )}
-          </div>
-        </div>
-      </motion.div>
+      {/* Game Status Panel */}
+      <GameStatusPanel gameState={gameState} />
 
       {/* Turn Direction Arrows */}
       <TurnArrows
