@@ -117,6 +117,27 @@ export const UnifiedCardLayer: React.FC = () => {
     }
   }, 200);
 
+  // CPUプレイヤーの一番上のカードIDとその手札枚数を計算
+  const cpuTopCardInfo = useMemo(() => {
+    if (!gameState) return new Map<string, number>();
+
+    const info = new Map<string, number>(); // cardId -> cardCount
+
+    gameState.players.forEach((player) => {
+      // CPUプレイヤーのみ
+      if (player.type !== 'HUMAN') {
+        const handCards = player.hand.getCards();
+        if (handCards.length > 0) {
+          // 一番最後のカード（一番上に表示されるカード）のIDと枚数を記録
+          const topCard = handCards[handCards.length - 1];
+          info.set(topCard.id, handCards.length);
+        }
+      }
+    });
+
+    return info;
+  }, [gameState, gameState?.players.map(p => p.hand.size()).join(',')]);
+
   // すべてのフックを呼び出した後に早期リターンチェック
   if (!gameState || gameState.phase === GamePhaseType.RESULT) {
     return null;
@@ -175,6 +196,7 @@ export const UnifiedCardLayer: React.FC = () => {
                 card={card}
                 isSelected={isSelected}
                 isFaceUp={cardPos.isFaceUp}
+                cardCount={cpuTopCardInfo.get(card.id)}
                 onClick={isClickable ? () => handleCardClick(card.id) : undefined}
                 className={
                   isHandCard

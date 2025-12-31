@@ -7,9 +7,10 @@ interface CardProps {
   onClick?: () => void;
   className?: string;
   isFaceUp?: boolean;
+  cardCount?: number; // 裏向き時に表示するカード枚数（一番上のカードのみ）
 }
 
-export const Card: React.FC<CardProps> = ({ card, isSelected, onClick, className = '', isFaceUp = true }) => {
+export const Card: React.FC<CardProps> = ({ card, isSelected, onClick, className = '', isFaceUp = true, cardCount }) => {
   const getSuitSymbol = (suit: Suit): string => {
     switch (suit) {
       case Suit.SPADE: return '♠';
@@ -57,7 +58,21 @@ export const Card: React.FC<CardProps> = ({ card, isSelected, onClick, className
         whileTap={onClick ? { scale: isSelected ? 1.05 : 0.95 } : {}}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         layout
-      />
+      >
+        {/* カード枚数表示（一番上のカードのみ） */}
+        {cardCount !== undefined && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span
+              className="font-orbitron text-3xl font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+              style={{
+                textShadow: '0 0 10px rgba(255,255,255,0.5), 0 0 20px rgba(96,165,250,0.5)',
+              }}
+            >
+              {cardCount}
+            </span>
+          </div>
+        )}
+      </motion.div>
     );
   }
 
