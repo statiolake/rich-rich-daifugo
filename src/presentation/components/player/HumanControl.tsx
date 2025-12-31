@@ -4,7 +4,7 @@ import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerService';
 import { useMemo, useState } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
-import { CardFactory, Suit, Rank } from '../../../core/domain/card/Card';
+import { CardFactory, Suit, Rank, Card } from '../../../core/domain/card/Card';
 
 export const HumanControl: React.FC = () => {
   const gameState = useGameStore(state => state.gameState);
@@ -13,6 +13,15 @@ export const HumanControl: React.FC = () => {
   const clearError = useGameStore(state => state.clearError);
   const submitCardSelection = useGameStore(state => state.submitCardSelection);
   const submitQueenBomberRank = useGameStore(state => state.submitQueenBomberRank);
+
+  // Discard selection state
+  const isDiscardSelectionEnabled = useGameStore(state => state.isDiscardSelectionEnabled);
+  const discardSelectionPile = useGameStore(state => state.discardSelectionPile);
+  const discardSelectionMaxCount = useGameStore(state => state.discardSelectionMaxCount);
+  const discardSelectionPrompt = useGameStore(state => state.discardSelectionPrompt);
+  const selectedDiscardCards = useGameStore(state => state.selectedDiscardCards);
+  const toggleDiscardCardSelection = useGameStore(state => state.toggleDiscardCardSelection);
+  const submitDiscardSelection = useGameStore(state => state.submitDiscardSelection);
 
   const [screenHeight, setScreenHeight] = useState(window.innerHeight);
 
@@ -43,6 +52,7 @@ export const HumanControl: React.FC = () => {
 
   const isPendingCardSelection = isCardSelectionEnabled;
   const isPendingRankSelection = isQueenBomberRankSelectionEnabled;
+  const isPendingDiscardSelection = isDiscardSelectionEnabled;
 
   const validationResult = isPendingCardSelection
     ? (cardSelectionValidator ? cardSelectionValidator.validate(selectedCards) : { valid: false })
@@ -51,7 +61,7 @@ export const HumanControl: React.FC = () => {
 
   const triggerEffects = validationResult.triggeredEffects || [];
 
-  const needsSelection = isPendingCardSelection || isPendingRankSelection;
+  const needsSelection = isPendingCardSelection || isPendingRankSelection || isPendingDiscardSelection;
 
   return (
     <>
@@ -101,7 +111,82 @@ export const HumanControl: React.FC = () => {
 
         {/* Control Buttons */}
         <AnimatePresence mode="wait">
-          {isPendingRankSelection ? (
+          {isPendingDiscardSelection ? (
+            <motion.div
+              key="discard-selection"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="flex flex-col items-center gap-4 pointer-events-auto"
+            >
+              {/* Prompt */}
+              <div className="game-panel px-6 py-3">
+                <span className="text-green-300 font-bold flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                  </svg>
+                  {discardSelectionPrompt || `捨て札から${discardSelectionMaxCount}枚まで選んでください`}
+                </span>
+              </div>
+
+              {/* Discard Pile Cards */}
+              <div className="flex flex-wrap justify-center gap-2 max-w-4xl px-4 max-h-48 overflow-y-auto custom-scrollbar">
+                {discardSelectionPile.map((card) => {
+                  const isSelected = selectedDiscardCards.some(c => c.id === card.id);
+                  const suitColor = card.suit === Suit.HEART || card.suit === Suit.DIAMOND ? 'text-red-500' : 'text-gray-900';
+                  const suitSymbol = card.suit === Suit.SPADE ? '♠' : card.suit === Suit.HEART ? '♥' : card.suit === Suit.DIAMOND ? '♦' : '♣';
+
+                  return (
+                    <motion.button
+                      key={card.id}
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => toggleDiscardCardSelection(card)}
+                      className={`
+                        w-12 h-16 rounded-lg font-bold transition-all duration-200
+                        flex flex-col items-center justify-center bg-white
+                        ${isSelected
+                          ? 'ring-2 ring-green-400 border-2 border-green-400'
+                          : 'border-2 border-gray-300 hover:border-green-400/50'
+                        }
+                      `}
+                      style={{
+                        boxShadow: isSelected
+                          ? '0 0 15px rgba(74, 222, 128, 0.5), 0 4px 10px rgba(0, 0, 0, 0.2)'
+                          : '0 2px 8px rgba(0, 0, 0, 0.2)'
+                      }}
+                    >
+                      <span className={`text-sm ${suitColor}`}>{card.rank}</span>
+                      <span className={`text-lg ${suitColor}`}>{suitSymbol}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              {/* Selection count */}
+              <div className="text-white/70 text-sm">
+                {selectedDiscardCards.length} / {discardSelectionMaxCount} 枚選択中
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={submitDiscardSelection}
+                  className="game-btn-success"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {selectedDiscardCards.length > 0 ? `${selectedDiscardCards.length}枚回収` : 'スキップ'}
+                  </span>
+                </motion.button>
+              </div>
+            </motion.div>
+          ) : isPendingRankSelection ? (
             <motion.div
               key="rank-selection"
               initial={{ opacity: 0, y: 20 }}
