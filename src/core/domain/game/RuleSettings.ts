@@ -239,12 +239,15 @@ export interface RuleSettings {
  * 全てのルールをONにする
  */
 export const DEFAULT_RULE_SETTINGS: RuleSettings = {
+  // 場をクリアするルール
   eightCut: true,
   fiveCut: true,
   sixCut: true,
   sevenCut: true,
   ambulance: true,
   rokurokubi: true,
+
+  // 革命バリエーション
   stairRevolution: true,
   nanasanRevolution: true,
   emperor: true,
@@ -252,23 +255,29 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   greatRevolution: true,
   omen: true,
   jokerRevolution: true,
-  skipStairRevolution: false,
-  religiousRevolution: false,
-  superRevolution: false,
-  revolutionFlow: false,
-  fusionRevolution: false,
-  tsuiKaku: false,
+  skipStairRevolution: true,
+  religiousRevolution: true,
+  superRevolution: true,
+  revolutionFlow: true,
+  fusionRevolution: true,
+  tsuiKaku: true,
+
+  // 特殊勝利条件
   forbiddenFinish: true,
+
+  // カード強度ルール
   sandstorm: true,
   tripleThreeReturn: true,
   assassination: true,
   spadeThreeReturn: true,
   spadeTwoReturn: true,
   stairs: true,
-  skipStair: false,
-  doubleStair: false,
-  redSevenPower: false,
-  blackSevenPower: false,
+  skipStair: true,
+  doubleStair: true,
+  redSevenPower: true,
+  blackSevenPower: true,
+
+  // フィールド効果
   fourStop: true,
   suitLock: true,
   numberLock: true,
@@ -276,9 +285,13 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   colorLock: true,
   queenRelease: true,
   sixReturn: true,
+
+  // 偶数/奇数制限
   sevenCounter: true,
   evenRestriction: true,
   oddRestriction: true,
+
+  // ターン操作
   fiveSkip: true,
   freemason: true,
   tenSkip: true,
@@ -293,6 +306,8 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   kingReverse: true,
   kingPastor: true,
   reKing: true,
+
+  // 特殊効果
   queenBomber: true,
   jeanneDArc: true,
   bloodyMary: true,
@@ -305,6 +320,8 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   thief: true,
   nero: true,
   kingsPrivilege: true,
+
+  // 捨て札回収ルール
   salvage: true,
   kingsMarch: true,
   satan: true,
@@ -313,82 +330,142 @@ export const DEFAULT_RULE_SETTINGS: RuleSettings = {
   blackSeven: true,
   tyrant: true,
   resurrection: true,
+
+  // ジョーカー関連
   jokerReturn: true,
+
+  // 親権ルール
   nextAce: true,
+
+  // ゲーム終了後のルール
   cityFall: true,
   gekokujou: true,
   luckySeven: true,
   catastrophe: true,
-  kyoOchi: false,
-  fuOchi: false,
-  reparations: false,
-  babaOchi: false,
-  nuclearBomb: false,
-  murahachibu: false,
-  absoluteMonarchy: false,
-  monarchyDefense: false,
-  antiMonopoly: false,
-  inheritanceTax: false,
-  blindExchange: false,
+
+  // 都落ち派生ルール
+  kyoOchi: true,
+  fuOchi: true,
+  reparations: true,
+  babaOchi: true,
+  nuclearBomb: true,
+  murahachibu: true,
+
+  // 交換枚数バリエーション
+  absoluteMonarchy: true,
+  monarchyDefense: true,
+  antiMonopoly: true,
+  inheritanceTax: true,
+  blindExchange: true,
+
+  // 情報公開ルール
   fivePick: true,
   weakShow: true,
   strongShow: true,
+
+  // 出せるカード制限
   doubleDigitSeal: true,
   hotMilk: true,
-  jokerSeize: false,
-  queenLove: false,
-  finishFlow: false,
-  aceTax: false,
-  fiveColorLock: false,
-  dignity: false,
-  arthur: false,
-  doubleKing: false,
-  redFive: false,
-  gloriousRevolution: false,
-  industrialRevolution: false,
-  deathSentence: false,
-  blackMarket: false,
-  crossDressing: false,
-  nineGamble: false,
-  nineShuffle: false,
-  sixClaim: false,
-  nineClaim: false,
-  endCountdown: false,
-  teleforce: false,
-  aceJanaiKa: false,
-  partialLock: false,
-  taepodong: false,
-  monopoly: false,
-  dokan: false,
-  tenho: false,
-  crusade: false,
-  auction: false,
-  yagiriNoWatashi: false,
-  eightCounter: false,
-  tenCounter: false,
-  enhancedEightCut: false,
-  tunnel: false,
-  spadeStair: false,
-  guillotineClock: false,
-  supplyAid: false,
-  scavenging: false,
-  cartel: false,
-  southernCross: false,
-  heiankyoFlow: false,
-  cyclone: false,
-  konagonaRevolution: false,
-  yoroshikuRevolution: false,
-  shininasaiRevolution: false,
-  diamond3Start: false,
-  daifugoLeisure: false,
-  adauchiBan: false,
-  securityLaw: false,
-  shiminByodo: false,
-  discriminatoryDeal: false,
-  blindCard: false,
-  trump: false,
-  guerrilla: false,
-  catapult: false,
-  spadeCounter: false,
-  bananaIce: false,
+
+  // ジョーカー請求・Qラブ
+  jokerSeize: true,
+  queenLove: true,
+
+  // 上がり・税収ルール
+  finishFlow: true,
+  aceTax: true,
+
+  // 追加の色縛りルール
+  fiveColorLock: true,
+
+  // 場をクリアする追加ルール
+  dignity: true,
+
+  // キング系ルール
+  arthur: true,
+  doubleKing: true,
+
+  // 手札交換・ランク変動ルール
+  redFive: true,
+  gloriousRevolution: true,
+
+  // 特殊効果ルール（4枚系）
+  industrialRevolution: true,
+  deathSentence: true,
+
+  // カード交換ルール
+  blackMarket: true,
+
+  // 特殊出しルール
+  crossDressing: true,
+
+  // 9系ルール
+  nineGamble: true,
+  nineShuffle: true,
+
+  // カード請求ルール
+  sixClaim: true,
+  nineClaim: true,
+
+  // カウントダウン系ルール
+  endCountdown: true,
+  teleforce: true,
+
+  // ゲーム終了ルール
+  aceJanaiKa: true,
+
+  // 片縛りルール
+  partialLock: true,
+
+  // 即勝利条件ルール
+  taepodong: true,
+  monopoly: true,
+  dokan: true,
+  tenho: true,
+
+  // 10系ルール（ジョーカー関連）
+  crusade: true,
+  auction: true,
+
+  // 8切り関連ルール
+  yagiriNoWatashi: true,
+  eightCounter: true,
+  tenCounter: true,
+  enhancedEightCut: true,
+
+  // 特殊階段ルール
+  tunnel: true,
+  spadeStair: true,
+
+  // 追加ルール
+  guillotineClock: true,
+  supplyAid: true,
+  scavenging: true,
+  cartel: true,
+
+  // 語呂合わせ革命
+  southernCross: true,
+  heiankyoFlow: true,
+  cyclone: true,
+  konagonaRevolution: true,
+  yoroshikuRevolution: true,
+  shininasaiRevolution: true,
+
+  // 開始・終了ルール
+  diamond3Start: true,
+  daifugoLeisure: true,
+  adauchiBan: true,
+  securityLaw: true,
+  shiminByodo: true,
+
+  // 開始ルール（配布系）
+  discriminatoryDeal: true,
+  blindCard: true,
+  trump: true,
+
+  // カード操作系ルール
+  guerrilla: true,
+  catapult: true,
+  spadeCounter: true,
+  bananaIce: true,
 };
