@@ -265,16 +265,26 @@ export const GameBoard: React.FC = () => {
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                              isFirst
-                                ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black'
-                                : isLast
-                                ? 'bg-gradient-to-br from-gray-600 to-gray-800 text-gray-400'
-                                : 'bg-gradient-to-br from-gray-500 to-gray-700 text-white'
-                            }`}>
+                            <span
+                              className={`w-8 h-8 rounded-full flex items-center justify-center font-orbitron font-bold ${
+                                isFirst
+                                  ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black'
+                                  : isLast
+                                  ? 'bg-gradient-to-br from-gray-600 to-gray-800 text-gray-400'
+                                  : 'bg-gradient-to-br from-gray-500 to-gray-700 text-white'
+                              }`}
+                              style={{
+                                boxShadow: isFirst ? '0 0 12px rgba(250,204,21,0.6)' : undefined,
+                              }}
+                            >
                               {idx + 1}
                             </span>
-                            <span className={`font-bold ${isFirst ? 'text-yellow-300' : 'text-white'}`}>
+                            <span
+                              className={`font-orbitron font-bold ${isFirst ? 'text-yellow-300' : 'text-white'}`}
+                              style={{
+                                textShadow: isFirst ? '0 0 8px rgba(250,204,21,0.5)' : undefined,
+                              }}
+                            >
                               {player.name}
                             </span>
                           </div>

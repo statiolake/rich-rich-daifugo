@@ -171,9 +171,14 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({ gameState }) =
           <div className="flex items-center gap-3 mb-2">
             <div className="status-indicator status-indicator-active" />
             <span className="text-white/60 text-sm">ラウンド</span>
-            <span className="text-white font-bold text-lg">{gameState.round}</span>
+            <span
+              className="font-orbitron text-white font-bold text-xl"
+              style={{ textShadow: '0 0 8px rgba(255,255,255,0.4)' }}
+            >
+              {gameState.round}
+            </span>
           </div>
-          <div className="text-white/50 text-xs uppercase tracking-wider mb-3">
+          <div className="text-white/50 text-xs uppercase tracking-wider mb-3 font-orbitron">
             {gameState.phase}
           </div>
 
