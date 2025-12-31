@@ -4,6 +4,7 @@ import { useGameStore } from '../../store/gameStore';
 import { PlayerArea } from '../player/PlayerArea';
 import { HumanControl } from '../player/HumanControl';
 import { UnifiedCardLayer } from './UnifiedCardLayer';
+import { TurnArrows } from './TurnArrows';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { getRankName, PlayerRank } from '../../../core/domain/player/PlayerRank';
 import { RuleCutIn } from '../effects/RuleCutIn';
@@ -191,6 +192,13 @@ export const GameBoard: React.FC = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Turn Direction Arrows */}
+      <TurnArrows
+        currentPlayerIndex={gameState.currentPlayerIndex}
+        playerCount={gameState.players.length}
+        isReversed={gameState.isReversed}
+      />
 
       {/* Player Areas */}
       {gameState.players.map((player, index) => (
