@@ -47,9 +47,14 @@ export interface GameLogEntry {
   effectNames?: string[]; // 発動したエフェクト名の配列
 }
 
+// ゲスト用カード選択コールバック型
+type GuestCardSelectionCallback = (selectedCardIds: string[], isPass: boolean) => void;
+
 interface GameStore {
   engine: GameEngine | null;
   isMultiplayerMode: boolean;
+  isGuestMode: boolean;
+  guestCardSelectionCallback: GuestCardSelectionCallback | null;
   gameState: GameState | null;
   selectedCards: Card[];
   error: string | null;
@@ -102,6 +107,9 @@ interface GameStore {
   startGame: (options?: { playerName?: string; autoCPU?: boolean }) => void;
   startMultiplayerGame: () => void;
   updateGameStateFromHost: (state: GameState) => void;
+  setGuestMode: (isGuest: boolean) => void;
+  enableGuestCardSelection: (validCardIds: string[], canPass: boolean, callback: GuestCardSelectionCallback, prompt?: string) => void;
+  submitGuestCardSelection: (isPass?: boolean) => void;
   continueGame: () => void;
   toggleCardSelection: (card: Card) => void;
   clearSelection: () => void;
@@ -169,6 +177,8 @@ interface GameStore {
 export const useGameStore = create<GameStore>((set, get) => ({
   engine: null,
   isMultiplayerMode: false,
+  isGuestMode: false,
+  guestCardSelectionCallback: null,
   gameState: null,
   selectedCards: [],
   error: null,
@@ -586,6 +596,46 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // ゲスト側でホストから受信した状態を反映
     set({ gameState: { ...state } });
     useCardPositionStore.getState().syncWithGameState(state);
+  },
+
+  setGuestMode: (isGuest: boolean) => {
+    set({ isGuestMode: isGuest, isMultiplayerMode: true });
+  },
+
+  enableGuestCardSelection: (validCardIds, canPass, callback, prompt) => {
+    // validatorとしてvalidCardIdsに含まれるカードのみ許可
+    const validator: Validator = {
+      validate: (cards: Card[]) => {
+        if (cards.length === 0) {
+          return { valid: canPass, reason: canPass ? undefined : 'パスできません' };
+        }
+        const allValid = cards.every(c => validCardIds.includes(c.id));
+        return { valid: allValid, reason: allValid ? undefined : '選択できないカードが含まれています' };
+      }
+    };
+    set({
+      guestCardSelectionCallback: callback,
+      cardSelectionValidator: validator,
+      cardSelectionPrompt: prompt || 'カードを選択してください',
+      isCardSelectionEnabled: true,
+      selectedCards: [],
+    });
+  },
+
+  submitGuestCardSelection: (isPass = false) => {
+    const { selectedCards, guestCardSelectionCallback } = get();
+    if (guestCardSelectionCallback) {
+      const cardIds = selectedCards.map(c => c.id);
+      guestCardSelectionCallback(cardIds, isPass);
+    }
+    // UIを無効化
+    set({
+      isCardSelectionEnabled: false,
+      cardSelectionValidator: null,
+      cardSelectionPrompt: null,
+      selectedCards: [],
+      guestCardSelectionCallback: null,
+    });
   },
 
   enqueueCutIn: async (cutIn) => {

@@ -48,6 +48,8 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
   } = useMultiplayerStore();
 
   const updateGameStateFromHost = useGameStore(state => state.updateGameStateFromHost);
+  const setGuestMode = useGameStore(state => state.setGuestMode);
+  const enableGuestCardSelection = useGameStore(state => state.enableGuestCardSelection);
 
   // GuestInputHandler のインスタンスを保持
   const guestInputHandlerRef = useRef<GuestInputHandler | null>(null);
@@ -66,9 +68,18 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
         sendResponse: (message) => {
           sendToHost(message);
         },
-        onCardSelectionRequest: (_request) => {
-          // TODO: カード選択UIを表示（gameStoreのenableCardSelectionを使用）
-          console.log('[Guest] Card selection requested');
+        onCardSelectionRequest: (request) => {
+          if (request.type !== 'CARD_SELECTION') return;
+          // カード選択UIを有効化
+          enableGuestCardSelection(
+            request.validCardIds,
+            request.canPass,
+            (selectedCardIds, isPass) => {
+              // 選択完了時にGuestInputHandlerに通知
+              guestInputHandlerRef.current?.submitCardSelection(selectedCardIds, isPass);
+            },
+            'カードを選択してください'
+          );
         },
         onRankSelectionRequest: (_request) => {
           // TODO: ランク選択UIを表示
@@ -85,7 +96,7 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
       guestInputHandlerRef.current?.dispose();
       guestInputHandlerRef.current = null;
     };
-  }, [mode, sendToHost]);
+  }, [mode, sendToHost, enableGuestCardSelection]);
 
   // ホストメッセージハンドラを設定
   useEffect(() => {
@@ -94,6 +105,7 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
         switch (message.type) {
           case 'GAME_STARTED':
             // ゲーム開始メッセージを受信
+            setGuestMode(true);
             if (message.initialState) {
               const gameState = deserializeGameState(message.initialState, localPlayerId);
               updateGameStateFromHost(gameState);

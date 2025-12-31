@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
+import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerService';
 import { useMemo, useState } from 'react';
@@ -12,6 +13,8 @@ export const HumanControl: React.FC = () => {
   const error = useGameStore(state => state.error);
   const clearError = useGameStore(state => state.clearError);
   const submitCardSelection = useGameStore(state => state.submitCardSelection);
+  const isGuestMode = useGameStore(state => state.isGuestMode);
+  const submitGuestCardSelection = useGameStore(state => state.submitGuestCardSelection);
   const submitQueenBomberRank = useGameStore(state => state.submitQueenBomberRank);
 
   // Discard selection state
@@ -39,12 +42,19 @@ export const HumanControl: React.FC = () => {
 
   const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length, cardSelectionValidatorForMemo]);
 
+  // マルチプレイのローカルプレイヤーID
+  const multiplayerLocalPlayerId = useMultiplayerStore(state => state.localPlayerId);
+
   if (!gameState || gameState.phase === GamePhaseType.RESULT) return null;
 
   const isGameInitializing = gameState.phase === GamePhaseType.SETUP;
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-  const humanPlayer = LocalPlayerService.findLocalPlayer(gameState);
+
+  // ゲストモードの場合はlocalPlayerIdで、シングルプレイの場合はHUMANタイプで判定
+  const humanPlayer = isGuestMode
+    ? gameState.players.find(p => p.id.value === multiplayerLocalPlayerId)
+    : LocalPlayerService.findLocalPlayer(gameState);
 
   if (!humanPlayer || humanPlayer.isFinished) {
     return null;
@@ -360,7 +370,13 @@ export const HumanControl: React.FC = () => {
                     <motion.button
                       whileHover={isCurrentSelectionValid ? { scale: 1.05 } : {}}
                       whileTap={isCurrentSelectionValid ? { scale: 0.95 } : {}}
-                      onClick={isCurrentSelectionValid ? submitCardSelection : undefined}
+                      onClick={isCurrentSelectionValid ? () => {
+                        if (isGuestMode) {
+                          submitGuestCardSelection(isPassSelected);
+                        } else {
+                          submitCardSelection();
+                        }
+                      } : undefined}
                       disabled={!isCurrentSelectionValid}
                       className={`
                         ${isCurrentSelectionValid
