@@ -1,5 +1,4 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ParticleEffect } from './ParticleEffect';
 import { RuleCutInData } from '../../store/gameStore';
 
 interface RuleCutInProps {
@@ -19,7 +18,7 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
         type: 'spring' as const,
         stiffness: 200,
         damping: 20,
-        delay: delay / 1000 // msをsに変換
+        delay: delay / 1000
       }
     },
     exit: {
@@ -34,34 +33,40 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
   const getVariantStyles = (variant: string) => {
     const styles = {
       gold: {
-        text: 'text-yellow-400',
-        border: 'border-yellow-600',
-        glow: 'drop-shadow-[0_0_30px_rgba(251,191,36,0.9)]',
-        band: 'bg-gradient-to-r from-yellow-600/80 via-yellow-500/90 to-yellow-600/80'
+        color: '#ffd700',
+        glow: 'rgba(255, 215, 0, 0.7)',
+        bg: 'rgba(60, 45, 0, 0.95)',
+        band: 'from-yellow-700/90 via-yellow-500/95 to-yellow-700/90',
       },
       yellow: {
-        text: 'text-yellow-400',
-        border: 'border-yellow-600',
-        glow: 'drop-shadow-[0_0_30px_rgba(251,191,36,0.9)]',
-        band: 'bg-gradient-to-r from-yellow-600/80 via-yellow-500/90 to-yellow-600/80'
+        color: '#ffd700',
+        glow: 'rgba(255, 215, 0, 0.7)',
+        bg: 'rgba(60, 45, 0, 0.95)',
+        band: 'from-yellow-700/90 via-yellow-500/95 to-yellow-700/90',
       },
       red: {
-        text: 'text-red-400',
-        border: 'border-red-600',
-        glow: 'drop-shadow-[0_0_30px_rgba(239,68,68,0.9)]',
-        band: 'bg-gradient-to-r from-red-600/80 via-red-500/90 to-red-600/80'
+        color: '#ff4040',
+        glow: 'rgba(255, 64, 64, 0.7)',
+        bg: 'rgba(60, 10, 10, 0.95)',
+        band: 'from-red-800/90 via-red-500/95 to-red-800/90',
       },
       blue: {
-        text: 'text-blue-400',
-        border: 'border-blue-600',
-        glow: 'drop-shadow-[0_0_30px_rgba(59,130,246,0.9)]',
-        band: 'bg-gradient-to-r from-blue-600/80 via-blue-500/90 to-blue-600/80'
+        color: '#40a0ff',
+        glow: 'rgba(64, 160, 255, 0.7)',
+        bg: 'rgba(10, 30, 60, 0.95)',
+        band: 'from-blue-800/90 via-blue-500/95 to-blue-800/90',
       },
       green: {
-        text: 'text-green-400',
-        border: 'border-green-600',
-        glow: 'drop-shadow-[0_0_30px_rgba(34,197,94,0.9)]',
-        band: 'bg-gradient-to-r from-green-600/80 via-green-500/90 to-green-600/80'
+        color: '#40ff80',
+        glow: 'rgba(64, 255, 128, 0.7)',
+        bg: 'rgba(10, 50, 25, 0.95)',
+        band: 'from-green-800/90 via-green-500/95 to-green-800/90',
+      },
+      purple: {
+        color: '#c040ff',
+        glow: 'rgba(192, 64, 255, 0.7)',
+        bg: 'rgba(40, 10, 60, 0.95)',
+        band: 'from-purple-800/90 via-purple-500/95 to-purple-800/90',
       }
     };
     return styles[variant as keyof typeof styles] || styles.gold;
@@ -69,7 +74,7 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
 
   return (
     <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 9999 }}>
-      {/* 背景 - 複数のカットインがある場合は1つだけ表示 */}
+      {/* 背景 */}
       <AnimatePresence>
         {cutIns.length > 0 && (
           <motion.div
@@ -77,19 +82,19 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 bg-black/40"
           />
         )}
       </AnimatePresence>
 
-      {/* カットインコンテンツ - 複数表示可能 */}
+      {/* カットインコンテンツ */}
       <div className="absolute inset-0">
         <AnimatePresence>
           {cutIns.map((cutIn) => {
-            const variantStyles = getVariantStyles(cutIn.variant || 'gold');
+            const s = getVariantStyles(cutIn.variant || 'gold');
             const slideInVariants = getSlideInVariants(cutIn.delay || 0);
-            const verticalPos = cutIn.verticalPosition || '50%'; // デフォルトは中央
+            const verticalPos = cutIn.verticalPosition || '50%';
 
             return (
               <motion.div
@@ -112,33 +117,105 @@ export const RuleCutIn: React.FC<RuleCutInProps> = ({ cutIns, onComplete }) => {
                     setTimeout(() => onComplete?.(cutIn.id), cutIn.duration || 500);
                   }}
                   className="w-full max-w-4xl"
+                  style={{
+                    filter: `drop-shadow(0 0 30px ${s.glow}) drop-shadow(0 0 60px ${s.glow})`,
+                  }}
                 >
-                <div className="relative w-full">
-                {/* 上の帯 */}
-                <div className={`h-4 ${variantStyles.band} transform -skew-y-2 shadow-lg`} />
+                  <div className="relative w-full">
+                    {/* 上の帯 */}
+                    <div className={`h-4 bg-gradient-to-r ${s.band} transform -skew-y-2`}
+                      style={{ boxShadow: `0 0 20px ${s.glow}` }}
+                    />
 
-                {/* メインテキストエリア */}
-                <div className={`relative bg-blue-900/80 backdrop-blur-md py-8 px-12 border-y-4 border-double ${variantStyles.border}`}>
-                  <ParticleEffect count={100} color={cutIn.variant || 'gold'} />
+                    {/* メインテキストエリア */}
+                    <div
+                      className="relative py-6 px-8 overflow-hidden"
+                      style={{
+                        background: s.bg,
+                        borderTop: `3px solid ${s.color}`,
+                        borderBottom: `3px solid ${s.color}`,
+                      }}
+                    >
+                      {/* 内側のグロー */}
+                      <div
+                        className="absolute inset-0"
+                        style={{ boxShadow: `inset 0 0 50px ${s.glow}` }}
+                      />
 
-                  <motion.div
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.2, duration: 0.3 }}
-                    className={`text-6xl font-bold text-center italic ${variantStyles.text} ${variantStyles.glow}`}
-                    style={{
-                      fontFamily: "'Noto Serif JP', serif",
-                      textShadow: '0 0 20px currentColor, 0 0 40px currentColor',
-                      WebkitTextStroke: '2px rgba(0,0,0,0.3)',
-                    }}
-                  >
-                    {cutIn.text}
-                  </motion.div>
-                </div>
+                      {/* 斜めストライプ */}
+                      <div
+                        className="absolute inset-0 opacity-10"
+                        style={{
+                          backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 8px, ${s.color} 8px, ${s.color} 9px)`,
+                        }}
+                      />
 
-                {/* 下の帯 */}
-                <div className={`h-4 ${variantStyles.band} transform skew-y-2 shadow-lg`} />
-              </div>
+                      {/* スピードライン */}
+                      {[...Array(8)].map((_, i) => (
+                        <motion.div
+                          key={i}
+                          className="absolute"
+                          style={{
+                            top: `${10 + i * 10}%`,
+                            width: '100%',
+                            height: '2px',
+                            background: `linear-gradient(90deg, transparent, ${s.color}50, transparent)`,
+                          }}
+                          initial={{ x: '100%' }}
+                          animate={{ x: '-100%' }}
+                          transition={{
+                            duration: 0.35,
+                            delay: i * 0.02,
+                            ease: 'easeOut' as const,
+                          }}
+                        />
+                      ))}
+
+                      {/* コーナーアクセント */}
+                      <div className="absolute top-2 left-3 w-5 h-5 border-l-2 border-t-2" style={{ borderColor: s.color }} />
+                      <div className="absolute top-2 right-3 w-5 h-5 border-r-2 border-t-2" style={{ borderColor: s.color }} />
+                      <div className="absolute bottom-2 left-3 w-5 h-5 border-l-2 border-b-2" style={{ borderColor: s.color }} />
+                      <div className="absolute bottom-2 right-3 w-5 h-5 border-r-2 border-b-2" style={{ borderColor: s.color }} />
+
+                      {/* テキスト */}
+                      <motion.div
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: 0.15, duration: 0.2 }}
+                        className="relative z-10 text-center"
+                      >
+                        <span
+                          className="text-5xl md:text-6xl font-black"
+                          style={{
+                            color: s.color,
+                            textShadow: `
+                              0 0 20px ${s.glow},
+                              0 0 40px ${s.glow},
+                              3px 3px 0 #000,
+                              -2px -2px 0 #000,
+                              2px -2px 0 #000,
+                              -2px 2px 0 #000
+                            `,
+                          }}
+                        >
+                          {cutIn.text}
+                        </span>
+                      </motion.div>
+
+                      {/* フラッシュ */}
+                      <motion.div
+                        className="absolute inset-0 bg-white pointer-events-none"
+                        initial={{ opacity: 0.7 }}
+                        animate={{ opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                      />
+                    </div>
+
+                    {/* 下の帯 */}
+                    <div className={`h-4 bg-gradient-to-r ${s.band} transform skew-y-2`}
+                      style={{ boxShadow: `0 0 20px ${s.glow}` }}
+                    />
+                  </div>
                 </motion.div>
               </motion.div>
             );
