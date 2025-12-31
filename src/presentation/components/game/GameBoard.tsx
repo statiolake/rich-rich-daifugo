@@ -15,6 +15,7 @@ import { RuleSettingsPanel } from '../settings/RuleSettingsPanel';
 export const GameBoard: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [autoCPU, setAutoCPU] = useState(false);
+  const [playerName, setPlayerName] = useState('');
   const gameState = useGameStore(state => state.gameState);
   const startGame = useGameStore(state => state.startGame);
   const continueGame = useGameStore(state => state.continueGame);
@@ -75,6 +76,32 @@ export const GameBoard: React.FC = () => {
               transition={{ duration: 0.5, delay: 0.6 }}
               className="flex flex-col gap-5 items-center"
             >
+              {/* Player Name Input */}
+              <div className="flex flex-col items-center gap-2">
+                <label className="text-sm text-white/70 font-medium">
+                  プレイヤー名
+                </label>
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  placeholder="あなた"
+                  maxLength={12}
+                  className="
+                    w-64 px-4 py-2 rounded-lg
+                    bg-white/10 backdrop-blur-sm
+                    border border-white/20
+                    text-white text-center font-orbitron font-bold
+                    placeholder:text-white/40
+                    focus:outline-none focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/30
+                    transition-all duration-200
+                  "
+                  style={{
+                    textShadow: playerName ? '0 0 8px rgba(255,255,255,0.3)' : undefined,
+                  }}
+                />
+              </div>
+
               {/* CPU Toggle */}
               <label className="flex items-center gap-4 cursor-pointer group">
                 <div className="relative">
@@ -94,7 +121,7 @@ export const GameBoard: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => startGame({ autoCPU })}
+                onClick={() => startGame({ playerName: playerName.trim() || 'あなた', autoCPU })}
                 className="game-btn-primary min-w-[280px]"
               >
                 <span className="relative z-10 flex items-center justify-center gap-2">
