@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { GameEngine } from '../../core/game/GameEngine';
-import { GameConfigFactory } from '../../core/game/GameConfigFactory';
+import { GameConfigFactory, MultiplayerPlayerInfo } from '../../core/game/GameConfigFactory';
 import { GameState } from '../../core/domain/game/GameState';
 import { Card, CardFactory } from '../../core/domain/card/Card';
 import { PlayerType } from '../../core/domain/player/Player';
@@ -13,6 +13,9 @@ import { HumanPlayerController } from '../players/HumanPlayerController';
 import { CPUPlayerController } from '../players/CPUPlayerController';
 import { PlayerController, Validator } from '../../core/domain/player/PlayerController';
 import { CPUStrategy } from '../../core/strategy/PlayerStrategy';
+import { RemotePlayerController } from '../../infrastructure/network/RemotePlayerController';
+import { serializeGameState } from '../../infrastructure/network/GameStateSerializer';
+import { useMultiplayerStore } from './multiplayerStore';
 
 interface MovingCard {
   card: Card;
@@ -46,6 +49,7 @@ export interface GameLogEntry {
 
 interface GameStore {
   engine: GameEngine | null;
+  isMultiplayerMode: boolean;
   gameState: GameState | null;
   selectedCards: Card[];
   error: string | null;
@@ -96,6 +100,8 @@ interface GameStore {
 
   // Actions
   startGame: (options?: { playerName?: string; autoCPU?: boolean }) => void;
+  startMultiplayerGame: () => void;
+  updateGameStateFromHost: (state: GameState) => void;
   continueGame: () => void;
   toggleCardSelection: (card: Card) => void;
   clearSelection: () => void;
@@ -162,6 +168,7 @@ interface GameStore {
 
 export const useGameStore = create<GameStore>((set, get) => ({
   engine: null,
+  isMultiplayerMode: false,
   gameState: null,
   selectedCards: [],
   error: null,
@@ -376,10 +383,209 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().clearGameLogs();
 
     // 次のラウンドを開始（非同期）
-    engine.startNextRound().catch((error) => {
+    engine.startNextRound().catch((error: Error) => {
       console.error('Game error:', error);
       set({ error: error.message });
     });
+  },
+
+  startMultiplayerGame: () => {
+    try {
+      const multiplayerStore = useMultiplayerStore.getState();
+      const { mode, players, localPlayerId, hostManager } = multiplayerStore;
+
+      if (mode !== 'host') {
+        console.error('Only host can start multiplayer game');
+        return;
+      }
+
+      if (!hostManager) {
+        console.error('Host manager not initialized');
+        return;
+      }
+
+      if (players.length < 2) {
+        set({ error: 'プレイヤーが2人以上必要です' });
+        return;
+      }
+
+      const eventBus = new EventBus();
+      const ruleSettings = useRuleSettingsStore.getState().settings;
+
+      // NetworkPlayer を MultiplayerPlayerInfo に変換
+      const playerInfos: MultiplayerPlayerInfo[] = players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+      }));
+
+      // マルチプレイ用のGameConfigを作成
+      const config = GameConfigFactory.createMultiplayerGame(
+        playerInfos,
+        localPlayerId,
+        ruleSettings
+      );
+
+      // PresentationRequester を作成
+      const presentationRequester = new GamePresentationRequester(get());
+
+      // PlayerController マップを作成
+      const playerControllers = new Map<string, PlayerController>();
+      const remoteControllers = new Map<string, RemotePlayerController>();
+
+      for (const pConfig of config.players) {
+        const playerId = pConfig.id;
+        const networkType = pConfig.networkType;
+
+        if (playerId === localPlayerId) {
+          // ローカルプレイヤー（ホスト自身）
+          playerControllers.set(playerId, new HumanPlayerController(get(), playerId));
+        } else if (networkType === 'GUEST') {
+          // リモートゲストプレイヤー
+          const remoteController = new RemotePlayerController({
+            playerId,
+            playerName: pConfig.name,
+            sendRequest: (request) => {
+              hostManager.sendToPlayer(playerId, {
+                type: 'INPUT_REQUEST',
+                request,
+              });
+            },
+            onTimeout: () => {
+              console.log(`[startMultiplayerGame] Player ${playerId} timed out`);
+            },
+          });
+          playerControllers.set(playerId, remoteController);
+          remoteControllers.set(playerId, remoteController);
+        }
+        // CPUはGameEngine側でnullを許容してCPUPlayerControllerを後から設定
+      }
+
+      // 通常のGameEngineを作成
+      const engine = new GameEngine(config, eventBus, presentationRequester, playerControllers);
+
+      // CPU用のコントローラーを設定
+      for (const pConfig of config.players) {
+        if (pConfig.networkType === 'CPU') {
+          const player = engine.getState().players.find(p => p.id.value === pConfig.id);
+          if (player) {
+            playerControllers.set(
+              pConfig.id,
+              new CPUPlayerController(
+                pConfig.strategy as CPUStrategy,
+                player,
+                engine.getState()
+              )
+            );
+          }
+        }
+      }
+
+      // ゲストからのINPUT_RESPONSEを処理するハンドラを設定
+      hostManager.setHandlers({
+        onGuestMessage: (connectionId, message) => {
+          if (message.type === 'INPUT_RESPONSE') {
+            const playerId = hostManager.getPlayerIdByConnectionId(connectionId);
+            if (playerId) {
+              const controller = remoteControllers.get(playerId);
+              if (controller) {
+                controller.receiveResponse(message.response);
+              }
+            }
+          }
+        },
+        onGuestDisconnected: (_connectionId, playerId) => {
+          if (playerId) {
+            const controller = remoteControllers.get(playerId);
+            if (controller) {
+              controller.dispose();
+              remoteControllers.delete(playerId);
+            }
+            // 他のプレイヤーに通知
+            hostManager.broadcast({
+              type: 'PLAYER_DISCONNECTED',
+              playerId,
+              replacedWithCPU: true,
+            });
+          }
+        },
+      });
+
+      // イベントリスナーを設定
+      eventBus.on('state:updated', (data) => {
+        set({ gameState: { ...data.gameState } });
+        useCardPositionStore.getState().syncWithGameState(data.gameState);
+
+        // 各ゲストに個別に状態を送信（手札情報はそれぞれ自分のものだけ見える）
+        for (const player of data.gameState.players) {
+          const pConfig = config.players.find(c => c.id === player.id.value);
+          if (pConfig?.networkType === 'GUEST') {
+            const serialized = serializeGameState(data.gameState, player.id.value);
+            hostManager.sendToPlayer(player.id.value, {
+              type: 'GAME_STATE',
+              state: serialized,
+              targetPlayerId: player.id.value,
+            });
+          }
+        }
+      });
+
+      eventBus.on('game:started', (data) => {
+        console.log('Multiplayer game started!');
+        const allCards = CardFactory.createDeck(true);
+        useCardPositionStore.getState().initialize(allCards);
+        set({ gameState: { ...data.gameState } });
+
+        // 各ゲストに初期状態を送信
+        for (const player of data.gameState.players) {
+          const pConfig = config.players.find(c => c.id === player.id.value);
+          if (pConfig?.networkType === 'GUEST') {
+            const serialized = serializeGameState(data.gameState, player.id.value);
+            hostManager.sendToPlayer(player.id.value, {
+              type: 'GAME_STARTED',
+              initialState: serialized,
+            });
+          }
+        }
+      });
+
+      eventBus.on('game:ended', () => {
+        console.log('Multiplayer game ended!');
+        const state = engine.getState();
+        const rankings = state.players
+          .filter((p) => p.finishPosition !== null)
+          .sort((a, b) => (a.finishPosition ?? 99) - (b.finishPosition ?? 99))
+          .map((p) => ({
+            playerId: p.id.value,
+            rank: p.finishPosition ?? 0,
+          }));
+
+        hostManager.broadcast({
+          type: 'GAME_ENDED',
+          finalRankings: rankings,
+        });
+      });
+
+      set({
+        engine,
+        isMultiplayerMode: true,
+        error: null,
+      });
+
+      // ゲームを開始（非同期）
+      engine.start().catch((error: Error) => {
+        console.error('Multiplayer game error:', error);
+        set({ error: error.message });
+      });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+
+  updateGameStateFromHost: (state: GameState) => {
+    // ゲスト側でホストから受信した状態を反映
+    set({ gameState: { ...state } });
+    useCardPositionStore.getState().syncWithGameState(state);
   },
 
   enqueueCutIn: async (cutIn) => {

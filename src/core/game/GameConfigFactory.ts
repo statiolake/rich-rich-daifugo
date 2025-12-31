@@ -1,8 +1,17 @@
-import { GameConfig } from './GameConfig';
+import { GameConfig, PlayerConfig } from './GameConfig';
 import { PlayerType } from '../domain/player/Player';
 import { HumanStrategy } from '../strategy/HumanStrategy';
 import { RandomCPUStrategy } from '../strategy/RandomCPUStrategy';
 import { RuleSettings, DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
+
+/**
+ * マルチプレイ用のプレイヤー情報
+ */
+export interface MultiplayerPlayerInfo {
+  id: string;
+  name: string;
+  type: 'HOST' | 'GUEST' | 'CPU';
+}
 
 export class GameConfigFactory {
   /**
@@ -51,5 +60,40 @@ export class GameConfigFactory {
    */
   static createCPUOnlyGame(playerCount: number = 4): GameConfig {
     return this.createStandardGame(playerCount, 0);
+  }
+
+  /**
+   * マルチプレイ用のゲーム設定を生成
+   * @param players マルチプレイのプレイヤー情報配列
+   * @param localPlayerId ローカル（このクライアント）のプレイヤーID
+   * @param ruleSettings ルール設定
+   */
+  static createMultiplayerGame(
+    players: MultiplayerPlayerInfo[],
+    localPlayerId: string,
+    ruleSettings: RuleSettings = DEFAULT_RULE_SETTINGS
+  ): GameConfig {
+    const playerConfigs: PlayerConfig[] = players.map((p) => {
+      // ローカルプレイヤー（HOST or GUEST）はHUMANタイプ
+      // リモートのGUESTはHUMANタイプ（RemotePlayerControllerで制御）
+      // CPUはCPUタイプ
+      const isLocalPlayer = p.id === localPlayerId;
+      const type = p.type === 'CPU' ? PlayerType.CPU : PlayerType.HUMAN;
+      const strategy = p.type === 'CPU' ? new RandomCPUStrategy() : new HumanStrategy();
+
+      return {
+        id: p.id,
+        name: p.name,
+        type,
+        strategy,
+        isLocal: isLocalPlayer,
+        networkType: p.type,
+      };
+    });
+
+    return {
+      players: playerConfigs,
+      ruleSettings: { ...ruleSettings },
+    };
   }
 }

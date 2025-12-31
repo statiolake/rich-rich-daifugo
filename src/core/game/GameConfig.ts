@@ -7,6 +7,10 @@ export interface PlayerConfig {
   name: string;
   type: PlayerType;
   strategy: PlayerStrategy;
+  /** マルチプレイ時: このクライアントのプレイヤーかどうか */
+  isLocal?: boolean;
+  /** マルチプレイ時: ネットワーク上のプレイヤータイプ */
+  networkType?: 'HOST' | 'GUEST' | 'CPU';
 }
 
 export interface GameConfig {
