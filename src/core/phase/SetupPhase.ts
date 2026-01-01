@@ -41,13 +41,25 @@ export class SetupPhase implements GamePhase {
       const totalToDistribute = playerCardCounts.reduce((sum, count) => sum + count, 0);
       const blindCardCount = deck.length - totalToDistribute;
       if (blindCardCount > 0) {
-        for (let i = 0; i < blindCardCount; i++) {
+        // ダイヤ3スタートが有効な場合、ダイヤ3はブラインドカードにしない
+        const protectedCardId = gameState.ruleSettings.diamond3Start
+          ? deck.find(c => c.suit === Suit.DIAMOND && c.rank === '3')?.id
+          : null;
+
+        let blindCardsAdded = 0;
+        while (blindCardsAdded < blindCardCount && deck.length > totalToDistribute) {
           const blindCard = deck.pop();
           if (blindCard) {
-            gameState.blindCards.push(blindCard);
+            if (protectedCardId && blindCard.id === protectedCardId) {
+              // ダイヤ3はブラインドカードにせず、デッキの先頭に戻す
+              deck.unshift(blindCard);
+            } else {
+              gameState.blindCards.push(blindCard);
+              blindCardsAdded++;
+            }
           }
         }
-        console.log(`ブラインドカード: ${blindCardCount} 枚を伏せました`);
+        console.log(`ブラインドカード: ${blindCardsAdded} 枚を伏せました`);
       }
     }
 

@@ -71,15 +71,19 @@ export class GameEngine {
     console.log('[GameEngine] Starting game...');
     // SETUP フェーズ
     await this.currentPhase.enter(this.gameState);
-    console.log('[GameEngine] SETUP phase completed, emitting game:started');
-    this.eventEmitter.emit('game:started', { gameState: this.getState() });
-    console.log('[GameEngine] game:started event emitted');
+    console.log('[GameEngine] SETUP phase completed');
 
     // EXCHANGE フェーズに移行（2ラウンド目以降はカード交換が発生）
     await this.transitionPhase(GamePhaseType.EXCHANGE);
 
     // PLAY フェーズに移行
     await this.transitionPhase(GamePhaseType.PLAY);
+
+    // game:started イベントを PlayPhase.enter() 完了後に発行
+    // これにより、ゲストはダイヤ3スタートで設定された正しい currentPlayerIndex を受け取る
+    console.log('[GameEngine] emitting game:started after PlayPhase.enter');
+    this.eventEmitter.emit('game:started', { gameState: this.getState() });
+    console.log('[GameEngine] game:started event emitted');
 
     // ゲームループ
     await this.runPlayLoop();
