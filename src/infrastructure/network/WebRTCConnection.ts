@@ -100,12 +100,11 @@ export class WebRTCConnection {
     };
 
     // 接続状態の変化を監視
+    // 注意: 'connected'状態への遷移はDataChannelのonopenで行う
+    // PeerConnectionのconnectedはDataChannelが開く前に発火するため
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC] Connection state: ${pc.connectionState}`);
       switch (pc.connectionState) {
-        case 'connected':
-          this.setState('connected');
-          break;
         case 'disconnected':
         case 'failed':
         case 'closed':
@@ -306,8 +305,15 @@ export class WebRTCConnection {
    * メッセージを送信
    */
   send(message: NetworkMessage): void {
-    if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-      console.warn(`[WebRTC] Cannot send message: DataChannel not open`);
+    if (!this.dataChannel) {
+      console.warn(`[WebRTC] Cannot send message: No DataChannel`);
+      return;
+    }
+
+    // stateがconnectedならDataChannelは開いているはず
+    // onopen内でsetState('connected')を呼んでいるため
+    if (this.state !== 'connected') {
+      console.warn(`[WebRTC] Cannot send message: state=${this.state}, readyState=${this.dataChannel.readyState}`);
       return;
     }
 

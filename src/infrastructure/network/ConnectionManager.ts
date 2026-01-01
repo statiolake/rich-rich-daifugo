@@ -274,8 +274,11 @@ export class GuestConnectionManager {
    * ホストにメッセージを送信
    */
   sendToHost(message: GuestMessage): void {
-    if (this.connection && this.connection.isConnected()) {
+    // stateがconnectedならDataChannelは開いているはずなので送信を試みる
+    if (this.connection && this.state === 'connected') {
       this.connection.send(message);
+    } else {
+      console.warn(`[GuestConnectionManager] Cannot send - state: ${this.state}`);
     }
   }
 
