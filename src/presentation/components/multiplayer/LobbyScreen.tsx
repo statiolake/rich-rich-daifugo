@@ -4,7 +4,8 @@
  * プレイヤー一覧、CPU追加/削除、ゲーム開始ボタンを表示
  */
 
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { NetworkPlayer } from '../../../infrastructure/network/NetworkProtocol';
 
@@ -28,9 +29,19 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     setLocalPlayerName,
     error,
     setError,
+    createOfferForGuest,
+    acceptAnswer,
   } = useMultiplayerStore();
 
   const isHost = mode === 'host';
+
+  // オファーモーダル用の状態
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [offerCode, setOfferCode] = useState('');
+  const [answerInput, setAnswerInput] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const getPlayerTypeLabel = (player: NetworkPlayer): string => {
     if (player.type === 'HOST') return 'ホスト';
@@ -59,6 +70,55 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
   const handleRemoveCPU = (playerId: string) => {
     removeCPU(playerId);
+  };
+
+  // 空スロットクリック時にオファーコード生成
+  const handleEmptySlotClick = async () => {
+    if (!isHost || players.length >= 4) return;
+
+    setShowOfferModal(true);
+    setOfferCode('');
+    setAnswerInput('');
+    setCopySuccess(false);
+    setIsGenerating(true);
+
+    try {
+      const offer = await createOfferForGuest();
+      setOfferCode(offer);
+    } catch (err) {
+      setError('オファーコードの生成に失敗しました');
+      setShowOfferModal(false);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // オファーコードをコピー
+  const handleCopyOffer = async () => {
+    try {
+      await navigator.clipboard.writeText(offerCode);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      setError('コピーに失敗しました');
+    }
+  };
+
+  // アンサーを受け入れ
+  const handleAcceptAnswer = async () => {
+    if (!answerInput.trim()) return;
+
+    setIsAccepting(true);
+    try {
+      await acceptAnswer('', answerInput.trim());
+      setShowOfferModal(false);
+      setOfferCode('');
+      setAnswerInput('');
+    } catch (err) {
+      setError('接続に失敗しました');
+    } finally {
+      setIsAccepting(false);
+    }
   };
 
   return (
@@ -145,14 +205,26 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               </motion.div>
             ))}
 
-            {/* 空スロット表示 */}
+            {/* 空スロット表示（クリックで招待） */}
             {Array.from({ length: 4 - players.length }).map((_, index) => (
-              <div
+              <motion.button
                 key={`empty-${index}`}
-                className="flex items-center justify-center p-3 bg-black/20 rounded-lg border border-dashed border-white/10"
+                whileHover={isHost ? { scale: 1.02 } : {}}
+                whileTap={isHost ? { scale: 0.98 } : {}}
+                onClick={isHost ? handleEmptySlotClick : undefined}
+                disabled={!isHost}
+                className={`
+                  flex items-center justify-center p-3 bg-black/20 rounded-lg border border-dashed
+                  ${isHost
+                    ? 'border-white/20 hover:border-blue-400/50 hover:bg-blue-500/10 cursor-pointer transition-all'
+                    : 'border-white/10 cursor-default'
+                  }
+                `}
               >
-                <span className="text-white/30 text-sm">空きスロット</span>
-              </div>
+                <span className={`text-sm ${isHost ? 'text-white/50' : 'text-white/30'}`}>
+                  {isHost ? '+ クリックしてプレイヤーを招待' : '空きスロット'}
+                </span>
+              </motion.button>
             ))}
           </div>
         </div>
@@ -214,11 +286,108 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         {isHost && (
           <div className="mt-6 pt-4 border-t border-white/10">
             <p className="text-white/40 text-xs text-center">
-              他のプレイヤーを招待するには「戻る」を押してシグナリング画面から新しいオファーを生成してください
+              空きスロットをクリックしてプレイヤーを招待できます
             </p>
           </div>
         )}
       </div>
+
+      {/* オファーモーダル */}
+      <AnimatePresence>
+        {showOfferModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowOfferModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="game-panel p-6 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-orbitron text-lg text-white font-bold mb-4">
+                🔗 プレイヤーを招待
+              </h3>
+
+              {/* ステップ1: オファーコード */}
+              <div className="mb-4">
+                <label className="block text-white/60 text-xs uppercase tracking-wider mb-2">
+                  ステップ1: このコードを相手に送信
+                </label>
+                {isGenerating ? (
+                  <div className="flex items-center justify-center p-4 bg-black/40 rounded-lg border border-white/20">
+                    <div className="animate-spin w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full" />
+                    <span className="ml-2 text-white/60">生成中...</span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <textarea
+                      readOnly
+                      value={offerCode}
+                      className="w-full h-24 px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white text-xs font-mono resize-none focus:outline-none"
+                      placeholder="オファーコード"
+                    />
+                    <button
+                      onClick={handleCopyOffer}
+                      disabled={!offerCode}
+                      className={`absolute top-2 right-2 px-3 py-1 text-xs rounded transition-all ${
+                        copySuccess
+                          ? 'bg-green-500/30 text-green-300 border border-green-500/50'
+                          : 'bg-blue-500/30 text-blue-300 border border-blue-500/50 hover:bg-blue-500/50'
+                      }`}
+                    >
+                      {copySuccess ? 'コピー済み!' : 'コピー'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* ステップ2: アンサー入力 */}
+              <div className="mb-4">
+                <label className="block text-white/60 text-xs uppercase tracking-wider mb-2">
+                  ステップ2: 相手からのアンサーを貼り付け
+                </label>
+                <textarea
+                  value={answerInput}
+                  onChange={(e) => setAnswerInput(e.target.value)}
+                  className="w-full h-24 px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white text-xs font-mono resize-none focus:border-blue-400 focus:outline-none transition-colors"
+                  placeholder="アンサーコードを貼り付け..."
+                />
+              </div>
+
+              {/* アクションボタン */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowOfferModal(false)}
+                  className="flex-1 py-2 px-4 bg-transparent border border-white/20 hover:border-white/40 text-white/60 hover:text-white/80 rounded-lg transition-all"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleAcceptAnswer}
+                  disabled={!answerInput.trim() || isAccepting}
+                  className="flex-1 py-2 px-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-all"
+                >
+                  {isAccepting ? '接続中...' : '接続'}
+                </button>
+              </div>
+
+              {/* 手順説明 */}
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <p className="text-white/40 text-xs">
+                  1. オファーコードをコピーして相手に送信<br />
+                  2. 相手がゲームに参加してアンサーを生成<br />
+                  3. 相手から受け取ったアンサーを貼り付けて接続
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
