@@ -407,8 +407,15 @@ export class PlayValidator {
         enableTunnel: context.ruleSettings.tunnel,
         enableSpadeStair: context.ruleSettings.spadeStair,
       }
-    )!;
-    const fieldPlay = context.field.getCurrentPlay()!
+    );
+    const fieldPlay = context.field.getCurrentPlay();
+
+    // currentPlay または fieldPlay が null の場合はエラー
+    // isEmpty チェックを通過しているはずだが、同期ずれ等の防御
+    if (!currentPlay || !fieldPlay) {
+      console.error('[PlayValidator] Unexpected null: currentPlay=', !!currentPlay, 'fieldPlay=', !!fieldPlay);
+      return { valid: false, reason: '内部エラー: プレイの解析に失敗しました' };
+    }
 
     // 砂嵐チェック: 3のスリーカードは何にでも勝つ（ルールがONの場合のみ）
     if (context.ruleSettings.sandstorm) {

@@ -1121,7 +1121,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // カード選択が有効でvalidatorがある場合（ゲストモード含む）
-    if (cardSelectionValidator) {
+    // isCardSelectionEnabled もチェックして、選択が無効な時は計算しない
+    const isCardSelectionEnabled = get().isCardSelectionEnabled;
+    if (cardSelectionValidator && isCardSelectionEnabled) {
       const handCards = currentPlayer.hand.getCards();
       const combinations: Card[][] = [];
 
