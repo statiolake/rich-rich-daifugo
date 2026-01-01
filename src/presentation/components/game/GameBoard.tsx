@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { PlayerArea } from '../player/PlayerArea';
@@ -13,11 +13,29 @@ import { RuleCutIn } from '../effects/RuleCutIn';
 import { RuleSettingsPanel } from '../settings/RuleSettingsPanel';
 import { MultiplayerFlow } from '../multiplayer/MultiplayerFlow';
 
+const PLAYER_NAME_STORAGE_KEY = 'daifugo_player_name';
+
 export const GameBoard: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [autoCPU, setAutoCPU] = useState(false);
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(() => {
+    // 初期値をlocalStorageから読み込む
+    try {
+      return localStorage.getItem(PLAYER_NAME_STORAGE_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
   const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
+
+  // プレイヤー名が変更されたらlocalStorageに保存
+  useEffect(() => {
+    try {
+      localStorage.setItem(PLAYER_NAME_STORAGE_KEY, playerName);
+    } catch {
+      // localStorageが使えない環境では無視
+    }
+  }, [playerName]);
   const gameState = useGameStore(state => state.gameState);
   const startGame = useGameStore(state => state.startGame);
   const startMultiplayerGame = useGameStore(state => state.startMultiplayerGame);
