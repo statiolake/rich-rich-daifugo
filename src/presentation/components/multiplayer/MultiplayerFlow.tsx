@@ -21,16 +21,18 @@ import { HostMessage } from '../../../infrastructure/network/NetworkProtocol';
 type FlowStep = 'mode_select' | 'signaling' | 'lobby';
 
 interface MultiplayerFlowProps {
+  initialPlayerName?: string;
   onStartGame: () => void;
   onCancel: () => void;
 }
 
 export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
+  initialPlayerName = '',
   onStartGame,
   onCancel,
 }) => {
   const [step, setStep] = useState<FlowStep>('mode_select');
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(initialPlayerName);
 
   const {
     mode,

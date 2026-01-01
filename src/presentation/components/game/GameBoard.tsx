@@ -30,6 +30,7 @@ export const GameBoard: React.FC = () => {
   if (isMultiplayerMode && !gameState) {
     return (
       <MultiplayerFlow
+        initialPlayerName={playerName}
         onStartGame={() => {
           // マルチプレイゲーム開始（ホストの場合のみ実行される）
           startMultiplayerGame();
