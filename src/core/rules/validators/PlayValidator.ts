@@ -2,6 +2,8 @@ import { Card, Suit } from '../../domain/card/Card';
 import { Player } from '../../domain/player/Player';
 import { PlayAnalyzer, Play, PlayType } from '../../domain/card/Play';
 import { RuleContext } from '../context/RuleContext';
+import { fieldIsEmpty } from '../../domain/game/Field';
+import { handSize, handGetCards } from '../../domain/card/Hand';
 
 /**
  * バリデーション結果
@@ -120,7 +122,7 @@ export class PlayValidator {
    * 所有権チェック: プレイヤーが選択したカードを所有しているか
    */
   private validateOwnership(player: Player, cards: Card[]): ValidationResult {
-    const playerCardIds = new Set(player.hand.getCards().map(c => c.id));
+    const playerCardIds = new Set(handGetCards(player.hand).map(c => c.id));
 
     for (const card of cards) {
       if (!playerCardIds.has(card.id)) {
@@ -213,10 +215,10 @@ export class PlayValidator {
    */
   private isDownNumber(cards: Card[], context: RuleContext): boolean {
     if (!context.ruleSettings.downNumber) return false;
-    if (context.field.isEmpty()) return false;
+    if (fieldIsEmpty(context.field)) return false;
     if (cards.length !== 1) return false;
 
-    const fieldPlay = context.field.getCurrentPlay();
+    const fieldPlay = context.field.currentPlay;
     if (!fieldPlay || fieldPlay.type !== PlayType.SINGLE) return false;
 
     const playCard = cards[0];
@@ -367,7 +369,7 @@ export class PlayValidator {
    */
   private validateStrength(cards: Card[], context: RuleContext): ValidationResult {
     // 場が空ならどんなカードでも出せる
-    if (context.field.isEmpty()) {
+    if (fieldIsEmpty(context.field)) {
       return { valid: true, reason: '' };
     }
 
@@ -408,7 +410,7 @@ export class PlayValidator {
         enableSpadeStair: context.ruleSettings.spadeStair,
       }
     );
-    const fieldPlay = context.field.getCurrentPlay();
+    const fieldPlay = context.field.currentPlay;
 
     // currentPlay または fieldPlay が null の場合はエラー
     // isEmpty チェックを通過しているはずだが、同期ずれ等の防御
@@ -579,7 +581,7 @@ export class PlayValidator {
     }
 
     // これらのカードをプレイした後に手札が空になるかチェック
-    const remainingCards = player.hand.size() - cards.length;
+    const remainingCards = handSize(player.hand) - cards.length;
     if (remainingCards !== 0) {
       return { valid: true, reason: '' };
     }
@@ -728,11 +730,11 @@ export class PlayValidator {
    */
   private validateCrossDressingStrength(cards: Card[], context: RuleContext): ValidationResult {
     // 場が空なら出せる
-    if (context.field.isEmpty()) {
+    if (fieldIsEmpty(context.field)) {
       return { valid: true, reason: '女装' };
     }
 
-    const fieldPlay = context.field.getCurrentPlay()!;
+    const fieldPlay = context.field.currentPlay!;
 
     // 場のプレイタイプに応じてチェック
     // 女装は Q と K の混合なので、ペア(2枚)、トリプル相当(4枚=Q2+K2)、クアッド相当(6枚=Q3+K3)など
@@ -942,7 +944,7 @@ export class PlayValidator {
     }
 
     // このプレイで上がりになるかチェック
-    const remainingCards = player.hand.size() - cards.length;
+    const remainingCards = handSize(player.hand) - cards.length;
     if (remainingCards !== 0) {
       return { valid: true, reason: '' };
     }
@@ -1243,10 +1245,10 @@ export class PlayValidator {
    */
   private isFusionRevolution(cards: Card[], context: RuleContext): boolean {
     // 場が空なら発動しない
-    if (context.field.isEmpty()) return false;
+    if (fieldIsEmpty(context.field)) return false;
 
     // 場のカードを取得
-    const fieldPlay = context.field.getCurrentPlay();
+    const fieldPlay = context.field.currentPlay;
     if (!fieldPlay) return false;
 
     // 場のカードが単一ランクでなければ発動しない（ペア、トリプル、クアッド）
@@ -1276,10 +1278,10 @@ export class PlayValidator {
    */
   private isTsuiKaku(cards: Card[], context: RuleContext): boolean {
     // 場が空なら発動しない
-    if (context.field.isEmpty()) return false;
+    if (fieldIsEmpty(context.field)) return false;
 
     // 場のカードを取得
-    const fieldPlay = context.field.getCurrentPlay();
+    const fieldPlay = context.field.currentPlay;
     if (!fieldPlay) return false;
 
     // 場がペア（2枚）でなければ発動しない
@@ -1326,7 +1328,7 @@ export class PlayValidator {
   private validateTrumpStrength(cards: Card[], context: RuleContext): ValidationResult | null {
     if (!context.trumpRank) return null;
 
-    const fieldPlay = context.field.getCurrentPlay();
+    const fieldPlay = context.field.currentPlay;
     if (!fieldPlay) return null;
 
     // 出すカードに切り札ランクが含まれているか

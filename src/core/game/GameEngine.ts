@@ -1,6 +1,6 @@
 import { GameConfig } from './GameConfig';
 import { GameState, GamePhaseType, createGameState } from '../domain/game/GameState';
-import { FieldClass as Field } from '../domain/game/Field';
+import { createField } from '../domain/game/Field';
 import { GamePhase } from '../phase/GamePhase';
 import { SetupPhase } from '../phase/SetupPhase';
 import { ExchangePhase } from '../phase/ExchangePhase';
@@ -212,7 +212,7 @@ export class GameEngine {
    */
   private resetGameStateForNextRound(): void {
     // フィールドをクリア
-    this.gameState.field = new Field();
+    this.gameState.field = createField();
     this.gameState.discardPile = [];
 
     // 動的ルール状態をリセット

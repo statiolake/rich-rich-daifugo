@@ -3,6 +3,7 @@ import { Player } from '../../domain/player/Player';
 import { Card } from '../../domain/card/Card';
 import { PlayerStrategy } from '../../strategy/PlayerStrategy';
 import { GameEventEmitter } from '../../domain/events/GameEventEmitter';
+import { handIsEmpty, handRemove, handAdd } from '../../domain/card/Hand';
 
 /**
  * 特殊ルール実行ハンドラー
@@ -71,12 +72,12 @@ export class SpecialRuleExecutor {
       });
 
       if (selectedCards.length === 1) {
-        player.hand.remove(selectedCards);
-        nextPlayer.hand.add(selectedCards);
+        handRemove(player.hand, selectedCards);
+        handAdd(nextPlayer.hand, selectedCards);
         console.log(`7渡し：${player.name}が${nextPlayer.name}に${selectedCards[0].rank}${selectedCards[0].suit}を渡しました`);
 
         // カードを渡した結果、手札がゼロになったら勝利判定
-        if (player.hand.isEmpty() && !player.isFinished) {
+        if (handIsEmpty(player.hand) && !player.isFinished) {
           onPlayerFinish(gameState, player);
         }
       }
@@ -116,11 +117,11 @@ export class SpecialRuleExecutor {
     });
 
     if (selectedCards.length === 1) {
-      player.hand.remove(selectedCards);
+      handRemove(player.hand, selectedCards);
       console.log(`10捨て：${player.name}が${selectedCards[0].rank}${selectedCards[0].suit}を捨てました`);
 
       // カードを捨てた結果、手札がゼロになったら勝利判定
-      if (player.hand.isEmpty() && !player.isFinished) {
+      if (handIsEmpty(player.hand) && !player.isFinished) {
         onPlayerFinish(gameState, player);
       }
     }
@@ -156,7 +157,7 @@ export class SpecialRuleExecutor {
       const playerIndex = (startIndex + i) % gameState.players.length;
       const currentPlayer = gameState.players[playerIndex];
 
-      if (currentPlayer.isFinished || currentPlayer.hand.isEmpty()) {
+      if (currentPlayer.isFinished || handIsEmpty(currentPlayer.hand)) {
         continue;
       }
 
@@ -180,11 +181,11 @@ export class SpecialRuleExecutor {
       });
 
       if (selectedCards.length > 0) {
-        currentPlayer.hand.remove(selectedCards);
+        handRemove(currentPlayer.hand, selectedCards);
         console.log(`クイーンボンバー：${currentPlayer.name}が${selectedCards[0].rank}を捨てました`);
 
         // カードを捨てた結果、手札がゼロになったら勝利判定
-        if (currentPlayer.hand.isEmpty() && !currentPlayer.isFinished) {
+        if (handIsEmpty(currentPlayer.hand) && !currentPlayer.isFinished) {
           onPlayerFinish(gameState, currentPlayer);
         }
       } else {

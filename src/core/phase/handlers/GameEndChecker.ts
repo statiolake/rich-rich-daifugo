@@ -2,6 +2,7 @@ import { GameState, GamePhaseType } from '../../domain/game/GameState';
 import { Player } from '../../domain/player/Player';
 import { RuleEngine } from '../../rules/base/RuleEngine';
 import { PlayerRank } from '../../domain/player/PlayerRank';
+import { handSize, handGetCards } from '../../domain/card/Hand';
 
 /**
  * ゲーム終了チェッカー
@@ -46,7 +47,7 @@ export class GameEndChecker {
 
     for (const player of activePlayers) {
       // プレイヤーの全ての手札の組み合わせをチェック
-      const cards = player.hand.getCards();
+      const cards = handGetCards(player.hand);
 
       // 各カードの組み合わせをチェック
       for (let i = 0; i < cards.length; i++) {
@@ -98,7 +99,7 @@ export class GameEndChecker {
     const activePlayers = gameState.players.filter(p => !p.isFinished);
 
     // 手札が少ない順にソート
-    activePlayers.sort((a, b) => a.hand.size() - b.hand.size());
+    activePlayers.sort((a, b) => handSize(a.hand) - handSize(b.hand));
 
     // 順位を設定
     let currentPosition = gameState.players.filter(p => p.isFinished).length + 1;
@@ -106,10 +107,10 @@ export class GameEndChecker {
 
     for (let i = 0; i < activePlayers.length; i++) {
       const player = activePlayers[i];
-      const handSize = player.hand.size();
+      const playerHandSize = handSize(player.hand);
 
       // 前のプレイヤーと手札枚数が異なる場合、新しい順位に進む
-      if (i > 0 && activePlayers[i - 1].hand.size() !== handSize) {
+      if (i > 0 && handSize(activePlayers[i - 1].hand) !== playerHandSize) {
         currentPosition += playersAtCurrentPosition;
         playersAtCurrentPosition = 0;
       }
@@ -119,7 +120,7 @@ export class GameEndChecker {
       playersAtCurrentPosition++;
       onAssignRank(gameState, player);
 
-      console.log(`${player.name} finished in position ${player.finishPosition} (手札: ${handSize}枚)`);
+      console.log(`${player.name} finished in position ${player.finishPosition} (手札: ${playerHandSize}枚)`);
     }
   }
 }

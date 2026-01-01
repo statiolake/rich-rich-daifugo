@@ -8,6 +8,8 @@ import { EventBus } from '../../application/services/EventBus';
 import { MockPlayerController } from '../test-helpers/MockPlayerController';
 import { MockPresentationRequester } from '../test-helpers/MockPresentationRequester';
 import { DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
+import { fieldIsEmpty } from '../domain/game/Field';
+import { handAdd } from '../domain/card/Hand';
 
 describe('PlayPhase - 11バック機能', () => {
   let playPhase: PlayPhase;
@@ -32,8 +34,8 @@ describe('PlayPhase - 11バック機能', () => {
 
       // 手札設定
       const jackCard = CardFactory.create(Suit.SPADE, 'J');
-      player1.hand.add([jackCard, CardFactory.create(Suit.HEART, 'Q')]);
-      player2.hand.add([CardFactory.create(Suit.HEART, '3')]);
+      handAdd(player1.hand, [jackCard, CardFactory.create(Suit.HEART, 'Q')]);
+      handAdd(player2.hand, [CardFactory.create(Suit.HEART, '3')]);
 
       // コントローラー設定
       const controller1 = new MockPlayerController();
@@ -66,8 +68,8 @@ describe('PlayPhase - 11バック機能', () => {
       // 手札設定
       const jackCard1 = CardFactory.create(Suit.SPADE, 'J');
       const jackCard2 = CardFactory.create(Suit.HEART, 'J');
-      player1.hand.add([jackCard1, CardFactory.create(Suit.DIAMOND, '3')]);
-      player2.hand.add([jackCard2, CardFactory.create(Suit.CLUB, '3')]);
+      handAdd(player1.hand, [jackCard1, CardFactory.create(Suit.DIAMOND, '3')]);
+      handAdd(player2.hand, [jackCard2, CardFactory.create(Suit.CLUB, '3')]);
 
       // コントローラー設定
       const controller1 = new MockPlayerController();
@@ -95,7 +97,7 @@ describe('PlayPhase - 11バック機能', () => {
 
       // Player1がパス → 場がクリア、11バックもリセット
       await playPhase.update(gameState);
-      expect(gameState.field.isEmpty()).toBe(true);
+      expect(fieldIsEmpty(gameState.field)).toBe(true);
       expect(gameState.isElevenBack).toBe(false);
 
       // Player2がJを出す（再度11バック発動）
@@ -118,8 +120,8 @@ describe('PlayPhase - 11バック機能', () => {
         CardFactory.create(Suit.DIAMOND, '5'),
         CardFactory.create(Suit.CLUB, '5'),
       ];
-      player1.hand.add([...fiveCards, CardFactory.create(Suit.SPADE, '6')]);
-      player2.hand.add([CardFactory.create(Suit.HEART, '3')]);
+      handAdd(player1.hand, [...fiveCards, CardFactory.create(Suit.SPADE, '6')]);
+      handAdd(player2.hand, [CardFactory.create(Suit.HEART, '3')]);
 
       // コントローラー設定
       const controller1 = new MockPlayerController();
@@ -154,9 +156,9 @@ describe('PlayPhase - 11バック機能', () => {
 
       // 手札設定
       const kingCard = CardFactory.create(Suit.DIAMOND, 'K');
-      player1.hand.add([kingCard, CardFactory.create(Suit.SPADE, 'A')]);
-      player2.hand.add([CardFactory.create(Suit.HEART, '3')]);
-      player3.hand.add([CardFactory.create(Suit.CLUB, '4')]);
+      handAdd(player1.hand, [kingCard, CardFactory.create(Suit.SPADE, 'A')]);
+      handAdd(player2.hand, [CardFactory.create(Suit.HEART, '3')]);
+      handAdd(player3.hand, [CardFactory.create(Suit.CLUB, '4')]);
 
       const gameState = createGameState([player1, player2, player3], {
         ...DEFAULT_RULE_SETTINGS,

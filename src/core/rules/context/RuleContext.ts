@@ -1,4 +1,4 @@
-import { FieldClass as Field } from '../../domain/game/Field';
+import { Field } from '../../domain/game/Field';
 import { RuleSettings } from '../../domain/game/RuleSettings';
 
 /**

@@ -7,9 +7,9 @@
 
 import { Card, Suit } from '../../core/domain/card/Card';
 import { GameState, createGameState } from '../../core/domain/game/GameState';
-import { FieldClass as Field, PlayHistory } from '../../core/domain/game/Field';
+import { Field, PlayHistory, createField, fieldAddPlay } from '../../core/domain/game/Field';
 import { Player, PlayerType, createPlayer } from '../../core/domain/player/Player';
-import { Hand } from '../../core/domain/card/Hand';
+import { createHandData, handSize, handGetCards } from '../../core/domain/card/Hand';
 import { createPlayerId } from '../../core/domain/player/PlayerId';
 import { PlayerRank } from '../../core/domain/player/PlayerRank';
 import { Play, PlayAnalyzer, PlayType } from '../../core/domain/card/Play';
@@ -52,8 +52,8 @@ export function serializePlayer(player: Player): SerializedPlayer {
     id: player.id, // branded type なので直接使用可能
     name: player.name,
     type: player.type,
-    handCardIds: player.hand.getCards().map((c) => c.id),
-    handSize: player.hand.size(),
+    handCardIds: handGetCards(player.hand).map((c) => c.id),
+    handSize: handSize(player.hand),
     rank: player.rank,
     isFinished: player.isFinished,
     finishPosition: player.finishPosition,
@@ -75,7 +75,7 @@ export function deserializePlayer(
     .filter((c): c is Card => c !== undefined);
 
   const player = createPlayer(data.id, data.name, data.type as PlayerType);
-  player.hand = new Hand(handCards);
+  player.hand = createHandData(handCards);
   player.rank = data.rank as PlayerRank | null;
   player.isFinished = data.isFinished;
   player.finishPosition = data.finishPosition;
@@ -101,7 +101,7 @@ export function deserializeField(
   historyData: SerializedFieldPlay[],
   allCards: Map<string, Card>
 ): Field {
-  const field = new Field();
+  const field = createField();
 
   for (const playData of historyData) {
     if (playData.isPass) {
@@ -117,7 +117,7 @@ export function deserializeField(
     if (cards.length > 0) {
       const play = PlayAnalyzer.analyze(cards);
       if (play) {
-        field.addPlay(play, createPlayerId(playData.playerId));
+        fieldAddPlay(field, play, createPlayerId(playData.playerId));
       }
     }
   }
@@ -160,7 +160,7 @@ export function serializeGameState(
 
   // プレイヤーの手札からカードを収集
   for (const player of state.players) {
-    for (const card of player.hand.getCards()) {
+    for (const card of handGetCards(player.hand)) {
       if (!seenCardIds.has(card.id)) {
         allCards.push(serializeCard(card));
         seenCardIds.add(card.id);
@@ -207,7 +207,7 @@ export function serializeGameState(
   if (targetPlayerId) {
     const targetPlayer = state.players.find((p) => p.id === targetPlayerId);
     if (targetPlayer) {
-      myHandCards = targetPlayer.hand.getCards().map(serializeCard);
+      myHandCards = handGetCards(targetPlayer.hand).map(serializeCard);
     }
   }
 
@@ -249,7 +249,7 @@ export function deserializeGameState(
     if (localPlayerId && playerData.id === localPlayerId && data.myHandCards) {
       const handCards = data.myHandCards.map(deserializeCard);
       const player = createPlayer(playerData.id, playerData.name, playerData.type as PlayerType);
-      player.hand = new Hand(handCards);
+      player.hand = createHandData(handCards);
       player.rank = playerData.rank as PlayerRank | null;
       player.isFinished = playerData.isFinished;
       player.finishPosition = playerData.finishPosition;

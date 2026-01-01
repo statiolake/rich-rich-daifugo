@@ -2,29 +2,30 @@ import { describe, it, expect } from 'vitest';
 import { RuleEngine } from './base/RuleEngine';
 import { CardFactory, Suit } from '../domain/card/Card';
 import { createPlayer, PlayerType } from '../domain/player/Player';
-import { FieldClass as Field } from '../domain/game/Field';
+import { createField, fieldAddPlay } from '../domain/game/Field';
 import { DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
 import { createGameState } from '../domain/game/GameState';
 import { PlayType, PlayAnalyzer } from '../domain/card/Play';
+import { handAdd } from '../domain/card/Hand';
 
 describe('Rule Settings - ON/OFF Functionality', () => {
   describe('砂嵐 (Sandstorm)', () => {
     it('砂嵐がONの場合、3x3が何にでも勝つ', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場にKのスリーカードを出す
       const cardK_1 = CardFactory.create(Suit.SPADE, 'K');
       const cardK_2 = CardFactory.create(Suit.HEART, 'K');
       const cardK_3 = CardFactory.create(Suit.DIAMOND, 'K');
-      field.addPlay({ cards: [cardK_1, cardK_2, cardK_3], type: PlayType.TRIPLE, strength: 13 }, player.id);
+      fieldAddPlay(field,{ cards: [cardK_1, cardK_2, cardK_3], type: PlayType.TRIPLE, strength: 13 }, player.id);
 
       // 3のスリーカードを手札に追加
       const card3_1 = CardFactory.create(Suit.SPADE, '3');
       const card3_2 = CardFactory.create(Suit.HEART, '3');
       const card3_3 = CardFactory.create(Suit.DIAMOND, '3');
-      player.hand.add([card3_1, card3_2, card3_3]);
+      handAdd(player.hand, [card3_1, card3_2, card3_3]);
 
       // ルール設定：砂嵐ON
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, sandstorm: true });
@@ -38,19 +39,19 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('砂嵐がOFFの場合、3x3は通常の強さ判定', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場にKのスリーカードを出す
       const cardK_1 = CardFactory.create(Suit.SPADE, 'K');
       const cardK_2 = CardFactory.create(Suit.HEART, 'K');
       const cardK_3 = CardFactory.create(Suit.DIAMOND, 'K');
-      field.addPlay({ cards: [cardK_1, cardK_2, cardK_3], type: PlayType.TRIPLE, strength: 13 }, player.id);
+      fieldAddPlay(field,{ cards: [cardK_1, cardK_2, cardK_3], type: PlayType.TRIPLE, strength: 13 }, player.id);
 
       // 3のスリーカードを手札に追加
       const card3_1 = CardFactory.create(Suit.SPADE, '3');
       const card3_2 = CardFactory.create(Suit.HEART, '3');
       const card3_3 = CardFactory.create(Suit.DIAMOND, '3');
-      player.hand.add([card3_1, card3_2, card3_3]);
+      handAdd(player.hand, [card3_1, card3_2, card3_3]);
 
       // ルール設定：砂嵐OFF
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, sandstorm: false });
@@ -66,13 +67,13 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('階段がONの場合、階段を出せる', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 階段を手札に追加（同じマークの連番）
       const card3 = CardFactory.create(Suit.SPADE, '3');
       const card4 = CardFactory.create(Suit.SPADE, '4');
       const card5 = CardFactory.create(Suit.SPADE, '5');
-      player.hand.add([card3, card4, card5]);
+      handAdd(player.hand, [card3, card4, card5]);
 
       // ルール設定：階段ON
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, stairs: true });
@@ -86,13 +87,13 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('階段がOFFの場合、階段を出せない', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 階段を手札に追加（同じマークの連番）
       const card3 = CardFactory.create(Suit.SPADE, '3');
       const card4 = CardFactory.create(Suit.SPADE, '4');
       const card5 = CardFactory.create(Suit.SPADE, '5');
-      player.hand.add([card3, card4, card5]);
+      handAdd(player.hand, [card3, card4, card5]);
 
       // ルール設定：階段OFF
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, stairs: false });
@@ -109,15 +110,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('スぺ3返しがONの場合、スペードの3でJokerに勝てる', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場にJokerを出す（手動でJokerを作成）
       const joker = { id: 'JOKER-1', suit: Suit.JOKER, rank: 'JOKER' as const, strength: 15 };
-      field.addPlay({ cards: [joker], type: PlayType.SINGLE, strength: 15 }, player.id);
+      fieldAddPlay(field,{ cards: [joker], type: PlayType.SINGLE, strength: 15 }, player.id);
 
       // スペードの3を手札に追加
       const spade3 = CardFactory.create(Suit.SPADE, '3');
-      player.hand.add([spade3]);
+      handAdd(player.hand, [spade3]);
 
       // ルール設定：スぺ3返しON
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, spadeThreeReturn: true });
@@ -131,15 +132,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('スぺ3返しがOFFの場合、スペードの3でJokerに勝てない', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場にJokerを出す（手動でJokerを作成）
       const joker = { id: 'JOKER-1', suit: Suit.JOKER, rank: 'JOKER' as const, strength: 15 };
-      field.addPlay({ cards: [joker], type: PlayType.SINGLE, strength: 15 }, player.id);
+      fieldAddPlay(field,{ cards: [joker], type: PlayType.SINGLE, strength: 15 }, player.id);
 
       // スペードの3を手札に追加
       const spade3 = CardFactory.create(Suit.SPADE, '3');
-      player.hand.add([spade3]);
+      handAdd(player.hand, [spade3]);
 
       // ルール設定：スぺ3返しOFF
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, spadeThreeReturn: false });
@@ -238,7 +239,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
       it('8切りがONの場合、8を選択すると「8切り」がエフェクトに含まれる', () => {
         const player = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
         const card8 = CardFactory.create(Suit.SPADE, '8');
-        player.hand.add([card8]);
+        handAdd(player.hand, [card8]);
 
         const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, eightCut: true });
 
@@ -250,7 +251,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
       it('8切りがOFFの場合、8を選択しても「8切り」がエフェクトに含まれない', () => {
         const player = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
         const card8 = CardFactory.create(Suit.SPADE, '8');
-        player.hand.add([card8]);
+        handAdd(player.hand, [card8]);
 
         const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, eightCut: false });
 
@@ -266,7 +267,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
         const card3_1 = CardFactory.create(Suit.SPADE, '3');
         const card3_2 = CardFactory.create(Suit.HEART, '3');
         const card3_3 = CardFactory.create(Suit.DIAMOND, '3');
-        player.hand.add([card3_1, card3_2, card3_3]);
+        handAdd(player.hand, [card3_1, card3_2, card3_3]);
 
         const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, sandstorm: true });
 
@@ -280,7 +281,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
         const card3_1 = CardFactory.create(Suit.SPADE, '3');
         const card3_2 = CardFactory.create(Suit.HEART, '3');
         const card3_3 = CardFactory.create(Suit.DIAMOND, '3');
-        player.hand.add([card3_1, card3_2, card3_3]);
+        handAdd(player.hand, [card3_1, card3_2, card3_3]);
 
         const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, sandstorm: false });
 
@@ -298,7 +299,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
         const player = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
         const card9_1 = CardFactory.create(Suit.SPADE, '9');
         const card9_2 = CardFactory.create(Suit.HEART, '9');
-        player.hand.add([card9_1, card9_2]);
+        handAdd(player.hand, [card9_1, card9_2]);
 
         const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, ambulance: true });
 
@@ -311,7 +312,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
         const player = createPlayer('player1', 'Player 1', PlayerType.HUMAN);
         const card9_1 = CardFactory.create(Suit.SPADE, '9');
         const card9_2 = CardFactory.create(Suit.HEART, '9');
-        player.hand.add([card9_1, card9_2]);
+        handAdd(player.hand, [card9_1, card9_2]);
 
         const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, ambulance: false });
 
@@ -328,7 +329,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
         const card2_2 = CardFactory.create(Suit.HEART, '2');
         const card2_3 = CardFactory.create(Suit.DIAMOND, '2');
         const card2_4 = CardFactory.create(Suit.CLUB, '2');
-        player.hand.add([card2_1, card2_2, card2_3, card2_4]);
+        handAdd(player.hand, [card2_1, card2_2, card2_3, card2_4]);
 
         const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, greatRevolution: true });
 
@@ -343,7 +344,7 @@ describe('Rule Settings - ON/OFF Functionality', () => {
         const card2_2 = CardFactory.create(Suit.HEART, '2');
         const card2_3 = CardFactory.create(Suit.DIAMOND, '2');
         const card2_4 = CardFactory.create(Suit.CLUB, '2');
-        player.hand.add([card2_1, card2_2, card2_3, card2_4]);
+        handAdd(player.hand, [card2_1, card2_2, card2_3, card2_4]);
 
         const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, greatRevolution: false });
 
@@ -360,15 +361,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('レッドセブンがONの場合、通常時に♥7が2より強くなる', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に2を出す
       const card2 = CardFactory.create(Suit.SPADE, '2');
-      field.addPlay({ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
+      fieldAddPlay(field,{ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
 
       // ♥7を手札に追加
       const heartSeven = CardFactory.create(Suit.HEART, '7');
-      player.hand.add([heartSeven]);
+      handAdd(player.hand, [heartSeven]);
 
       // ルール設定：レッドセブンON
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, redSevenPower: true });
@@ -383,15 +384,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('レッドセブンがONの場合、通常時に♦7が2より強くなる', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に2を出す
       const card2 = CardFactory.create(Suit.SPADE, '2');
-      field.addPlay({ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
+      fieldAddPlay(field,{ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
 
       // ♦7を手札に追加
       const diamondSeven = CardFactory.create(Suit.DIAMOND, '7');
-      player.hand.add([diamondSeven]);
+      handAdd(player.hand, [diamondSeven]);
 
       // ルール設定：レッドセブンON
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, redSevenPower: true });
@@ -406,15 +407,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('レッドセブンがONでも、通常時に♠7は特殊効果なし', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に2を出す
       const card2 = CardFactory.create(Suit.SPADE, '2');
-      field.addPlay({ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
+      fieldAddPlay(field,{ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
 
       // ♠7を手札に追加
       const spadeSeven = CardFactory.create(Suit.SPADE, '7');
-      player.hand.add([spadeSeven]);
+      handAdd(player.hand, [spadeSeven]);
 
       // ルール設定：レッドセブンON
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, redSevenPower: true });
@@ -428,15 +429,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('レッドセブンがOFFの場合、♥7は通常の強さ判定', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に2を出す
       const card2 = CardFactory.create(Suit.SPADE, '2');
-      field.addPlay({ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
+      fieldAddPlay(field,{ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
 
       // ♥7を手札に追加
       const heartSeven = CardFactory.create(Suit.HEART, '7');
-      player.hand.add([heartSeven]);
+      handAdd(player.hand, [heartSeven]);
 
       // ルール設定：レッドセブンOFF
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, redSevenPower: false });
@@ -450,15 +451,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('レッドセブンがONでも、♥7はジョーカーには勝てない', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場にJokerを出す
       const joker = { id: 'JOKER-1', suit: Suit.JOKER, rank: 'JOKER' as const, strength: 14 };
-      field.addPlay({ cards: [joker], type: PlayType.SINGLE, strength: 14 }, player.id);
+      fieldAddPlay(field,{ cards: [joker], type: PlayType.SINGLE, strength: 14 }, player.id);
 
       // ♥7を手札に追加
       const heartSeven = CardFactory.create(Suit.HEART, '7');
-      player.hand.add([heartSeven]);
+      handAdd(player.hand, [heartSeven]);
 
       // ルール設定：レッドセブンON、スぺ3返しOFF（これがないとJokerに対抗できるカードがある）
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, redSevenPower: true, spadeThreeReturn: false });
@@ -472,15 +473,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('レッドセブンがONの場合、革命中は♥7は特殊効果なし', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に3を出す（革命中なので3は強いカード）
       const card3 = CardFactory.create(Suit.SPADE, '3');
-      field.addPlay({ cards: [card3], type: PlayType.SINGLE, strength: 1 }, player.id);
+      fieldAddPlay(field,{ cards: [card3], type: PlayType.SINGLE, strength: 1 }, player.id);
 
       // ♥7を手札に追加
       const heartSeven = CardFactory.create(Suit.HEART, '7');
-      player.hand.add([heartSeven]);
+      handAdd(player.hand, [heartSeven]);
 
       // ルール設定：レッドセブンON、革命中
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, redSevenPower: true });
@@ -497,15 +498,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('ブラックセブンがONの場合、革命中に♠7が2より強くなる', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に2を出す（革命中でも2は弱いカードになる）
       const card2 = CardFactory.create(Suit.HEART, '2');
-      field.addPlay({ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
+      fieldAddPlay(field,{ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
 
       // ♠7を手札に追加
       const spadeSeven = CardFactory.create(Suit.SPADE, '7');
-      player.hand.add([spadeSeven]);
+      handAdd(player.hand, [spadeSeven]);
 
       // ルール設定：ブラックセブンON、革命中
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, blackSevenPower: true });
@@ -521,15 +522,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('ブラックセブンがONの場合、革命中に♣7が2より強くなる', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に2を出す
       const card2 = CardFactory.create(Suit.HEART, '2');
-      field.addPlay({ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
+      fieldAddPlay(field,{ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
 
       // ♣7を手札に追加
       const clubSeven = CardFactory.create(Suit.CLUB, '7');
-      player.hand.add([clubSeven]);
+      handAdd(player.hand, [clubSeven]);
 
       // ルール設定：ブラックセブンON、革命中
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, blackSevenPower: true });
@@ -545,15 +546,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('ブラックセブンがONでも、革命中に♥7は特殊効果なし', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に3を出す（革命中なので3は強いカード）
       const card3 = CardFactory.create(Suit.SPADE, '3');
-      field.addPlay({ cards: [card3], type: PlayType.SINGLE, strength: 1 }, player.id);
+      fieldAddPlay(field,{ cards: [card3], type: PlayType.SINGLE, strength: 1 }, player.id);
 
       // ♥7を手札に追加
       const heartSeven = CardFactory.create(Suit.HEART, '7');
-      player.hand.add([heartSeven]);
+      handAdd(player.hand, [heartSeven]);
 
       // ルール設定：ブラックセブンON、革命中
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, blackSevenPower: true });
@@ -568,15 +569,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('ブラックセブンがOFFの場合、革命中でも♠7は通常の強さ判定', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に3を出す（革命中なので3は強いカード）
       const card3 = CardFactory.create(Suit.SPADE, '3');
-      field.addPlay({ cards: [card3], type: PlayType.SINGLE, strength: 1 }, player.id);
+      fieldAddPlay(field,{ cards: [card3], type: PlayType.SINGLE, strength: 1 }, player.id);
 
       // ♠7を手札に追加
       const spadeSeven = CardFactory.create(Suit.SPADE, '7');
-      player.hand.add([spadeSeven]);
+      handAdd(player.hand, [spadeSeven]);
 
       // ルール設定：ブラックセブンOFF、革命中
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, blackSevenPower: false });
@@ -591,15 +592,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('ブラックセブンがONでも、通常時に♠7は特殊効果なし', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場に2を出す
       const card2 = CardFactory.create(Suit.HEART, '2');
-      field.addPlay({ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
+      fieldAddPlay(field,{ cards: [card2], type: PlayType.SINGLE, strength: 13 }, player.id);
 
       // ♠7を手札に追加
       const spadeSeven = CardFactory.create(Suit.SPADE, '7');
-      player.hand.add([spadeSeven]);
+      handAdd(player.hand, [spadeSeven]);
 
       // ルール設定：ブラックセブンON、通常時（革命なし）
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, blackSevenPower: true });
@@ -614,15 +615,15 @@ describe('Rule Settings - ON/OFF Functionality', () => {
     it('ブラックセブンがONでも、♠7はジョーカーには勝てない（革命中）', () => {
       const ruleEngine = new RuleEngine();
       const player = createPlayer('test-player', 'Test Player', PlayerType.CPU);
-      const field = new Field();
+      const field = createField();
 
       // 場にJokerを出す
       const joker = { id: 'JOKER-1', suit: Suit.JOKER, rank: 'JOKER' as const, strength: 14 };
-      field.addPlay({ cards: [joker], type: PlayType.SINGLE, strength: 14 }, player.id);
+      fieldAddPlay(field,{ cards: [joker], type: PlayType.SINGLE, strength: 14 }, player.id);
 
       // ♠7を手札に追加
       const spadeSeven = CardFactory.create(Suit.SPADE, '7');
-      player.hand.add([spadeSeven]);
+      handAdd(player.hand, [spadeSeven]);
 
       // ルール設定：ブラックセブンON、革命中、スぺ3返しOFF
       const gameState = createGameState([player], { ...DEFAULT_RULE_SETTINGS, blackSevenPower: true, spadeThreeReturn: false });
@@ -648,14 +649,14 @@ describe('Rule Settings - ON/OFF Functionality', () => {
       const ruleEngine = new RuleEngine();
       const player1 = createPlayer('test-player-1', 'Test Player 1', PlayerType.CPU);
       const player2 = createPlayer('test-player-2', 'Test Player 2', PlayerType.CPU);
-      const field1 = new Field();
-      const field2 = new Field();
+      const field1 = createField();
+      const field2 = createField();
 
       // テスト1: 通常時に♥7が2に勝てる
       const card2_1 = CardFactory.create(Suit.SPADE, '2');
-      field1.addPlay({ cards: [card2_1], type: PlayType.SINGLE, strength: 13 }, player1.id);
+      fieldAddPlay(field1, { cards: [card2_1], type: PlayType.SINGLE, strength: 13 }, player1.id);
       const heartSeven = CardFactory.create(Suit.HEART, '7');
-      player1.hand.add([heartSeven]);
+      handAdd(player1.hand, [heartSeven]);
 
       const gameState1 = createGameState([player1], { ...DEFAULT_RULE_SETTINGS, redSevenPower: true, blackSevenPower: true });
       gameState1.field = field1;
@@ -667,9 +668,9 @@ describe('Rule Settings - ON/OFF Functionality', () => {
 
       // テスト2: 革命中に♠7が2に勝てる
       const card2_2 = CardFactory.create(Suit.HEART, '2');
-      field2.addPlay({ cards: [card2_2], type: PlayType.SINGLE, strength: 13 }, player2.id);
+      fieldAddPlay(field2, { cards: [card2_2], type: PlayType.SINGLE, strength: 13 }, player2.id);
       const spadeSeven = CardFactory.create(Suit.SPADE, '7');
-      player2.hand.add([spadeSeven]);
+      handAdd(player2.hand, [spadeSeven]);
 
       const gameState2 = createGameState([player2], { ...DEFAULT_RULE_SETTINGS, redSevenPower: true, blackSevenPower: true });
       gameState2.field = field2;

@@ -1,6 +1,6 @@
 import { Card } from '../../domain/card/Card';
 import { Player } from '../../domain/player/Player';
-import { FieldClass as Field } from '../../domain/game/Field';
+import { Field, fieldIsEmpty } from '../../domain/game/Field';
 import { GameState } from '../../domain/game/GameState';
 import { RuleContext } from '../context/RuleContext';
 import { PlayValidator, ValidationResult } from '../validators/PlayValidator';
@@ -36,7 +36,7 @@ export class RuleEngine {
   ): ValidationResult {
     // 空配列 = パス
     if (cards.length === 0) {
-      if (field.isEmpty()) {
+      if (fieldIsEmpty(field)) {
         return { valid: false, reason: '場が空の時はパスできません' };
       }
       return { valid: true };

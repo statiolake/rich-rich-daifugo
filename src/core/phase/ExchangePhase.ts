@@ -5,6 +5,7 @@ import { PlayerRank } from '../domain/player/PlayerRank';
 import { Card, Suit } from '../domain/card/Card';
 import { PlayerController } from '../domain/player/PlayerController';
 import { PresentationRequester } from '../domain/presentation/PresentationRequester';
+import { handGetCards, handRemove, handAdd, handSort } from '../domain/card/Hand';
 
 /**
  * カード交換フェーズ
@@ -79,7 +80,7 @@ export class ExchangePhase implements GamePhase {
         winner.finishPosition = finishedCount + 1;
         console.log(`モノポリー: ${winner.name} finished in position ${winner.finishPosition}`);
         // 手札を空にする
-        winner.hand.remove([...winner.hand.getCards()]);
+        handRemove(winner.hand, [...handGetCards(winner.hand)]);
       }
     }
 
@@ -146,7 +147,7 @@ export class ExchangePhase implements GamePhase {
 
     // 人間プレイヤーの場合、カードを選択させる
     const selectedCards = await controller.chooseCardsForExchange(
-      [...highPlayer.hand.getCards()],
+      [...handGetCards(highPlayer.hand)],
       cardsFromLow.length,
       `${lowPlayer.name} に渡すカードを${cardsFromLow.length}枚選んでください`
     );
@@ -159,7 +160,7 @@ export class ExchangePhase implements GamePhase {
    * プレイヤーの手札が全て10以下（革命時は10以上）かどうか
    */
   private checkCatastrophe(player: Player): boolean {
-    const cards = player.hand.getCards();
+    const cards = handGetCards(player.hand);
     if (cards.length === 0) return false;
 
     // 10の強さ = 10（通常時）
@@ -176,7 +177,7 @@ export class ExchangePhase implements GamePhase {
    * 最強カードを取得
    */
   private getStrongestCards(player: Player, count: number, isRevolution: boolean): Card[] {
-    const cards = [...player.hand.getCards()];
+    const cards = [...handGetCards(player.hand)];
 
     // 強さでソート（革命時は逆順）
     cards.sort((a, b) => {
@@ -191,7 +192,7 @@ export class ExchangePhase implements GamePhase {
    * 最弱カードを取得
    */
   private getWeakestCards(player: Player, count: number, isRevolution: boolean): Card[] {
-    const cards = [...player.hand.getCards()];
+    const cards = [...handGetCards(player.hand)];
 
     // 弱さでソート（革命時は逆順）
     cards.sort((a, b) => {
@@ -206,7 +207,7 @@ export class ExchangePhase implements GamePhase {
    * ランダムにカードを取得（伏せ交換用）
    */
   private getRandomCards(player: Player, count: number): Card[] {
-    const cards = [...player.hand.getCards()];
+    const cards = [...handGetCards(player.hand)];
 
     // Fisher-Yatesシャッフル
     for (let i = cards.length - 1; i > 0; i--) {
@@ -228,20 +229,20 @@ export class ExchangePhase implements GamePhase {
     gameState: GameState
   ): void {
     // 高ランクから低ランクへ
-    highPlayer.hand.remove(highToLow);
-    lowPlayer.hand.add(highToLow);
+    handRemove(highPlayer.hand, highToLow);
+    handAdd(lowPlayer.hand, highToLow);
 
     // 低ランクから高ランクへ
-    lowPlayer.hand.remove(lowToHigh);
-    highPlayer.hand.add(lowToHigh);
+    handRemove(lowPlayer.hand, lowToHigh);
+    handAdd(highPlayer.hand, lowToHigh);
 
     console.log(`${highPlayer.name} → ${lowPlayer.name}: ${highToLow.map(c => `${c.rank}${c.suit}`).join(', ')}`);
     console.log(`${lowPlayer.name} → ${highPlayer.name}: ${lowToHigh.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
     // ソート
     const shouldReverse = gameState.isRevolution;
-    highPlayer.hand.sort(shouldReverse);
-    lowPlayer.hand.sort(shouldReverse);
+    handSort(highPlayer.hand, shouldReverse);
+    handSort(lowPlayer.hand, shouldReverse);
   }
 
   /**
@@ -329,8 +330,8 @@ export class ExchangePhase implements GamePhase {
     if (fugo) {
       const cards = this.getStrongestCards(fugo, 1, gameState.isRevolution);
       if (cards.length > 0) {
-        fugo.hand.remove(cards);
-        daifugo.hand.add(cards);
+        handRemove(fugo.hand, cards);
+        handAdd(daifugo.hand, cards);
         console.log(`${fugo.name} → ${daifugo.name}: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
       }
     }
@@ -340,8 +341,8 @@ export class ExchangePhase implements GamePhase {
     if (hinmin) {
       const cards = this.getStrongestCards(hinmin, 2, gameState.isRevolution);
       if (cards.length > 0) {
-        hinmin.hand.remove(cards);
-        daifugo.hand.add(cards);
+        handRemove(hinmin.hand, cards);
+        handAdd(daifugo.hand, cards);
         console.log(`${hinmin.name} → ${daifugo.name}: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
       }
     }
@@ -351,15 +352,15 @@ export class ExchangePhase implements GamePhase {
     if (daihinmin) {
       const cards = this.getStrongestCards(daihinmin, 3, gameState.isRevolution);
       if (cards.length > 0) {
-        daihinmin.hand.remove(cards);
-        daifugo.hand.add(cards);
+        handRemove(daihinmin.hand, cards);
+        handAdd(daifugo.hand, cards);
         console.log(`${daihinmin.name} → ${daifugo.name}: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
       }
     }
 
     // ソート
     const shouldReverse = gameState.isRevolution;
-    daifugo.hand.sort(shouldReverse);
+    handSort(daifugo.hand, shouldReverse);
   }
 
   /**
@@ -373,7 +374,7 @@ export class ExchangePhase implements GamePhase {
     if (!daifugo) return;
 
     // 2とJokerの枚数をカウント
-    const cards = daifugo.hand.getCards();
+    const cards = handGetCards(daifugo.hand);
     const twosAndJokers = cards.filter(c => c.rank === '2' || c.rank === 'JOKER');
     const twos = cards.filter(c => c.rank === '2');
 
@@ -386,12 +387,12 @@ export class ExchangePhase implements GamePhase {
       for (let i = 0; i < Math.min(twos.length, otherPlayers.length); i++) {
         const cardToGive = twos[i];
         const targetPlayer = otherPlayers[i];
-        daifugo.hand.remove([cardToGive]);
-        targetPlayer.hand.add([cardToGive]);
+        handRemove(daifugo.hand, [cardToGive]);
+        handAdd(targetPlayer.hand, [cardToGive]);
         console.log(`${daifugo.name} → ${targetPlayer.name}: ${cardToGive.rank}${cardToGive.suit}`);
-        targetPlayer.hand.sort(gameState.isRevolution);
+        handSort(targetPlayer.hand, gameState.isRevolution);
       }
-      daifugo.hand.sort(gameState.isRevolution);
+      handSort(daifugo.hand, gameState.isRevolution);
     }
   }
 
@@ -400,7 +401,7 @@ export class ExchangePhase implements GamePhase {
    * いずれかのスートでA, 2, 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K の13枚全てを持っている
    */
   private checkMonopolyCondition(player: Player): boolean {
-    const cards = player.hand.getCards();
+    const cards = handGetCards(player.hand);
 
     // スートごとにランクをセットで管理
     const suitRanks: Record<string, Set<string>> = {

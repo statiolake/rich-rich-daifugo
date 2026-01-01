@@ -36,7 +36,7 @@ export const HumanControl: React.FC = () => {
   const cardSelectionValidator = useGameStore(state => state.cardSelectionValidator);
   const cardSelectionPrompt = useGameStore(state => state.cardSelectionPrompt);
 
-  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length, cardSelectionValidatorForMemo]);
+  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.history.length, cardSelectionValidatorForMemo]);
 
   // ローカルプレイヤーID（シングル/マルチ共通）
   const localPlayerId = useGameStore(state => state.localPlayerId);

@@ -21,6 +21,7 @@ import { SyncPlayerController } from '../../core/player-controller/SyncPlayerCon
 import { GuestPlayerController } from '../players/GuestPlayerController';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
 import { RandomCPUStrategy } from '../../core/strategy/RandomCPUStrategy';
+import { handSize, handGetCards, handFindAllValidPlays } from '../../core/domain/card/Hand';
 
 interface MovingCard {
   card: Card;
@@ -820,8 +821,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // ゲスト側で同じハッシュを計算
     const data = {
       currentPlayerIndex: gameState.currentPlayerIndex,
-      handSizes: gameState.players.map(p => p.hand.size()),
-      fieldCardCount: gameState.field.getHistory().length,
+      handSizes: gameState.players.map(p => handSize(p.hand)),
+      fieldCardCount: gameState.field.history.length,
       isRevolution: gameState.isRevolution,
       passCount: gameState.passCount,
     };
@@ -1124,7 +1125,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // isCardSelectionEnabled もチェックして、選択が無効な時は計算しない
     const isCardSelectionEnabled = get().isCardSelectionEnabled;
     if (cardSelectionValidator && isCardSelectionEnabled) {
-      const handCards = currentPlayer.hand.getCards();
+      const handCards = handGetCards(currentPlayer.hand);
       const combinations: Card[][] = [];
 
       // すべての可能な組み合わせを試す（ビット全探索）
@@ -1163,7 +1164,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return [];
     }
 
-    return latestPlayer.hand.findAllValidPlays(
+    return handFindAllValidPlays(latestPlayer.hand, 
       latestPlayer,
       latestState.field,
       latestState,

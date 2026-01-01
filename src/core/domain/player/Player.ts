@@ -1,4 +1,4 @@
-import { Hand } from '../card/Hand';
+import { HandData, createHandData } from '../card/Hand';
 import { PlayerId, createPlayerId } from './PlayerId';
 import { PlayerRank } from './PlayerRank';
 
@@ -12,7 +12,7 @@ export interface Player {
   readonly name: string;
   readonly type: PlayerType;
   rank: PlayerRank | null;
-  hand: Hand;
+  hand: HandData;
   isFinished: boolean;
   finishPosition: number | null;
 }
@@ -27,7 +27,7 @@ export function createPlayer(
     name,
     type,
     rank: null,
-    hand: new Hand([]),
+    hand: createHandData(),
     isFinished: false,
     finishPosition: null,
   };

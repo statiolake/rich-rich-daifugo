@@ -8,6 +8,7 @@ import { EventBus } from '../../application/services/EventBus';
 import { MockPlayerController } from '../test-helpers/MockPlayerController';
 import { MockPresentationRequester } from '../test-helpers/MockPresentationRequester';
 import { DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
+import { handSize, handIsEmpty, handGetCards, handAdd } from '../domain/card/Hand';
 
 describe('クイーンボンバー (Queen Bomber)', () => {
   let playPhase: PlayPhase;
@@ -31,7 +32,7 @@ describe('クイーンボンバー (Queen Bomber)', () => {
 
     // Player 1がQを1枚出す
     const queenCard = CardFactory.create(Suit.SPADE, 'Q');
-    player1.hand.add([queenCard, CardFactory.create(Suit.HEART, 'K')]);
+    handAdd(player1.hand, [queenCard, CardFactory.create(Suit.HEART, 'K')]);
 
     // Player 2は3を3枚持っている
     const threes2 = [
@@ -39,11 +40,11 @@ describe('クイーンボンバー (Queen Bomber)', () => {
       CardFactory.create(Suit.HEART, '3'),
       CardFactory.create(Suit.DIAMOND, '3'),
     ];
-    player2.hand.add([...threes2, CardFactory.create(Suit.CLUB, '5')]);
+    handAdd(player2.hand, [...threes2, CardFactory.create(Suit.CLUB, '5')]);
 
     // Player 3は3を1枚持っている
     const three3 = CardFactory.create(Suit.CLUB, '3');
-    player3.hand.add([three3, CardFactory.create(Suit.SPADE, '6')]);
+    handAdd(player3.hand, [three3, CardFactory.create(Suit.SPADE, '6')]);
 
     const gameState = createGameState([player1, player2, player3], {
       ...DEFAULT_RULE_SETTINGS,
@@ -68,12 +69,12 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     await playPhase.update(gameState);
 
     // Player 2の3がすべて削除されたことを確認
-    expect(player2.hand.getCards().filter(c => c.rank === '3').length).toBe(0);
-    expect(player2.hand.size()).toBe(1); // 5が1枚残り
+    expect(handGetCards(player2.hand).filter(c => c.rank === '3').length).toBe(0);
+    expect(handSize(player2.hand)).toBe(1); // 5が1枚残り
 
     // Player 3の3がすべて削除されたことを確認
-    expect(player3.hand.getCards().filter(c => c.rank === '3').length).toBe(0);
-    expect(player3.hand.size()).toBe(1); // 6が1枚残り
+    expect(handGetCards(player3.hand).filter(c => c.rank === '3').length).toBe(0);
+    expect(handSize(player3.hand)).toBe(1); // 6が1枚残り
 
     // クイーンボンバーのカットインが表示されたことを確認
     expect(presentationRequester.hasEffect('クイーンボンバー')).toBe(true);
@@ -88,7 +89,7 @@ describe('クイーンボンバー (Queen Bomber)', () => {
       CardFactory.create(Suit.SPADE, 'Q'),
       CardFactory.create(Suit.HEART, 'Q'),
     ];
-    player1.hand.add([...queenCards, CardFactory.create(Suit.HEART, 'K')]);
+    handAdd(player1.hand, [...queenCards, CardFactory.create(Suit.HEART, 'K')]);
 
     // Player 2は3を2枚、4を2枚持っている
     const threes = [
@@ -99,7 +100,7 @@ describe('クイーンボンバー (Queen Bomber)', () => {
       CardFactory.create(Suit.SPADE, '4'),
       CardFactory.create(Suit.HEART, '4'),
     ];
-    player2.hand.add([...threes, ...fours, CardFactory.create(Suit.SPADE, '5')]);
+    handAdd(player2.hand, [...threes, ...fours, CardFactory.create(Suit.SPADE, '5')]);
 
     const gameState = createGameState([player1, player2], {
       ...DEFAULT_RULE_SETTINGS,
@@ -121,9 +122,9 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     await playPhase.update(gameState);
 
     // Player 2の3と4がすべて削除されたことを確認
-    expect(player2.hand.getCards().filter(c => c.rank === '3').length).toBe(0);
-    expect(player2.hand.getCards().filter(c => c.rank === '4').length).toBe(0);
-    expect(player2.hand.size()).toBe(1); // 5が1枚残り
+    expect(handGetCards(player2.hand).filter(c => c.rank === '3').length).toBe(0);
+    expect(handGetCards(player2.hand).filter(c => c.rank === '4').length).toBe(0);
+    expect(handSize(player2.hand)).toBe(1); // 5が1枚残り
   });
 
   it('Qx3を出すと3つのランクを指定でき、すべてのランクのカードがすべて捨てられる', async () => {
@@ -136,10 +137,10 @@ describe('クイーンボンバー (Queen Bomber)', () => {
       CardFactory.create(Suit.HEART, 'Q'),
       CardFactory.create(Suit.DIAMOND, 'Q'),
     ];
-    player1.hand.add([...queenCards, CardFactory.create(Suit.HEART, 'K')]);
+    handAdd(player1.hand, [...queenCards, CardFactory.create(Suit.HEART, 'K')]);
 
     // Player 2は3, 4, 5をそれぞれ複数枚持っている
-    player2.hand.add([
+    handAdd(player2.hand, [
       CardFactory.create(Suit.SPADE, '3'),
       CardFactory.create(Suit.HEART, '3'),
       CardFactory.create(Suit.SPADE, '4'),
@@ -171,10 +172,10 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     await playPhase.update(gameState);
 
     // Player 2の3, 4, 5がすべて削除されたことを確認
-    expect(player2.hand.getCards().filter(c => c.rank === '3').length).toBe(0);
-    expect(player2.hand.getCards().filter(c => c.rank === '4').length).toBe(0);
-    expect(player2.hand.getCards().filter(c => c.rank === '5').length).toBe(0);
-    expect(player2.hand.size()).toBe(1); // 6が1枚残り
+    expect(handGetCards(player2.hand).filter(c => c.rank === '3').length).toBe(0);
+    expect(handGetCards(player2.hand).filter(c => c.rank === '4').length).toBe(0);
+    expect(handGetCards(player2.hand).filter(c => c.rank === '5').length).toBe(0);
+    expect(handSize(player2.hand)).toBe(1); // 6が1枚残り
   });
 
   it('同じランクを複数回指定しても効果は1回分', async () => {
@@ -186,10 +187,10 @@ describe('クイーンボンバー (Queen Bomber)', () => {
       CardFactory.create(Suit.SPADE, 'Q'),
       CardFactory.create(Suit.HEART, 'Q'),
     ];
-    player1.hand.add([...queenCards, CardFactory.create(Suit.HEART, 'K')]);
+    handAdd(player1.hand, [...queenCards, CardFactory.create(Suit.HEART, 'K')]);
 
     // Player 2は3を2枚持っている
-    player2.hand.add([
+    handAdd(player2.hand, [
       CardFactory.create(Suit.SPADE, '3'),
       CardFactory.create(Suit.HEART, '3'),
       CardFactory.create(Suit.SPADE, '5'),
@@ -215,8 +216,8 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     await playPhase.update(gameState);
 
     // Player 2の3がすべて削除されたことを確認（2回指定しても効果は同じ）
-    expect(player2.hand.getCards().filter(c => c.rank === '3').length).toBe(0);
-    expect(player2.hand.size()).toBe(1); // 5が1枚残り
+    expect(handGetCards(player2.hand).filter(c => c.rank === '3').length).toBe(0);
+    expect(handSize(player2.hand)).toBe(1); // 5が1枚残り
   });
 
   it('上がっているプレイヤーはスキップされる', async () => {
@@ -227,13 +228,13 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     // Player 2を上がり状態にする
     player2.isFinished = true;
     player2.finishPosition = 1;
-    player2.hand.add([CardFactory.create(Suit.SPADE, '3')]); // 仮に手札があったとしても
+    handAdd(player2.hand, [CardFactory.create(Suit.SPADE, '3')]); // 仮に手札があったとしても
 
     const queenCard = CardFactory.create(Suit.SPADE, 'Q');
-    player1.hand.add([queenCard, CardFactory.create(Suit.HEART, 'K')]);
+    handAdd(player1.hand, [queenCard, CardFactory.create(Suit.HEART, 'K')]);
 
     const three3 = CardFactory.create(Suit.CLUB, '3');
-    player3.hand.add([three3, CardFactory.create(Suit.SPADE, '6')]);
+    handAdd(player3.hand, [three3, CardFactory.create(Suit.SPADE, '6')]);
 
     const gameState = createGameState([player1, player2, player3], {
       ...DEFAULT_RULE_SETTINGS,
@@ -254,11 +255,11 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     await playPhase.update(gameState);
 
     // Player 3の3が削除されたことを確認
-    expect(player3.hand.getCards().filter(c => c.rank === '3').length).toBe(0);
+    expect(handGetCards(player3.hand).filter(c => c.rank === '3').length).toBe(0);
 
     // Player 2は上がっているので手札はそのまま（スキップされた）
     expect(player2.isFinished).toBe(true);
-    expect(player2.hand.size()).toBe(1); // 変更なし
+    expect(handSize(player2.hand)).toBe(1); // 変更なし
   });
 
   it('指定ランクを持っていないプレイヤーは何も捨てない', async () => {
@@ -267,16 +268,16 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     const player3 = createPlayer('player3', 'Player 3', PlayerType.CPU);
 
     const queenCard = CardFactory.create(Suit.SPADE, 'Q');
-    player1.hand.add([queenCard, CardFactory.create(Suit.HEART, 'K')]);
+    handAdd(player1.hand, [queenCard, CardFactory.create(Suit.HEART, 'K')]);
 
     // Player 2は3を持っている
-    player2.hand.add([
+    handAdd(player2.hand, [
       CardFactory.create(Suit.SPADE, '3'),
       CardFactory.create(Suit.CLUB, '5'),
     ]);
 
     // Player 3は3を持っていない
-    player3.hand.add([
+    handAdd(player3.hand, [
       CardFactory.create(Suit.SPADE, '4'),
       CardFactory.create(Suit.SPADE, '6'),
     ]);
@@ -300,16 +301,16 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     const controller3 = new MockPlayerController();
     playerControllers.set('player3', controller3);
 
-    const player3InitialHandSize = player3.hand.size();
+    const player3InitialHandSize = handSize(player3.hand);
 
     await playPhase.update(gameState);
 
     // Player 2の3が削除された
-    expect(player2.hand.getCards().filter(c => c.rank === '3').length).toBe(0);
-    expect(player2.hand.size()).toBe(1);
+    expect(handGetCards(player2.hand).filter(c => c.rank === '3').length).toBe(0);
+    expect(handSize(player2.hand)).toBe(1);
 
     // Player 3は3を持っていないので手札は変わらない
-    expect(player3.hand.size()).toBe(player3InitialHandSize);
+    expect(handSize(player3.hand)).toBe(player3InitialHandSize);
   });
 
   it('クイーンボンバーで手札がなくなるとプレイヤーが上がる', async () => {
@@ -317,10 +318,10 @@ describe('クイーンボンバー (Queen Bomber)', () => {
     const player2 = createPlayer('player2', 'Player 2', PlayerType.CPU);
 
     const queenCard = CardFactory.create(Suit.SPADE, 'Q');
-    player1.hand.add([queenCard, CardFactory.create(Suit.HEART, 'K')]);
+    handAdd(player1.hand, [queenCard, CardFactory.create(Suit.HEART, 'K')]);
 
     // Player 2は3だけを持っている（クイーンボンバーで上がり）
-    player2.hand.add([
+    handAdd(player2.hand, [
       CardFactory.create(Suit.SPADE, '3'),
       CardFactory.create(Suit.HEART, '3'),
     ]);
@@ -345,6 +346,6 @@ describe('クイーンボンバー (Queen Bomber)', () => {
 
     // Player 2が上がったことを確認
     expect(player2.isFinished).toBe(true);
-    expect(player2.hand.isEmpty()).toBe(true);
+    expect(handIsEmpty(player2.hand)).toBe(true);
   });
 });

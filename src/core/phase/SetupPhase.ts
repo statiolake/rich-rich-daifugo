@@ -1,7 +1,7 @@
 import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { CardFactory, Card, Suit } from '../domain/card/Card';
-import { Hand } from '../domain/card/Hand';
+import { createHandData, handGetCards, handRemove, handSort } from '../domain/card/Hand';
 import { Player } from '../domain/player/Player';
 import { PlayerRank } from '../domain/player/PlayerRank';
 import { PresentationRequester } from '../domain/presentation/PresentationRequester';
@@ -55,7 +55,7 @@ export class SetupPhase implements GamePhase {
     let deckIndex = 0;
     for (let i = 0; i < gameState.players.length; i++) {
       const playerCards = deck.slice(deckIndex, deckIndex + playerCardCounts[i]);
-      gameState.players[i].hand = new Hand(playerCards);
+      gameState.players[i].hand = createHandData(playerCards);
       deckIndex += playerCardCounts[i];
     }
 
@@ -64,7 +64,7 @@ export class SetupPhase implements GamePhase {
 
     // 各プレイヤーの手札をソート（革命XOR11バック）
     const shouldReverseStrength = gameState.isRevolution !== gameState.isElevenBack;
-    gameState.players.forEach(p => p.hand.sort(shouldReverseStrength));
+    gameState.players.forEach(p => handSort(p.hand, shouldReverseStrength));
 
     console.log('Setup phase: Cards dealt to players');
 
@@ -100,7 +100,7 @@ export class SetupPhase implements GamePhase {
         winner.finishPosition = finishedCount + 1;
         console.log(`天和: ${winner.name} finished in position ${winner.finishPosition}`);
         // 手札を空にする
-        winner.hand.remove([...winner.hand.getCards()]);
+        handRemove(winner.hand, [...handGetCards(winner.hand)]);
       }
     }
 
@@ -174,7 +174,7 @@ export class SetupPhase implements GamePhase {
    */
   private findDiamond3Holder(players: Player[]): number {
     for (let i = 0; i < players.length; i++) {
-      const hasDiamond3 = players[i].hand.getCards().some(
+      const hasDiamond3 = handGetCards(players[i].hand).some(
         card => card.suit === Suit.DIAMOND && card.rank === '3'
       );
       if (hasDiamond3) {
@@ -198,12 +198,12 @@ export class SetupPhase implements GamePhase {
 
     // 9以上のカード（strength >= 9）を没収
     // 9=9, 10=10, J=11, Q=12, K=13, A=14, 2=15, JOKER=16
-    const cardsToConfiscate = targetPlayer.hand.getCards().filter(card => {
+    const cardsToConfiscate = handGetCards(targetPlayer.hand).filter(card => {
       return card.strength >= 9;
     });
 
     if (cardsToConfiscate.length > 0) {
-      targetPlayer.hand.remove(cardsToConfiscate);
+      handRemove(targetPlayer.hand, cardsToConfiscate);
       console.log(`村八分: ${targetPlayer.name} から ${cardsToConfiscate.length} 枚のカードを没収しました`);
       console.log(`没収されたカード: ${cardsToConfiscate.map(c => `${c.rank}${c.suit}`).join(', ')}`);
     }
@@ -219,7 +219,7 @@ export class SetupPhase implements GamePhase {
    * - ジョーカーは任意のカードとペアになれる
    */
   private checkTenhoCondition(player: Player): boolean {
-    const cards = player.hand.getCards();
+    const cards = handGetCards(player.hand);
 
     // 手札枚数が偶数でなければ発動しない
     if (cards.length % 2 !== 0) return false;

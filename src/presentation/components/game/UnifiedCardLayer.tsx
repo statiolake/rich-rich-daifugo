@@ -6,6 +6,7 @@ import { Card } from '../card/Card';
 import { CardFactory, Card as CardType } from '../../../core/domain/card/Card';
 import { useEffect, useMemo } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
+import { handSize, handGetCards, handGetForbiddenFinishCardIds } from '../../../core/domain/card/Hand';
 
 export const UnifiedCardLayer: React.FC = () => {
   const cardPositions = useCardPositionStore((state) => state.cards);
@@ -18,7 +19,7 @@ export const UnifiedCardLayer: React.FC = () => {
   // 有効な役をストアから取得
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
   const cardSelectionValidator = useGameStore(state => state.cardSelectionValidator);
-  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length, cardSelectionValidator]);
+  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.history.length, cardSelectionValidator]);
 
   // ゲーム状態から特殊ルールの状態を取得
   const getRuleEngine = useGameStore(state => state.getRuleEngine);
@@ -49,7 +50,7 @@ export const UnifiedCardLayer: React.FC = () => {
     if (!localPlayer || !gameState) return new Set<string>();
 
     const ruleEngine = getRuleEngine();
-    return localPlayer.hand.getForbiddenFinishCardIds(
+    return handGetForbiddenFinishCardIds(localPlayer.hand, 
       localPlayer,
       gameState.field,
       gameState,
@@ -105,7 +106,7 @@ export const UnifiedCardLayer: React.FC = () => {
     }
   }, [
     gameState,
-    gameState?.field.getHistory().length,
+    gameState?.field.history.length,
     gameState?.currentPlayerIndex,
     syncWithGameState,
   ]);
@@ -126,7 +127,7 @@ export const UnifiedCardLayer: React.FC = () => {
     gameState.players.forEach((player) => {
       // CPUプレイヤーのみ
       if (player.type !== 'HUMAN') {
-        const handCards = player.hand.getCards();
+        const handCards = handGetCards(player.hand);
         if (handCards.length > 0) {
           // 一番最後のカード（一番上に表示されるカード）のIDと枚数を記録
           const topCard = handCards[handCards.length - 1];
@@ -136,7 +137,7 @@ export const UnifiedCardLayer: React.FC = () => {
     });
 
     return info;
-  }, [gameState, gameState?.players.map(p => p.hand.size()).join(',')]);
+  }, [gameState, gameState?.players.map(p => handSize(p.hand)).join(',')]);
 
   // すべてのフックを呼び出した後に早期リターンチェック
   if (!gameState || gameState.phase === GamePhaseType.RESULT) {

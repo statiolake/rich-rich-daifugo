@@ -3,6 +3,8 @@ import { Card } from '../../core/domain/card/Card';
 import { Player } from '../../core/domain/player/Player';
 import { GameState } from '../../core/domain/game/GameState';
 import { CPUStrategy } from '../../core/strategy/PlayerStrategy';
+import { fieldIsEmpty } from '../../core/domain/game/Field';
+import { handGetCards } from '../../core/domain/card/Hand';
 
 /**
  * CPU プレイヤー用のコントローラー
@@ -19,7 +21,7 @@ export class CPUPlayerController implements PlayerController {
     // CPU思考時間をシミュレート
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    const handCards = this.player.hand.getCards();
+    const handCards = this.handGetCards(player.hand);
 
     // ビット全探索で validator を満たすすべての組み合わせを列挙
     const validCombinations: Card[][] = [];
@@ -54,7 +56,7 @@ export class CPUPlayerController implements PlayerController {
         return []; // パスしかできない
       }
 
-      if (!this.gameState.field.isEmpty() && Math.random() < 0.5) {
+      if (!fieldIsEmpty(this.gameState.field) && Math.random() < 0.5) {
         return []; // パス
       }
 

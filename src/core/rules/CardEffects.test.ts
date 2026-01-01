@@ -8,6 +8,8 @@ import { EventBus } from '../../application/services/EventBus';
 import { MockPlayerController } from '../test-helpers/MockPlayerController';
 import { MockPresentationRequester } from '../test-helpers/MockPresentationRequester';
 import { DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
+import { fieldIsEmpty } from '../domain/game/Field';
+import { handAdd } from '../domain/card/Hand';
 
 describe('CardEffects - 特殊カードの効果', () => {
   let playPhase: PlayPhase;
@@ -32,8 +34,8 @@ describe('CardEffects - 特殊カードの効果', () => {
       // 手札設定
       const eightCard = CardFactory.create(Suit.SPADE, '8');
       const kingCard = CardFactory.create(Suit.HEART, 'K');
-      player1.hand.add([kingCard, eightCard, CardFactory.create(Suit.CLUB, '5')]);
-      player2.hand.add([CardFactory.create(Suit.DIAMOND, '3')]);
+      handAdd(player1.hand, [kingCard, eightCard, CardFactory.create(Suit.CLUB, '5')]);
+      handAdd(player2.hand, [CardFactory.create(Suit.DIAMOND, '3')]);
 
       // ゲーム状態作成（forbidden finish とキング牧師をOFFにする）
       const gameState = createGameState([player1, player2], {
@@ -60,13 +62,13 @@ describe('CardEffects - 特殊カードの効果', () => {
 
       // 最初のプレイ（K）
       await playPhase.update(gameState);
-      expect(gameState.field.isEmpty()).toBe(false);
+      expect(fieldIsEmpty(gameState.field)).toBe(false);
 
       // Player2がパス
       await playPhase.update(gameState);
 
       // 場がクリアされてPlayer1に戻る
-      expect(gameState.field.isEmpty()).toBe(true);
+      expect(fieldIsEmpty(gameState.field)).toBe(true);
       expect(gameState.currentPlayerIndex).toBe(0);
 
       // Player1が8を出す（場が空なので出せる）
@@ -74,7 +76,7 @@ describe('CardEffects - 特殊カードの効果', () => {
       await playPhase.update(gameState);
 
       // 8切りが発動して場がクリアされたことを確認
-      expect(gameState.field.isEmpty()).toBe(true);
+      expect(fieldIsEmpty(gameState.field)).toBe(true);
       expect(presentationRequester.hasEffect('8切り')).toBe(true);
     });
   });
@@ -90,8 +92,8 @@ describe('CardEffects - 特殊カードの効果', () => {
         CardFactory.create(Suit.DIAMOND, '5'),
         CardFactory.create(Suit.CLUB, '5'),
       ];
-      player1.hand.add([...quadCards, CardFactory.create(Suit.SPADE, '6')]);
-      player2.hand.add([CardFactory.create(Suit.HEART, '3')]);
+      handAdd(player1.hand, [...quadCards, CardFactory.create(Suit.SPADE, '6')]);
+      handAdd(player2.hand, [CardFactory.create(Suit.HEART, '3')]);
 
       const controller1 = new MockPlayerController();
       controller1.setNextCardChoice(quadCards);
@@ -123,8 +125,8 @@ describe('CardEffects - 特殊カードの効果', () => {
         CardFactory.create(Suit.DIAMOND, '4'),
         CardFactory.create(Suit.CLUB, '4'),
       ];
-      player1.hand.add([...quadCards1, CardFactory.create(Suit.SPADE, '7')]);
-      player2.hand.add([...quadCards2, CardFactory.create(Suit.HEART, '7')]);
+      handAdd(player1.hand, [...quadCards1, CardFactory.create(Suit.SPADE, '7')]);
+      handAdd(player2.hand, [...quadCards2, CardFactory.create(Suit.HEART, '7')]);
 
       const controller1 = new MockPlayerController();
       const controller2 = new MockPlayerController();
@@ -156,7 +158,7 @@ describe('CardEffects - 特殊カードの効果', () => {
 
       // Player2がパス -> 場がクリア
       await playPhase.update(gameState);
-      expect(gameState.field.isEmpty()).toBe(true);
+      expect(fieldIsEmpty(gameState.field)).toBe(true);
     });
   });
 
@@ -166,8 +168,8 @@ describe('CardEffects - 特殊カードの効果', () => {
       const player2 = createPlayer('p2', 'Player 2', PlayerType.CPU);
 
       const jackCard = CardFactory.create(Suit.SPADE, 'J');
-      player1.hand.add([jackCard, CardFactory.create(Suit.HEART, 'Q')]);
-      player2.hand.add([CardFactory.create(Suit.DIAMOND, '3')]);
+      handAdd(player1.hand, [jackCard, CardFactory.create(Suit.HEART, 'Q')]);
+      handAdd(player2.hand, [CardFactory.create(Suit.DIAMOND, '3')]);
 
       const controller1 = new MockPlayerController();
       controller1.setNextCardChoice([jackCard]);
@@ -191,9 +193,9 @@ describe('CardEffects - 特殊カードの効果', () => {
       const player3 = createPlayer('p3', 'Player 3', PlayerType.CPU);
 
       const fiveCard = CardFactory.create(Suit.SPADE, '5');
-      player1.hand.add([fiveCard, CardFactory.create(Suit.HEART, '6')]);
-      player2.hand.add([CardFactory.create(Suit.DIAMOND, '3')]);
-      player3.hand.add([CardFactory.create(Suit.CLUB, '3')]);
+      handAdd(player1.hand, [fiveCard, CardFactory.create(Suit.HEART, '6')]);
+      handAdd(player2.hand, [CardFactory.create(Suit.DIAMOND, '3')]);
+      handAdd(player3.hand, [CardFactory.create(Suit.CLUB, '3')]);
 
       const controller1 = new MockPlayerController();
       controller1.setNextCardChoice([fiveCard]);
@@ -221,9 +223,9 @@ describe('CardEffects - 特殊カードの効果', () => {
       const player3 = createPlayer('p3', 'Player 3', PlayerType.CPU);
 
       const nineCard = CardFactory.create(Suit.SPADE, '9');
-      player1.hand.add([nineCard, CardFactory.create(Suit.HEART, '6')]);
-      player2.hand.add([CardFactory.create(Suit.DIAMOND, '3')]);
-      player3.hand.add([CardFactory.create(Suit.CLUB, '3')]);
+      handAdd(player1.hand, [nineCard, CardFactory.create(Suit.HEART, '6')]);
+      handAdd(player2.hand, [CardFactory.create(Suit.DIAMOND, '3')]);
+      handAdd(player3.hand, [CardFactory.create(Suit.CLUB, '3')]);
 
       const controller1 = new MockPlayerController();
       controller1.setNextCardChoice([nineCard]);

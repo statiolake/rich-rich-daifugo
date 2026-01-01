@@ -2,6 +2,7 @@ import { Play, PlayType } from '../../domain/card/Play';
 import { GameState } from '../../domain/game/GameState';
 import { Suit } from '../../domain/card/Card';
 import { PlayerRank } from '../../domain/player/PlayerRank';
+import { fieldIsEmpty, fieldGetLastPlay } from '../../domain/game/Field';
 
 /**
  * トリガーエフェクトの種類
@@ -858,8 +859,8 @@ export class TriggerEffectAnalyzer {
     if (play.type !== PlayType.SINGLE) return false;
     if (play.cards[0].suit !== Suit.SPADE || play.cards[0].rank !== '3') return false;
 
-    if (gameState.field.isEmpty()) return false;
-    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (fieldIsEmpty(gameState.field)) return false;
+    const fieldPlayHistory = fieldGetLastPlay(gameState.field);
     if (!fieldPlayHistory) return false;
 
     return fieldPlayHistory.play.cards.some(card => card.rank === 'JOKER');
@@ -867,9 +868,9 @@ export class TriggerEffectAnalyzer {
 
   private triggersDownNumber(play: Play, gameState: GameState): boolean {
     if (play.type !== PlayType.SINGLE) return false;
-    if (gameState.field.isEmpty()) return false;
+    if (fieldIsEmpty(gameState.field)) return false;
 
-    const fieldPlayHistory = gameState.field.getLastPlay();
+    const fieldPlayHistory = fieldGetLastPlay(gameState.field);
     if (!fieldPlayHistory || fieldPlayHistory.play.type !== PlayType.SINGLE) return false;
 
     const playCard = play.cards[0];
@@ -901,7 +902,7 @@ export class TriggerEffectAnalyzer {
     if (gameState.suitLock) return false;
 
     // 場に1枚以上の履歴が必要（前回のプレイ）
-    const history = gameState.field.getHistory();
+    const history = gameState.field.history;
     if (history.length === 0) return false;
 
     // 前回のプレイ
@@ -935,7 +936,7 @@ export class TriggerEffectAnalyzer {
     if (gameState.numberLock) return false;
 
     // 場に1枚以上の履歴が必要（前回のプレイ）
-    const history = gameState.field.getHistory();
+    const history = gameState.field.history;
     if (history.length === 0) return false;
 
     // 前回のプレイ
@@ -972,7 +973,7 @@ export class TriggerEffectAnalyzer {
     if (gameState.colorLock) return false;
 
     // 場に1枚以上の履歴が必要（前回のプレイ）
-    const history = gameState.field.getHistory();
+    const history = gameState.field.history;
     if (history.length === 0) return false;
 
     // 前回のプレイ
@@ -1006,8 +1007,8 @@ export class TriggerEffectAnalyzer {
       return false;
     }
     // 場にジョーカー1枚がある場合のみ発動
-    if (gameState.field.isEmpty()) return false;
-    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (fieldIsEmpty(gameState.field)) return false;
+    const fieldPlayHistory = fieldGetLastPlay(gameState.field);
     if (!fieldPlayHistory) return false;
     return fieldPlayHistory.play.type === PlayType.SINGLE &&
            fieldPlayHistory.play.cards[0].rank === 'JOKER';
@@ -1020,9 +1021,9 @@ export class TriggerEffectAnalyzer {
    */
   private triggersAssassination(play: Play, gameState: GameState): boolean {
     if (play.type !== PlayType.SINGLE) return false;
-    if (gameState.field.isEmpty()) return false;
+    if (fieldIsEmpty(gameState.field)) return false;
 
-    const fieldPlayHistory = gameState.field.getLastPlay();
+    const fieldPlayHistory = fieldGetLastPlay(gameState.field);
     if (!fieldPlayHistory || fieldPlayHistory.play.type !== PlayType.SINGLE) return false;
 
     const playRank = play.cards[0].rank;
@@ -1093,8 +1094,8 @@ export class TriggerEffectAnalyzer {
     if (play.type !== PlayType.SINGLE) return false;
     if (play.cards[0].suit !== Suit.SPADE || play.cards[0].rank !== '2') return false;
     // 場にジョーカーがある場合のみ発動
-    if (gameState.field.isEmpty()) return false;
-    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (fieldIsEmpty(gameState.field)) return false;
+    const fieldPlayHistory = fieldGetLastPlay(gameState.field);
     if (!fieldPlayHistory) return false;
     return fieldPlayHistory.play.cards.some(card => card.rank === 'JOKER');
   }
@@ -1204,10 +1205,10 @@ export class TriggerEffectAnalyzer {
    */
   private triggersJokerReturn(play: Play, gameState: GameState): boolean {
     // 場が空なら発動しない
-    if (gameState.field.isEmpty()) return false;
+    if (fieldIsEmpty(gameState.field)) return false;
 
     // 場にジョーカー1枚があるか確認
-    const fieldPlayHistory = gameState.field.getLastPlay();
+    const fieldPlayHistory = fieldGetLastPlay(gameState.field);
     if (!fieldPlayHistory) return false;
     if (fieldPlayHistory.play.type !== PlayType.SINGLE) return false;
     if (fieldPlayHistory.play.cards[0].rank !== 'JOKER') return false;
@@ -1260,8 +1261,8 @@ export class TriggerEffectAnalyzer {
       return false;
     }
     // 場に直前のプレイがある場合のみ発動
-    if (gameState.field.isEmpty()) return false;
-    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (fieldIsEmpty(gameState.field)) return false;
+    const fieldPlayHistory = fieldGetLastPlay(gameState.field);
     return fieldPlayHistory !== null;
   }
 
@@ -1324,8 +1325,8 @@ export class TriggerEffectAnalyzer {
     // 9を含むプレイで発動
     if (!play.cards.some(card => card.rank === '9')) return false;
     // 場に3がある場合のみ発動
-    if (gameState.field.isEmpty()) return false;
-    const fieldPlayHistory = gameState.field.getLastPlay();
+    if (fieldIsEmpty(gameState.field)) return false;
+    const fieldPlayHistory = fieldGetLastPlay(gameState.field);
     if (!fieldPlayHistory) return false;
     return fieldPlayHistory.play.cards.some(card => card.rank === '3');
   }
@@ -1360,7 +1361,7 @@ export class TriggerEffectAnalyzer {
    */
   private triggersAceTax(play: Play, gameState: GameState): boolean {
     // 場が空でない（子の出し）
-    if (gameState.field.isEmpty()) return false;
+    if (fieldIsEmpty(gameState.field)) return false;
     // Aを含むプレイ
     return play.cards.some(card => card.rank === 'A');
   }
@@ -1563,7 +1564,7 @@ export class TriggerEffectAnalyzer {
     if (!gameState.isEightCutPending) return false;
 
     // 場にあるカード（直前のプレイ）を取得
-    const lastPlayHistory = gameState.field.getLastPlay();
+    const lastPlayHistory = fieldGetLastPlay(gameState.field);
     if (!lastPlayHistory) return false;
 
     // 場に8があるか確認し、8のスートを取得
@@ -1836,10 +1837,10 @@ export class TriggerEffectAnalyzer {
    */
   private triggersFusionRevolution(play: Play, gameState: GameState): boolean {
     // 場が空なら発動しない
-    if (gameState.field.isEmpty()) return false;
+    if (fieldIsEmpty(gameState.field)) return false;
 
     // 場のカードを取得
-    const lastPlayHistory = gameState.field.getLastPlay();
+    const lastPlayHistory = fieldGetLastPlay(gameState.field);
     if (!lastPlayHistory) return false;
 
     const fieldPlay = lastPlayHistory.play;
@@ -1871,10 +1872,10 @@ export class TriggerEffectAnalyzer {
    */
   private triggersTsuiKaku(play: Play, gameState: GameState): boolean {
     // 場が空なら発動しない
-    if (gameState.field.isEmpty()) return false;
+    if (fieldIsEmpty(gameState.field)) return false;
 
     // 場のカードを取得
-    const lastPlayHistory = gameState.field.getLastPlay();
+    const lastPlayHistory = fieldGetLastPlay(gameState.field);
     if (!lastPlayHistory) return false;
 
     const fieldPlay = lastPlayHistory.play;

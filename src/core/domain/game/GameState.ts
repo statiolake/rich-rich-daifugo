@@ -1,5 +1,5 @@
 import { Player } from '../player/Player';
-import { FieldClass as Field } from './Field';
+import { Field, createField } from './Field';
 import { Card } from '../card/Card';
 import { RuleSettings, DEFAULT_RULE_SETTINGS } from './RuleSettings';
 
@@ -66,7 +66,7 @@ export function createGameState(players: Player[], ruleSettings: RuleSettings = 
   return {
     players,
     currentPlayerIndex: 0,
-    field: new Field(),
+    field: createField(),
     discardPile: [],
     isRevolution: false,
     isElevenBack: false,

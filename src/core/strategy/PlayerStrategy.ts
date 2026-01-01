@@ -1,6 +1,6 @@
 import { Card, Rank } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
-import { FieldClass as Field } from '../domain/game/Field';
+import { Field } from '../domain/game/Field';
 import { GameState } from '../domain/game/GameState';
 import { ValidationResult } from '../rules/base/RuleEngine';
 

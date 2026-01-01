@@ -12,6 +12,8 @@ import { RankAssignmentService } from './handlers/RankAssignmentService';
 import { PlayerController, Validator } from '../domain/player/PlayerController';
 import { PresentationRequester, CutIn } from '../domain/presentation/PresentationRequester';
 import { PlayerRank } from '../domain/player/PlayerRank';
+import { fieldIsEmpty, fieldAddPlay, fieldClear, fieldGetLastPlay, fieldRemoveLastPlay } from '../domain/game/Field';
+import { handGetCards, handRemove, handAdd, handSort, handSize, handIsEmpty } from '../domain/card/Hand';
 
 export class PlayPhase implements GamePhase {
   readonly type = GamePhaseType.PLAY;
@@ -73,10 +75,10 @@ export class PlayPhase implements GamePhase {
       gameState.ruleSettings.supplyAid &&
       !gameState.supplyAidUsed &&
       currentPlayer.rank === PlayerRank.DAIHINMIN &&
-      !gameState.field.isEmpty()
+      !fieldIsEmpty(gameState.field)
     ) {
       // 簡易実装: 場のカードが3枚以上なら自動発動（実際のUI実装では確認ダイアログを出す）
-      const fieldHistory = gameState.field.getHistory();
+      const fieldHistory = gameState.field.history;
       const fieldCardCount = fieldHistory.reduce((sum, h) => sum + h.play.cards.length, 0);
       if (fieldCardCount >= 3) {
         console.log(`${currentPlayer.name}が物資救援を発動！`);
@@ -91,7 +93,7 @@ export class PlayPhase implements GamePhase {
     const validator: Validator = {
       validate: (cards: Card[]) => {
         // ダイヤ3スタート: 最初のターンはダイヤ3を含める必要がある
-        if (gameState.ruleSettings.diamond3Start && gameState.isFirstTurn && gameState.field.isEmpty()) {
+        if (gameState.ruleSettings.diamond3Start && gameState.isFirstTurn && fieldIsEmpty(gameState.field)) {
           if (cards.length > 0) {
             const hasDiamond3 = cards.some(c => c.suit === Suit.DIAMOND && c.rank === '3');
             if (!hasDiamond3) {
@@ -139,7 +141,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 状態ハッシュイベントを発行（マルチプレイヤー整合性チェック用）
-    const turnNumber = gameState.field.getHistory().length;
+    const turnNumber = gameState.field.history.length;
     this.eventBus.emit('turn:completed', {
       turnNumber,
       stateHash: this.computeStateHash(gameState),
@@ -155,8 +157,8 @@ export class PlayPhase implements GamePhase {
     // 簡易ハッシュ: 重要な状態のみを含める
     const data = {
       currentPlayerIndex: gameState.currentPlayerIndex,
-      handSizes: gameState.players.map(p => p.hand.size()),
-      fieldCardCount: gameState.field.getHistory().length,
+      handSizes: gameState.players.map(p => handSize(p.hand)),
+      fieldCardCount: gameState.field.history.length,
       isRevolution: gameState.isRevolution,
       passCount: gameState.passCount,
     };
@@ -185,8 +187,8 @@ export class PlayPhase implements GamePhase {
     const effects = this.effectAnalyzer.analyze(play, gameState);
 
     // プレイを実行
-    player.hand.remove(cards);
-    gameState.field.addPlay(play, player.id);
+    handRemove(player.hand, cards);
+    fieldAddPlay(gameState.field,play, player.id);
     gameState.passCount = 0;
 
     // ダイヤ3スタート: 最初のプレイが完了したらフラグを解除
@@ -254,7 +256,7 @@ export class PlayPhase implements GamePhase {
 
     // ソート
     if (effects.length > 0) {
-      gameState.players.forEach(p => p.hand.sort(gameState.isRevolution !== gameState.isElevenBack));
+      gameState.players.forEach(p => handSort(p.hand, gameState.isRevolution !== gameState.isElevenBack));
     }
 
     // 場のクリア判定
@@ -355,7 +357,7 @@ export class PlayPhase implements GamePhase {
     if (effects.includes('融合革命') || effects.includes('融合革命終了')) {
       console.log('融合革命が発動しました！両者ターン休み');
       // 場のカードを出したプレイヤーを特定
-      const lastPlayHistory = gameState.field.getLastPlay();
+      const lastPlayHistory = fieldGetLastPlay(gameState.field);
       if (lastPlayHistory) {
         const fieldPlayer = gameState.players.find(p => p.id === lastPlayHistory.playerId);
         if (fieldPlayer && !fieldPlayer.isFinished && fieldPlayer.id !== player.id) {
@@ -387,9 +389,9 @@ export class PlayPhase implements GamePhase {
 
     // 大革命の即勝利処理
     if (effects.includes('大革命＋即勝利')) {
-      const remainingCards = player.hand.getCards();
+      const remainingCards = handGetCards(player.hand);
       if (remainingCards.length > 0) {
-        player.hand.remove([...remainingCards]);
+        handRemove(player.hand, [...remainingCards]);
       }
       this.handlePlayerFinish(gameState, player);
       if (!shouldKeepTurn) {
@@ -400,9 +402,9 @@ export class PlayPhase implements GamePhase {
 
     // テポドンの即勝利処理（同数4枚＋ジョーカー2枚で革命＋即上がり）
     if (effects.includes('テポドン')) {
-      const remainingCards = player.hand.getCards();
+      const remainingCards = handGetCards(player.hand);
       if (remainingCards.length > 0) {
-        player.hand.remove([...remainingCards]);
+        handRemove(player.hand, [...remainingCards]);
       }
       this.handlePlayerFinish(gameState, player);
       if (!shouldKeepTurn) {
@@ -415,9 +417,9 @@ export class PlayPhase implements GamePhase {
     if (gameState.ruleSettings.dokan && this.checkDokanCondition(gameState, player)) {
       console.log(`どかんが発動しました！${player.name} が即勝利！`);
       await this.presentationRequester.requestCutIns([{ effect: 'どかん', variant: 'gold' }]);
-      const remainingCards = player.hand.getCards();
+      const remainingCards = handGetCards(player.hand);
       if (remainingCards.length > 0) {
-        player.hand.remove([...remainingCards]);
+        handRemove(player.hand, [...remainingCards]);
       }
       this.handlePlayerFinish(gameState, player);
       if (!shouldKeepTurn) {
@@ -553,7 +555,7 @@ export class PlayPhase implements GamePhase {
     this.checkAndApplyPartialLock(gameState, play);
 
     // 手札が空になったら上がり
-    if (player.hand.isEmpty()) {
+    if (handIsEmpty(player.hand)) {
       this.handlePlayerFinish(gameState, player);
 
       // 上がり流し（finishFlow）: プレイヤーが上がった時に場が流れる
@@ -762,7 +764,7 @@ export class PlayPhase implements GamePhase {
     const activePlayers = gameState.players.filter(p => !p.isFinished).length;
     if (gameState.passCount >= activePlayers - 1) {
       // 場が空の状態で全員がパスした場合のみ、誰も出せないかチェック
-      if (gameState.field.isEmpty() && !this.gameEndChecker.canAnyonePlay(gameState)) {
+      if (fieldIsEmpty(gameState.field) && !this.gameEndChecker.canAnyonePlay(gameState)) {
         console.log('全員が出せる手がないため、ゲームを終了します');
         this.gameEndChecker.endGameDueToNoPlays(gameState, this.rankAssignmentService.assignRank.bind(this.rankAssignmentService));
         return;
@@ -771,7 +773,7 @@ export class PlayPhase implements GamePhase {
       // 最後に出されたカードに応じて権利を付与
       let salvagePlayer: Player | undefined = undefined;
       let nextAcePlayer: Player | undefined = undefined;
-      const lastPlay = gameState.field.getLastPlay();
+      const lastPlay = fieldGetLastPlay(gameState.field);
       if (lastPlay) {
         const lastPlayer = gameState.players.find(p => p.id === lastPlay.playerId);
         // 3を含む場合、サルベージ権利
@@ -838,9 +840,9 @@ export class PlayPhase implements GamePhase {
     }
 
     console.log(`${luckyPlayer.name} がラッキーセブンで勝利しました！`);
-    const remainingCards = luckyPlayer.hand.getCards();
+    const remainingCards = handGetCards(luckyPlayer.hand);
     if (remainingCards.length > 0) {
-      luckyPlayer.hand.remove([...remainingCards]);
+      handRemove(luckyPlayer.hand, [...remainingCards]);
     }
 
     this.handlePlayerFinish(gameState, luckyPlayer);
@@ -862,7 +864,7 @@ export class PlayPhase implements GamePhase {
     excludeCards: boolean = false
   ): Promise<void> {
     // 場のカードを捨て札または除外リストに移動
-    const history = gameState.field.getHistory();
+    const history = gameState.field.history;
     for (const playHistory of history) {
       if (excludeCards) {
         // 強化8切り: カードをゲームから完全除外
@@ -873,7 +875,7 @@ export class PlayPhase implements GamePhase {
       }
     }
 
-    gameState.field.clear();
+    fieldClear(gameState.field);
     gameState.passCount = 0;
     gameState.isEightCutPending = false;
     gameState.suitLock = null;
@@ -900,13 +902,13 @@ export class PlayPhase implements GamePhase {
           gameState.isElevenBack = false;
           console.log('強化Jバックが終了しました');
           const shouldReverseStrength = this.getShouldReverseStrength(gameState);
-          gameState.players.forEach(p => p.hand.sort(shouldReverseStrength));
+          gameState.players.forEach(p => handSort(p.hand, shouldReverseStrength));
         }
       } else {
         gameState.isElevenBack = false;
         console.log('11バックがリセットされました');
         const shouldReverseStrength = this.getShouldReverseStrength(gameState);
-        gameState.players.forEach(p => p.hand.sort(shouldReverseStrength));
+        gameState.players.forEach(p => handSort(p.hand, shouldReverseStrength));
       }
     }
 
@@ -1131,8 +1133,8 @@ export class PlayPhase implements GamePhase {
     }
 
     if (!nextPlayer.isFinished) {
-      player.hand.remove([card]);
-      nextPlayer.hand.add([card]);
+      handRemove(player.hand, [card]);
+      handAdd(nextPlayer.hand, [card]);
       console.log(`${player.name} が ${nextPlayer.name} に ${card.rank}${card.suit} を渡しました`);
 
       // ログに記録
@@ -1145,10 +1147,10 @@ export class PlayPhase implements GamePhase {
       });
 
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      nextPlayer.hand.sort(shouldReverse);
+      handSort(nextPlayer.hand, shouldReverse);
     }
 
-    if (player.hand.isEmpty()) {
+    if (handIsEmpty(player.hand)) {
       this.handlePlayerFinish(gameState, player);
     }
   }
@@ -1163,7 +1165,7 @@ export class PlayPhase implements GamePhase {
     if (!controller) throw new Error('Controller not found');
 
     // 手札が足りない場合は持っている枚数まで
-    const handCards = player.hand.getCards();
+    const handCards = handGetCards(player.hand);
     const maxDiscard = Math.min(sevenCount, handCards.length);
 
     // 捨てられるカードがない場合はスキップ
@@ -1186,7 +1188,7 @@ export class PlayPhase implements GamePhase {
       throw new Error(`Must select exactly ${maxDiscard} cards for seven attach`);
     }
 
-    player.hand.remove(cards);
+    handRemove(player.hand, cards);
     gameState.discardPile.push(...cards);
     console.log(`${player.name} が ${cards.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました（7付け）`);
 
@@ -1199,7 +1201,7 @@ export class PlayPhase implements GamePhase {
       effectNames: ['7付け'],
     });
 
-    if (player.hand.isEmpty()) {
+    if (handIsEmpty(player.hand)) {
       this.handlePlayerFinish(gameState, player);
     }
   }
@@ -1233,7 +1235,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 手札が足りない場合は持っている枚数まで
-    const handCards = player.hand.getCards();
+    const handCards = handGetCards(player.hand);
     const maxPass = Math.min(nineCount, handCards.length);
 
     if (maxPass === 0) {
@@ -1255,8 +1257,8 @@ export class PlayPhase implements GamePhase {
       throw new Error(`Must select exactly ${maxPass} cards for nine return`);
     }
 
-    player.hand.remove(cards);
-    prevPlayer.hand.add(cards);
+    handRemove(player.hand, cards);
+    handAdd(prevPlayer.hand, cards);
     console.log(`${player.name} が ${prevPlayer.name} に ${cards.map(c => `${c.rank}${c.suit}`).join(', ')} を渡しました（9戻し）`);
 
     // ログに記録
@@ -1269,9 +1271,9 @@ export class PlayPhase implements GamePhase {
     });
 
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    prevPlayer.hand.sort(shouldReverse);
+    handSort(prevPlayer.hand, shouldReverse);
 
-    if (player.hand.isEmpty()) {
+    if (handIsEmpty(player.hand)) {
       this.handlePlayerFinish(gameState, player);
     }
   }
@@ -1288,7 +1290,7 @@ export class PlayPhase implements GamePhase {
     const tenStrength = shouldReverse ? 5 : 10;
 
     // 10より弱いカードがあるかチェック
-    const handCards = player.hand.getCards();
+    const handCards = handGetCards(player.hand);
     const discardableCards = handCards.filter(c => {
       const cardStrength = this.getCardStrength(c.rank, shouldReverse);
       return shouldReverse ? cardStrength > tenStrength : cardStrength < tenStrength;
@@ -1320,7 +1322,7 @@ export class PlayPhase implements GamePhase {
     }
 
     const card = cards[0];
-    player.hand.remove([card]);
+    handRemove(player.hand, [card]);
     console.log(`${player.name} が ${card.rank}${card.suit} を捨てました`);
 
     // ログに記録
@@ -1332,7 +1334,7 @@ export class PlayPhase implements GamePhase {
       effectNames: ['10捨て'],
     });
 
-    if (player.hand.isEmpty()) {
+    if (handIsEmpty(player.hand)) {
       this.handlePlayerFinish(gameState, player);
     }
   }
@@ -1369,10 +1371,10 @@ export class PlayPhase implements GamePhase {
       if (p.isFinished) continue;
 
       // プレイヤーの手札から対象ランクのカードをすべて取得
-      const cardsToDiscard = p.hand.getCards().filter(c => selectedRanks.includes(c.rank));
+      const cardsToDiscard = handGetCards(p.hand).filter(c => selectedRanks.includes(c.rank));
 
       if (cardsToDiscard.length > 0) {
-        p.hand.remove(cardsToDiscard);
+        handRemove(p.hand, cardsToDiscard);
         console.log(`${p.name} が ${cardsToDiscard.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
 
         // 捨てたカードをログに記録
@@ -1384,7 +1386,7 @@ export class PlayPhase implements GamePhase {
           effectNames: ['Qボンバー'],
         });
 
-        if (p.hand.isEmpty()) {
+        if (handIsEmpty(p.hand)) {
           this.handlePlayerFinish(gameState, p);
         }
       }
@@ -1428,7 +1430,7 @@ export class PlayPhase implements GamePhase {
       }
 
       // 手札に追加
-      player.hand.add([card]);
+      handAdd(player.hand, [card]);
       console.log(`${player.name} が ${card.rank}${card.suit} を回収しました（サルベージ）`);
 
       // ログに記録
@@ -1442,7 +1444,7 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      player.hand.sort(shouldReverse);
+      handSort(player.hand, shouldReverse);
     }
   }
 
@@ -1485,7 +1487,7 @@ export class PlayPhase implements GamePhase {
       }
 
       // 手札に追加
-      player.hand.add(selectedCards);
+      handAdd(player.hand, selectedCards);
       console.log(`${player.name} が ${selectedCards.map(c => `${c.rank}${c.suit}`).join(', ')} を回収しました`);
 
       // ログに記録
@@ -1499,7 +1501,7 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      player.hand.sort(shouldReverse);
+      handSort(player.hand, shouldReverse);
     }
   }
 
@@ -1555,7 +1557,7 @@ export class PlayPhase implements GamePhase {
       }
 
       // 次のプレイヤーの手札に追加
-      nextPlayer.hand.add([card]);
+      handAdd(nextPlayer.hand, [card]);
       console.log(`${player.name} が ${card.rank}${card.suit} を ${nextPlayer.name} に渡しました（ゾンビ）`);
 
       // ログに記録
@@ -1569,7 +1571,7 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      nextPlayer.hand.sort(shouldReverse);
+      handSort(nextPlayer.hand, shouldReverse);
     }
   }
 
@@ -1608,7 +1610,7 @@ export class PlayPhase implements GamePhase {
       }
 
       // プレイヤーの手札に追加
-      player.hand.add([card]);
+      handAdd(player.hand, [card]);
       console.log(`${player.name} が ${card.rank}${card.suit} を回収しました（サタン）`);
 
       // ログに記録
@@ -1622,7 +1624,7 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      player.hand.sort(shouldReverse);
+      handSort(player.hand, shouldReverse);
     }
   }
 
@@ -1663,7 +1665,7 @@ export class PlayPhase implements GamePhase {
       }
 
       // プレイヤーの手札に追加
-      player.hand.add(selectedCards);
+      handAdd(player.hand, selectedCards);
       console.log(`${player.name} が ${selectedCards.map(c => `${c.rank}${c.suit}`).join(', ')} を回収しました（栗拾い）`);
 
       // ログに記録
@@ -1677,7 +1679,7 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      player.hand.sort(shouldReverse);
+      handSort(player.hand, shouldReverse);
     }
   }
 
@@ -1693,7 +1695,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 手札から2枚捨てる（手札が2枚未満の場合はスキップ）
-    const handCards = player.hand.getCards();
+    const handCards = handGetCards(player.hand);
     if (handCards.length < 2) {
       console.log('手札が2枚未満のため銀河鉄道999をスキップ');
       return;
@@ -1713,7 +1715,7 @@ export class PlayPhase implements GamePhase {
 
     if (cardsToDiscard.length === 2) {
       // 手札から削除して捨て札に追加
-      player.hand.remove(cardsToDiscard);
+      handRemove(player.hand, cardsToDiscard);
       gameState.discardPile.push(...cardsToDiscard);
       console.log(`${player.name} が ${cardsToDiscard.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
 
@@ -1745,7 +1747,7 @@ export class PlayPhase implements GamePhase {
           }
         }
 
-        player.hand.add(cardsToDraw);
+        handAdd(player.hand, cardsToDraw);
         console.log(`${player.name} が ${cardsToDraw.map(c => `${c.rank}${c.suit}`).join(', ')} を引きました`);
 
         // ログに記録
@@ -1759,7 +1761,7 @@ export class PlayPhase implements GamePhase {
 
         // ソート
         const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-        player.hand.sort(shouldReverse);
+        handSort(player.hand, shouldReverse);
       }
     } else {
       console.log('捨て札が2枚未満のため、引くことができません');
@@ -1795,12 +1797,12 @@ export class PlayPhase implements GamePhase {
 
     if (drawnCards.length > 0) {
       // プレイヤーの手札に追加
-      player.hand.add(drawnCards);
+      handAdd(player.hand, drawnCards);
       console.log(`${player.name} が ${drawnCards.map(c => `${c.rank}${c.suit}`).join(', ')} を引きました（黒7）`);
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      player.hand.sort(shouldReverse);
+      handSort(player.hand, shouldReverse);
     }
   }
 
@@ -1845,7 +1847,7 @@ export class PlayPhase implements GamePhase {
     // 簡易的に先頭から viewCount 人の手札を表示（本来はプレイヤーが選択）
     for (let i = 0; i < viewCount; i++) {
       const targetPlayer = otherPlayers[i];
-      const cards = targetPlayer.hand.getCards();
+      const cards = handGetCards(targetPlayer.hand);
       const cardStrings = cards.map(c => `${c.rank}${c.suit}`).join(', ');
       console.log(`  ${targetPlayer.name} の手札: ${cardStrings}`);
     }
@@ -1870,13 +1872,13 @@ export class PlayPhase implements GamePhase {
       attempts++;
     }
 
-    if (nextPlayer.isFinished || nextPlayer.hand.isEmpty()) {
+    if (nextPlayer.isFinished || handIsEmpty(nextPlayer.hand)) {
       console.log('弱見せ：対象プレイヤーがいないかカードがありません');
       return;
     }
 
     // 最弱カードを取得（革命/11バックを考慮）
-    const cards = nextPlayer.hand.getCards();
+    const cards = handGetCards(nextPlayer.hand);
     let weakestCard = cards[0];
     let weakestStrength = this.getCardStrength(weakestCard.rank, shouldReverse);
 
@@ -1911,13 +1913,13 @@ export class PlayPhase implements GamePhase {
       attempts++;
     }
 
-    if (nextPlayer.isFinished || nextPlayer.hand.isEmpty()) {
+    if (nextPlayer.isFinished || handIsEmpty(nextPlayer.hand)) {
       console.log('強見せ：対象プレイヤーがいないかカードがありません');
       return;
     }
 
     // 最強カードを取得（革命/11バックを考慮）
-    const cards = nextPlayer.hand.getCards();
+    const cards = handGetCards(nextPlayer.hand);
     let strongestCard = cards[0];
     let strongestStrength = this.getCardStrength(strongestCard.rank, shouldReverse);
 
@@ -1963,7 +1965,7 @@ export class PlayPhase implements GamePhase {
       const card = gameState.discardPile.splice(randomIndex, 1)[0];
 
       // プレイヤーの手札に追加
-      p.hand.add([card]);
+      handAdd(p.hand, [card]);
       console.log(`暴君：${p.name} が ${card.rank}${card.suit} を引きました`);
 
       // ログに記録
@@ -1977,7 +1979,7 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      p.hand.sort(shouldReverse);
+      handSort(p.hand, shouldReverse);
     }
   }
 
@@ -1988,7 +1990,7 @@ export class PlayPhase implements GamePhase {
    */
   private async handleResurrection(gameState: GameState, player: Player, fourCount: number): Promise<void> {
     // 場の履歴から直前のプレイを取得（自分が今出したプレイの1つ前）
-    const history = gameState.field.getHistory();
+    const history = gameState.field.history;
     if (history.length < 2) {
       console.log('死者蘇生：直前のプレイがないためスキップ');
       return;
@@ -2015,7 +2017,7 @@ export class PlayPhase implements GamePhase {
     // カードのコピーを作成（元のカードは場に残る）
     // 実際にはカードの参照を渡すだけで、場が流れる時に捨て札に移動される
     // ここでは直接手札に追加する
-    player.hand.add(cardsToRecover);
+    handAdd(player.hand, cardsToRecover);
     console.log(`${player.name} が ${cardsToRecover.map(c => `${c.rank}${c.suit}`).join(', ')} を回収しました（死者蘇生）`);
 
     // ログに記録
@@ -2029,7 +2031,7 @@ export class PlayPhase implements GamePhase {
 
     // ソート
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    player.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
   }
 
   /**
@@ -2055,14 +2057,14 @@ export class PlayPhase implements GamePhase {
     }
 
     // 最強カードを取得して捨てる
-    const discardCount = Math.min(2, targetPlayer.hand.getCards().length);
+    const discardCount = Math.min(2, handGetCards(targetPlayer.hand).length);
     if (discardCount === 0) {
       console.log(`ジャンヌダルク：${targetPlayer.name} は手札がありません`);
       return;
     }
 
     const cardsToDiscard = this.getStrongestCards(targetPlayer, gameState, discardCount);
-    targetPlayer.hand.remove(cardsToDiscard);
+    handRemove(targetPlayer.hand, cardsToDiscard);
     gameState.discardPile.push(...cardsToDiscard);
 
     console.log(`ジャンヌダルク：${targetPlayer.name} が ${cardsToDiscard.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
@@ -2076,7 +2078,7 @@ export class PlayPhase implements GamePhase {
       effectNames: ['ジャンヌダルク'],
     });
 
-    if (targetPlayer.hand.isEmpty()) {
+    if (handIsEmpty(targetPlayer.hand)) {
       this.handlePlayerFinish(gameState, targetPlayer);
     }
   }
@@ -2091,14 +2093,14 @@ export class PlayPhase implements GamePhase {
     for (const targetPlayer of gameState.players) {
       if (targetPlayer.isFinished) continue;
 
-      const discardCount = Math.min(2, targetPlayer.hand.getCards().length);
+      const discardCount = Math.min(2, handGetCards(targetPlayer.hand).length);
       if (discardCount === 0) {
         console.log(`ブラッディメアリ：${targetPlayer.name} は手札がありません`);
         continue;
       }
 
       const cardsToDiscard = this.getStrongestCards(targetPlayer, gameState, discardCount);
-      targetPlayer.hand.remove(cardsToDiscard);
+      handRemove(targetPlayer.hand, cardsToDiscard);
       gameState.discardPile.push(...cardsToDiscard);
 
       console.log(`ブラッディメアリ：${targetPlayer.name} が ${cardsToDiscard.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
@@ -2112,7 +2114,7 @@ export class PlayPhase implements GamePhase {
         effectNames: ['ブラッディメアリ'],
       });
 
-      if (targetPlayer.hand.isEmpty()) {
+      if (handIsEmpty(targetPlayer.hand)) {
         this.handlePlayerFinish(gameState, targetPlayer);
       }
     }
@@ -2124,7 +2126,7 @@ export class PlayPhase implements GamePhase {
    */
   private getStrongestCards(player: Player, gameState: GameState, count: number): Card[] {
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    const cards = [...player.hand.getCards()];
+    const cards = [...handGetCards(player.hand)];
 
     // 強さ順にソート（降順）
     cards.sort((a, b) => {
@@ -2144,7 +2146,7 @@ export class PlayPhase implements GamePhase {
   private async handleKingPastor(gameState: GameState): Promise<void> {
     console.log('キング牧師発動！全員が右隣のプレイヤーにカードを1枚渡します');
 
-    const activePlayers = gameState.players.filter(p => !p.isFinished && p.hand.getCards().length > 0);
+    const activePlayers = gameState.players.filter(p => !p.isFinished && handGetCards(p.hand).length > 0);
 
     if (activePlayers.length < 2) {
       console.log('キング牧師：渡せるプレイヤーが足りないためスキップ');
@@ -2199,8 +2201,8 @@ export class PlayPhase implements GamePhase {
       if (rightNeighbor.isFinished) continue;
 
       // カードを渡す
-      player.hand.remove([cardToPass]);
-      rightNeighbor.hand.add([cardToPass]);
+      handRemove(player.hand, [cardToPass]);
+      handAdd(rightNeighbor.hand, [cardToPass]);
       console.log(`${player.name} が ${rightNeighbor.name} に ${cardToPass.rank}${cardToPass.suit} を渡しました（キング牧師）`);
 
       // ログに記録
@@ -2217,13 +2219,13 @@ export class PlayPhase implements GamePhase {
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
     for (const player of gameState.players) {
       if (!player.isFinished) {
-        player.hand.sort(shouldReverse);
+        handSort(player.hand, shouldReverse);
       }
     }
 
     // 手札が空になったプレイヤーの処理
     for (const player of gameState.players) {
-      if (!player.isFinished && player.hand.isEmpty()) {
+      if (!player.isFinished && handIsEmpty(player.hand)) {
         this.handlePlayerFinish(gameState, player);
       }
     }
@@ -2270,7 +2272,7 @@ export class PlayPhase implements GamePhase {
 
       if (drawnCards.length > 0) {
         // プレイヤーの手札に追加
-        player.hand.add(drawnCards);
+        handAdd(player.hand, drawnCards);
         console.log(`Re:KING：${player.name} が ${drawnCards.map(c => `${c.rank}${c.suit}`).join(', ')} を引きました`);
 
         // ログに記録
@@ -2284,7 +2286,7 @@ export class PlayPhase implements GamePhase {
 
         // ソート
         const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-        player.hand.sort(shouldReverse);
+        handSort(player.hand, shouldReverse);
       }
     }
   }
@@ -2298,11 +2300,11 @@ export class PlayPhase implements GamePhase {
 
     for (const targetPlayer of gameState.players) {
       if (targetPlayer.isFinished) continue;
-      if (targetPlayer.hand.isEmpty()) continue;
+      if (handIsEmpty(targetPlayer.hand)) continue;
 
       const cardsToDiscard = this.getStrongestCards(targetPlayer, gameState, 1);
       if (cardsToDiscard.length > 0) {
-        targetPlayer.hand.remove(cardsToDiscard);
+        handRemove(targetPlayer.hand, cardsToDiscard);
         gameState.discardPile.push(...cardsToDiscard);
         console.log(`DEATH：${targetPlayer.name} が ${cardsToDiscard.map(c => `${c.rank}${c.suit}`).join(', ')} を捨てました`);
 
@@ -2315,7 +2317,7 @@ export class PlayPhase implements GamePhase {
           effectNames: ['DEATH'],
         });
 
-        if (targetPlayer.hand.isEmpty()) {
+        if (handIsEmpty(targetPlayer.hand)) {
           this.handlePlayerFinish(gameState, targetPlayer);
         }
       }
@@ -2339,7 +2341,7 @@ export class PlayPhase implements GamePhase {
       attempts++;
     }
 
-    if (targetPlayer.isFinished || targetPlayer.hand.isEmpty()) {
+    if (targetPlayer.isFinished || handIsEmpty(targetPlayer.hand)) {
       console.log('シーフ：対象プレイヤーがいないか手札がありません');
       return;
     }
@@ -2348,8 +2350,8 @@ export class PlayPhase implements GamePhase {
 
     const cardsToSteal = this.getStrongestCards(targetPlayer, gameState, 1);
     if (cardsToSteal.length > 0) {
-      targetPlayer.hand.remove(cardsToSteal);
-      player.hand.add(cardsToSteal);
+      handRemove(targetPlayer.hand, cardsToSteal);
+      handAdd(player.hand, cardsToSteal);
       console.log(`シーフ：${player.name} が ${targetPlayer.name} から ${cardsToSteal.map(c => `${c.rank}${c.suit}`).join(', ')} を奪いました`);
 
       // ログに記録
@@ -2363,9 +2365,9 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      player.hand.sort(shouldReverse);
+      handSort(player.hand, shouldReverse);
 
-      if (targetPlayer.hand.isEmpty()) {
+      if (handIsEmpty(targetPlayer.hand)) {
         this.handlePlayerFinish(gameState, targetPlayer);
       }
     }
@@ -2378,7 +2380,7 @@ export class PlayPhase implements GamePhase {
    */
   private async handleAceTax(gameState: GameState, player: Player): Promise<void> {
     // 場の履歴から直前のプレイを取得（自分が今出したプレイの1つ前）
-    const history = gameState.field.getHistory();
+    const history = gameState.field.history;
     if (history.length < 2) {
       console.log('A税収：直前のプレイがないためスキップ');
       return;
@@ -2394,7 +2396,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 直前のカードを手札に加える
-    player.hand.add(previousCards);
+    handAdd(player.hand, previousCards);
     console.log(`A税収：${player.name} が ${previousCards.map(c => `${c.rank}${c.suit}`).join(', ')} を手札に加えました`);
 
     // ログに記録
@@ -2408,7 +2410,7 @@ export class PlayPhase implements GamePhase {
 
     // ソート
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    player.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
   }
 
   /**
@@ -2423,12 +2425,12 @@ export class PlayPhase implements GamePhase {
     for (const targetPlayer of gameState.players) {
       // 自分と上がったプレイヤーはスキップ
       if (targetPlayer.id === player.id || targetPlayer.isFinished) continue;
-      if (targetPlayer.hand.isEmpty()) continue;
+      if (handIsEmpty(targetPlayer.hand)) continue;
 
       const cardsToSteal = this.getStrongestCards(targetPlayer, gameState, 1);
       if (cardsToSteal.length > 0) {
-        targetPlayer.hand.remove(cardsToSteal);
-        player.hand.add(cardsToSteal);
+        handRemove(targetPlayer.hand, cardsToSteal);
+        handAdd(player.hand, cardsToSteal);
         console.log(`ネロ：${player.name} が ${targetPlayer.name} から ${cardsToSteal.map(c => `${c.rank}${c.suit}`).join(', ')} を奪いました`);
 
         // ログに記録
@@ -2440,14 +2442,14 @@ export class PlayPhase implements GamePhase {
           effectNames: ['ネロ'],
         });
 
-        if (targetPlayer.hand.isEmpty()) {
+        if (handIsEmpty(targetPlayer.hand)) {
           this.handlePlayerFinish(gameState, targetPlayer);
         }
       }
     }
 
     // ソート
-    player.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
   }
 
   /**
@@ -2475,19 +2477,19 @@ export class PlayPhase implements GamePhase {
     console.log(`王の特権発動！${player.name} と ${leftNeighbor.name} が手札を全交換します`);
 
     // 手札を交換
-    const playerCards = [...player.hand.getCards()];
-    const neighborCards = [...leftNeighbor.hand.getCards()];
+    const playerCards = [...handGetCards(player.hand)];
+    const neighborCards = [...handGetCards(leftNeighbor.hand)];
 
-    player.hand.remove(playerCards);
-    leftNeighbor.hand.remove(neighborCards);
+    handRemove(player.hand, playerCards);
+    handRemove(leftNeighbor.hand, neighborCards);
 
-    player.hand.add(neighborCards);
-    leftNeighbor.hand.add(playerCards);
+    handAdd(player.hand, neighborCards);
+    handAdd(leftNeighbor.hand, playerCards);
 
     // ソート
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    player.hand.sort(shouldReverse);
-    leftNeighbor.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
+    handSort(leftNeighbor.hand, shouldReverse);
 
     console.log(`王の特権：${player.name} は ${neighborCards.length}枚、${leftNeighbor.name} は ${playerCards.length}枚の手札になりました`);
 
@@ -2523,7 +2525,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // ジョーカーを持っているか確認
-    const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
+    const jokers = handGetCards(targetPlayer.hand).filter(c => c.rank === 'JOKER');
     if (jokers.length === 0) {
       console.log(`ジョーカー請求：${targetPlayer.name} はジョーカーを持っていません`);
       return;
@@ -2531,8 +2533,8 @@ export class PlayPhase implements GamePhase {
 
     // ジョーカーを1枚奪う
     const jokerToSteal = jokers[0];
-    targetPlayer.hand.remove([jokerToSteal]);
-    player.hand.add([jokerToSteal]);
+    handRemove(targetPlayer.hand, [jokerToSteal]);
+    handAdd(player.hand, [jokerToSteal]);
     console.log(`ジョーカー請求：${player.name} が ${targetPlayer.name} からジョーカーを奪いました`);
 
     // ログに記録
@@ -2546,7 +2548,7 @@ export class PlayPhase implements GamePhase {
 
     // ソート
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    player.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
   }
 
   /**
@@ -2591,7 +2593,7 @@ export class PlayPhase implements GamePhase {
       }
 
       // 手札に追加
-      player.hand.add(selectedCards);
+      handAdd(player.hand, selectedCards);
       console.log(`${player.name} が ${selectedCards.map(c => `${c.rank}${c.suit}`).join(', ')} を回収しました（Qラブ）`);
 
       // ログに記録
@@ -2605,7 +2607,7 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      player.hand.sort(shouldReverse);
+      handSort(player.hand, shouldReverse);
     }
   }
 
@@ -2622,7 +2624,7 @@ export class PlayPhase implements GamePhase {
 
     // 指名可能なプレイヤー（自分以外でまだ上がっていないプレイヤー）
     const targetPlayers = gameState.players.filter(
-      p => p.id !== player.id && !p.isFinished && !p.hand.isEmpty()
+      p => p.id !== player.id && !p.isFinished && !handIsEmpty(p.hand)
     );
 
     if (targetPlayers.length === 0) {
@@ -2650,7 +2652,7 @@ export class PlayPhase implements GamePhase {
     console.log(`赤い5発動！${player.name} と ${targetPlayer.name} の手札をシャッフルして再配布します`);
 
     // 両者の手札を合わせる
-    const allCards = [...player.hand.getCards(), ...targetPlayer.hand.getCards()];
+    const allCards = [...handGetCards(player.hand), ...handGetCards(targetPlayer.hand)];
 
     // シャッフル
     for (let i = allCards.length - 1; i > 0; i--) {
@@ -2659,24 +2661,24 @@ export class PlayPhase implements GamePhase {
     }
 
     // 同数に再配布（元の枚数を維持）
-    const playerOriginalCount = player.hand.getCards().length;
-    const targetOriginalCount = targetPlayer.hand.getCards().length;
+    const playerOriginalCount = handGetCards(player.hand).length;
+    const targetOriginalCount = handGetCards(targetPlayer.hand).length;
 
     // 手札をクリア
-    player.hand.remove([...player.hand.getCards()]);
-    targetPlayer.hand.remove([...targetPlayer.hand.getCards()]);
+    handRemove(player.hand, [...handGetCards(player.hand)]);
+    handRemove(targetPlayer.hand, [...handGetCards(targetPlayer.hand)]);
 
     // 再配布
     const playerNewCards = allCards.slice(0, playerOriginalCount);
     const targetNewCards = allCards.slice(playerOriginalCount, playerOriginalCount + targetOriginalCount);
 
-    player.hand.add(playerNewCards);
-    targetPlayer.hand.add(targetNewCards);
+    handAdd(player.hand, playerNewCards);
+    handAdd(targetPlayer.hand, targetNewCards);
 
     // ソート
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    player.hand.sort(shouldReverse);
-    targetPlayer.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
+    handSort(targetPlayer.hand, shouldReverse);
 
     console.log(`赤い5：${player.name} は ${playerNewCards.length}枚、${targetPlayer.name} は ${targetNewCards.length}枚の手札になりました`);
 
@@ -2732,9 +2734,9 @@ export class PlayPhase implements GamePhase {
       // 終了したプレイヤーはスキップ
       if (opponent.isFinished) continue;
       // 手札がないプレイヤーはスキップ
-      if (opponent.hand.isEmpty()) continue;
+      if (handIsEmpty(opponent.hand)) continue;
 
-      const opponentCards = [...opponent.hand.getCards()];
+      const opponentCards = [...handGetCards(opponent.hand)];
       console.log(`産業革命：${opponent.name} の手札: ${opponentCards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
 
       // プレイヤーにカードを選ばせる
@@ -2746,8 +2748,8 @@ export class PlayPhase implements GamePhase {
 
       if (selectedCards.length > 0) {
         const card = selectedCards[0];
-        opponent.hand.remove([card]);
-        player.hand.add([card]);
+        handRemove(opponent.hand, [card]);
+        handAdd(player.hand, [card]);
         console.log(`${player.name} が ${opponent.name} から ${card.rank}${card.suit} を奪いました（産業革命）`);
 
         // ログに記録
@@ -2760,8 +2762,8 @@ export class PlayPhase implements GamePhase {
         });
 
         // ソート
-        player.hand.sort(shouldReverse);
-        opponent.hand.sort(shouldReverse);
+        handSort(player.hand, shouldReverse);
+        handSort(opponent.hand, shouldReverse);
       }
     }
   }
@@ -2814,7 +2816,7 @@ export class PlayPhase implements GamePhase {
 
     // 自分以外のアクティブプレイヤーを取得
     const targetPlayers = gameState.players.filter(
-      p => p.id !== player.id && !p.isFinished && p.hand.size() >= 2
+      p => p.id !== player.id && !p.isFinished && handSize(p.hand) >= 2
     );
 
     if (targetPlayers.length === 0) {
@@ -2836,7 +2838,7 @@ export class PlayPhase implements GamePhase {
     console.log(`闇市発動！${player.name} が ${targetPlayer.name} と交換します`);
 
     // 自分の手札から2枚選択
-    const handCards = player.hand.getCards();
+    const handCards = handGetCards(player.hand);
     const cardsToGiveCount = Math.min(2, handCards.length);
 
     if (cardsToGiveCount === 0) {
@@ -2864,15 +2866,15 @@ export class PlayPhase implements GamePhase {
     }
 
     // 相手から最強2枚を取得
-    const cardsToReceiveCount = Math.min(2, targetPlayer.hand.size());
+    const cardsToReceiveCount = Math.min(2, handSize(targetPlayer.hand));
     const cardsToReceive = this.getStrongestCards(targetPlayer, gameState, cardsToReceiveCount);
 
     // 交換実行
-    player.hand.remove(cardsToGive);
-    targetPlayer.hand.remove(cardsToReceive);
+    handRemove(player.hand, cardsToGive);
+    handRemove(targetPlayer.hand, cardsToReceive);
 
-    player.hand.add(cardsToReceive);
-    targetPlayer.hand.add(cardsToGive);
+    handAdd(player.hand, cardsToReceive);
+    handAdd(targetPlayer.hand, cardsToGive);
 
     console.log(`闇市：${player.name} が ${cardsToGive.map(c => `${c.rank}${c.suit}`).join(', ')} を渡し、${cardsToReceive.map(c => `${c.rank}${c.suit}`).join(', ')} を受け取りました`);
 
@@ -2895,11 +2897,11 @@ export class PlayPhase implements GamePhase {
 
     // ソート
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    player.hand.sort(shouldReverse);
-    targetPlayer.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
+    handSort(targetPlayer.hand, shouldReverse);
 
     // 相手の手札が空になったら上がり
-    if (targetPlayer.hand.isEmpty()) {
+    if (handIsEmpty(targetPlayer.hand)) {
       this.handlePlayerFinish(gameState, targetPlayer);
     }
   }
@@ -2917,7 +2919,7 @@ export class PlayPhase implements GamePhase {
 
     // 自分以外のアクティブプレイヤーを取得
     const targetPlayers = gameState.players.filter(
-      p => p.id !== player.id && !p.isFinished && p.hand.size() > 0
+      p => p.id !== player.id && !p.isFinished && handSize(p.hand) > 0
     );
 
     if (targetPlayers.length === 0) {
@@ -2937,7 +2939,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 対象プレイヤーの手札からランダムで1枚選択
-    const targetHand = targetPlayer.hand.getCards();
+    const targetHand = handGetCards(targetPlayer.hand);
     if (targetHand.length === 0) {
       console.log('9賭け：対象プレイヤーの手札がありません');
       return;
@@ -2947,7 +2949,7 @@ export class PlayPhase implements GamePhase {
     const cardToDiscard = targetHand[randomIndex];
 
     // カードを捨てる
-    targetPlayer.hand.remove([cardToDiscard]);
+    handRemove(targetPlayer.hand, [cardToDiscard]);
     gameState.discardPile.push(cardToDiscard);
 
     console.log(`9賭け：${targetPlayer.name} が ${cardToDiscard.rank}${cardToDiscard.suit} を捨てました`);
@@ -2962,7 +2964,7 @@ export class PlayPhase implements GamePhase {
     });
 
     // 手札が空になったら上がり
-    if (targetPlayer.hand.isEmpty()) {
+    if (handIsEmpty(targetPlayer.hand)) {
       this.handlePlayerFinish(gameState, targetPlayer);
     }
   }
@@ -3058,13 +3060,13 @@ export class PlayPhase implements GamePhase {
     console.log(`6もらい：${player.name} が ${targetPlayer.name} に ${rank} を要求`);
 
     // 対象プレイヤーが指定ランクのカードを持っているかチェック
-    const targetCards = targetPlayer.hand.getCards().filter(c => c.rank === rank);
+    const targetCards = handGetCards(targetPlayer.hand).filter(c => c.rank === rank);
 
     if (targetCards.length > 0) {
       // 1枚貰う
       const cardToTake = targetCards[0];
-      targetPlayer.hand.remove([cardToTake]);
-      player.hand.add([cardToTake]);
+      handRemove(targetPlayer.hand, [cardToTake]);
+      handAdd(player.hand, [cardToTake]);
 
       console.log(`6もらい：${player.name} が ${targetPlayer.name} から ${cardToTake.rank}${cardToTake.suit} を貰いました`);
 
@@ -3079,11 +3081,11 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      player.hand.sort(shouldReverse);
-      targetPlayer.hand.sort(shouldReverse);
+      handSort(player.hand, shouldReverse);
+      handSort(targetPlayer.hand, shouldReverse);
 
       // 対象プレイヤーの手札が空になったら上がり
-      if (targetPlayer.hand.isEmpty()) {
+      if (handIsEmpty(targetPlayer.hand)) {
         this.handlePlayerFinish(gameState, targetPlayer);
       }
     } else {
@@ -3122,13 +3124,13 @@ export class PlayPhase implements GamePhase {
     console.log(`9もらい：${player.name} が ${targetPlayer.name} に ${rank} を要求`);
 
     // 対象プレイヤーが指定ランクのカードを持っているかチェック
-    const targetCards = targetPlayer.hand.getCards().filter(c => c.rank === rank);
+    const targetCards = handGetCards(targetPlayer.hand).filter(c => c.rank === rank);
 
     if (targetCards.length > 0) {
       // 1枚貰う
       const cardToTake = targetCards[0];
-      targetPlayer.hand.remove([cardToTake]);
-      player.hand.add([cardToTake]);
+      handRemove(targetPlayer.hand, [cardToTake]);
+      handAdd(player.hand, [cardToTake]);
 
       console.log(`9もらい：${player.name} が ${targetPlayer.name} から ${cardToTake.rank}${cardToTake.suit} を貰いました`);
 
@@ -3143,11 +3145,11 @@ export class PlayPhase implements GamePhase {
 
       // ソート
       const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-      player.hand.sort(shouldReverse);
-      targetPlayer.hand.sort(shouldReverse);
+      handSort(player.hand, shouldReverse);
+      handSort(targetPlayer.hand, shouldReverse);
 
       // 対象プレイヤーの手札が空になったら上がり
-      if (targetPlayer.hand.isEmpty()) {
+      if (handIsEmpty(targetPlayer.hand)) {
         this.handlePlayerFinish(gameState, targetPlayer);
       }
     } else {
@@ -3192,7 +3194,7 @@ export class PlayPhase implements GamePhase {
 
     // まだ終了していないプレイヤーを手札枚数でソート（少ない順）
     const activePlayers = gameState.players.filter(p => !p.isFinished);
-    const sortedPlayers = [...activePlayers].sort((a, b) => a.hand.size() - b.hand.size());
+    const sortedPlayers = [...activePlayers].sort((a, b) => handSize(a.hand) - handSize(b.hand));
 
     // 順位を割り当て
     const finishedCount = gameState.players.filter(p => p.isFinished).length;
@@ -3200,7 +3202,7 @@ export class PlayPhase implements GamePhase {
       const player = sortedPlayers[i];
       player.isFinished = true;
       player.finishPosition = finishedCount + i + 1;
-      console.log(`テレフォース終了：${player.name} は ${player.finishPosition}位（手札${player.hand.size()}枚）`);
+      console.log(`テレフォース終了：${player.name} は ${player.finishPosition}位（手札${handSize(player.hand)}枚）`);
       this.rankAssignmentService.assignRank(gameState, player);
     }
   }
@@ -3238,10 +3240,10 @@ export class PlayPhase implements GamePhase {
       if (targetPlayer.id === player.id || targetPlayer.isFinished) continue;
 
       // ジョーカーを全て奪う
-      const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
+      const jokers = handGetCards(targetPlayer.hand).filter(c => c.rank === 'JOKER');
       if (jokers.length > 0) {
-        targetPlayer.hand.remove(jokers);
-        player.hand.add(jokers);
+        handRemove(targetPlayer.hand, jokers);
+        handAdd(player.hand, jokers);
         console.log(`十字軍：${player.name} が ${targetPlayer.name} から ${jokers.length}枚のジョーカーを奪いました`);
 
         // ログに記録
@@ -3253,14 +3255,14 @@ export class PlayPhase implements GamePhase {
           effectNames: ['十字軍'],
         });
 
-        if (targetPlayer.hand.isEmpty()) {
+        if (handIsEmpty(targetPlayer.hand)) {
           this.handlePlayerFinish(gameState, targetPlayer);
         }
       }
     }
 
     // ソート
-    player.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
   }
 
   /**
@@ -3278,11 +3280,11 @@ export class PlayPhase implements GamePhase {
       if (targetPlayer.id === player.id || targetPlayer.isFinished) continue;
 
       // ジョーカーを1枚奪う
-      const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
+      const jokers = handGetCards(targetPlayer.hand).filter(c => c.rank === 'JOKER');
       if (jokers.length > 0) {
         const jokerToSteal = [jokers[0]];
-        targetPlayer.hand.remove(jokerToSteal);
-        player.hand.add(jokerToSteal);
+        handRemove(targetPlayer.hand, jokerToSteal);
+        handAdd(player.hand, jokerToSteal);
         console.log(`オークション：${player.name} が ${targetPlayer.name} からジョーカーを1枚奪いました`);
 
         // ログに記録
@@ -3294,7 +3296,7 @@ export class PlayPhase implements GamePhase {
           effectNames: ['オークション'],
         });
 
-        if (targetPlayer.hand.isEmpty()) {
+        if (handIsEmpty(targetPlayer.hand)) {
           this.handlePlayerFinish(gameState, targetPlayer);
         }
 
@@ -3304,7 +3306,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // ソート
-    player.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
   }
 
   /**
@@ -3319,7 +3321,7 @@ export class PlayPhase implements GamePhase {
     if (gameState.partialLockSuits) return;
 
     // 場に履歴がなければ発動しない（最初の出し）
-    const history = gameState.field.getHistory();
+    const history = gameState.field.history;
     if (history.length === 0) return;
 
     // 前回のプレイを取得
@@ -3356,7 +3358,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 手札がなければスキップ
-    if (player.hand.isEmpty()) {
+    if (handIsEmpty(player.hand)) {
       console.log('矢切の渡し：手札がないためスキップ');
       return;
     }
@@ -3407,8 +3409,8 @@ export class PlayPhase implements GamePhase {
     const card = cardsToPass[0];
 
     // カードを渡す
-    player.hand.remove([card]);
-    targetPlayer.hand.add([card]);
+    handRemove(player.hand, [card]);
+    handAdd(targetPlayer.hand, [card]);
     console.log(`矢切の渡し：${player.name} が ${targetPlayer.name} に ${card.rank}${card.suit} を渡しました`);
 
     // ログに記録
@@ -3422,10 +3424,10 @@ export class PlayPhase implements GamePhase {
 
     // ソート
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    targetPlayer.hand.sort(shouldReverse);
+    handSort(targetPlayer.hand, shouldReverse);
 
     // 自分の手札が空になったら上がり
-    if (player.hand.isEmpty()) {
+    if (handIsEmpty(player.hand)) {
       this.handlePlayerFinish(gameState, player);
     }
   }
@@ -3436,9 +3438,9 @@ export class PlayPhase implements GamePhase {
    */
   private async handleSupplyAid(gameState: GameState, player: Player): Promise<void> {
     // 場のカードを全て手札に加える
-    const history = gameState.field.getHistory();
+    const history = gameState.field.history;
     for (const playHistory of history) {
-      player.hand.add(playHistory.play.cards);
+      handAdd(player.hand, playHistory.play.cards);
     }
     console.log(`${player.name} が物資救援で場のカードを全て回収しました！`);
 
@@ -3453,7 +3455,7 @@ export class PlayPhase implements GamePhase {
     });
 
     // 場をクリア（捨て札には行かない）
-    gameState.field.clear();
+    fieldClear(gameState.field);
     gameState.passCount = 0;
     gameState.isEightCutPending = false;
     gameState.suitLock = null;
@@ -3470,7 +3472,7 @@ export class PlayPhase implements GamePhase {
 
     // 親になる（currentPlayerIndexはそのまま）
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    player.hand.sort(shouldReverse);
+    handSort(player.hand, shouldReverse);
 
     // 使用済みフラグを設定
     gameState.supplyAidUsed = true;
@@ -3482,11 +3484,11 @@ export class PlayPhase implements GamePhase {
    */
   private async handleScavenging(gameState: GameState, daihinminPlayer: Player): Promise<void> {
     // 直前のプレイ（大富豪が出したカード）を取得
-    const lastPlay = gameState.field.getLastPlay();
+    const lastPlay = fieldGetLastPlay(gameState.field);
     if (!lastPlay) return;
 
     // 直前のカードを手札に加える
-    daihinminPlayer.hand.add(lastPlay.play.cards);
+    handAdd(daihinminPlayer.hand, lastPlay.play.cards);
     console.log(`${daihinminPlayer.name} が拾い食いで${lastPlay.play.cards.map(c => `${c.rank}${c.suit}`).join(', ')}を拾いました！`);
 
     // ログに記録
@@ -3499,10 +3501,10 @@ export class PlayPhase implements GamePhase {
     });
 
     // 場から直前のプレイを削除
-    gameState.field.removeLastPlay();
+    fieldRemoveLastPlay(gameState.field);
 
     const shouldReverse = gameState.isRevolution !== gameState.isElevenBack;
-    daihinminPlayer.hand.sort(shouldReverse);
+    handSort(daihinminPlayer.hand, shouldReverse);
 
     // 使用済みフラグを設定
     gameState.scavengingUsed = true;
@@ -3516,7 +3518,7 @@ export class PlayPhase implements GamePhase {
     console.log('カルテル発動！大富豪以外のプレイヤーの手札を表示します：');
     for (const p of gameState.players) {
       if (p.rank !== PlayerRank.DAIFUGO && !p.isFinished) {
-        const cards = p.hand.getCards();
+        const cards = handGetCards(p.hand);
         console.log(`  ${p.name}: ${cards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
       }
     }
@@ -3552,10 +3554,10 @@ export class PlayPhase implements GamePhase {
    */
   private checkDokanCondition(gameState: GameState, player: Player): boolean {
     // 場にカードがなければ発動しない
-    if (gameState.field.isEmpty()) return false;
+    if (fieldIsEmpty(gameState.field)) return false;
 
     // 場のカード合計を計算
-    const fieldHistory = gameState.field.getHistory();
+    const fieldHistory = gameState.field.history;
     let fieldSum = 0;
     for (const history of fieldHistory) {
       for (const card of history.play.cards) {
@@ -3564,7 +3566,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 手札合計を計算
-    const handCards = player.hand.getCards();
+    const handCards = handGetCards(player.hand);
     let handSum = 0;
     for (const card of handCards) {
       handSum += this.getCardValue(card);
@@ -3610,7 +3612,7 @@ export class PlayPhase implements GamePhase {
       if (targetPlayer.id === player.id || targetPlayer.isFinished) continue;
 
       // ジョーカーを持っているか確認
-      const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
+      const jokers = handGetCards(targetPlayer.hand).filter(c => c.rank === 'JOKER');
       if (jokers.length > 0) {
         console.log(`ババ落ち：${targetPlayer.name} はジョーカーを持っているため敗北！`);
 
@@ -3641,10 +3643,10 @@ export class PlayPhase implements GamePhase {
     if (!gameState.ruleSettings.guerrilla) return [];
 
     // 場のカードと同じランクのカードを手札から取得
-    const matchingCards = player.hand.getCards().filter(c => c.rank === fieldRank);
+    const matchingCards = handGetCards(player.hand).filter(c => c.rank === fieldRank);
 
     // 場のカードの枚数（現在の場のプレイ）
-    const currentPlay = gameState.field.getCurrentPlay();
+    const currentPlay = gameState.field.currentPlay;
     if (!currentPlay) return [];
 
     const fieldCardCount = currentPlay.cards.length;
@@ -3656,7 +3658,7 @@ export class PlayPhase implements GamePhase {
     console.log(`ゲリラ兵発動！${player.name} は ${fieldRank} を ${matchingCards.length} 枚持っています（場は ${fieldCardCount} 枚）`);
 
     // 手札から削除して捨て札に送る
-    player.hand.remove(matchingCards);
+    handRemove(player.hand, matchingCards);
     gameState.discardPile.push(...matchingCards);
 
     console.log(`  ${matchingCards.map(c => `${c.rank}${c.suit}`).join(', ')} を捨て札に送りました`);
@@ -3684,17 +3686,17 @@ export class PlayPhase implements GamePhase {
     if (!gameState.ruleSettings.catapult) return [];
 
     // 場のカードと同じランクのカードを手札から取得
-    const matchingCards = player.hand.getCards().filter(c => c.rank === fieldRank);
+    const matchingCards = handGetCards(player.hand).filter(c => c.rank === fieldRank);
     if (matchingCards.length === 0) return [];
 
     // プレイヤーにどのカードを追加するか選択させる（簡易実装：自動で全て追加）
     console.log(`カタパルト発動！${player.name} は ${fieldRank} を ${matchingCards.length} 枚追加できます`);
 
     // 手札から削除して場のカードに追加
-    player.hand.remove(matchingCards);
+    handRemove(player.hand, matchingCards);
 
     // 場のカードの枚数を計算
-    const currentPlay = gameState.field.getCurrentPlay();
+    const currentPlay = gameState.field.currentPlay;
     if (!currentPlay) return [];
 
     const totalCards = currentPlay.cards.length + matchingCards.length;
@@ -3746,7 +3748,7 @@ export class PlayPhase implements GamePhase {
     for (const player of gameState.players) {
       if (player.isFinished) continue;
 
-      const spadeCard = player.hand.getCards().find(
+      const spadeCard = handGetCards(player.hand).find(
         c => c.suit === Suit.SPADE && c.rank === fieldRank
       );
 
@@ -3754,7 +3756,7 @@ export class PlayPhase implements GamePhase {
         console.log(`スペード返し発動！${player.name} が ♠${fieldRank} で ${triggeredEffect} をキャンセル！`);
 
         // 手札から削除して捨て札に送る
-        player.hand.remove([spadeCard]);
+        handRemove(player.hand, [spadeCard]);
         gameState.discardPile.push(spadeCard);
 
         await this.presentationRequester.requestCutIns([{ effect: 'スペード返し', variant: 'blue' }]);
@@ -3830,7 +3832,7 @@ export class PlayPhase implements GamePhase {
     console.log(`バナナアイス発動！${player.name} が同色6枚の階段を宣言！`);
 
     // 手札から削除して捨て札に送る
-    player.hand.remove(cards);
+    handRemove(player.hand, cards);
     gameState.discardPile.push(...cards);
 
     console.log(`  ${cards.map(c => `${c.rank}${c.suit}`).join(', ')} を捨て札に送りました`);

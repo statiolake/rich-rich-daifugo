@@ -7,6 +7,7 @@ import {
   calculateFieldPosition,
 } from '../utils/cardPositionCalculator';
 import { useGameStore } from './gameStore';
+import { handGetCards, handSize } from '../../core/domain/card/Hand';
 
 // カード位置の状態
 export interface CardPosition {
@@ -71,7 +72,7 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
 
     // 1. 手札のカードを収集
     gameState.players.forEach((player, playerIndex) => {
-      player.hand.getCards().forEach((card, cardIndex) => {
+      handGetCards(player.hand).forEach((card, cardIndex) => {
         handCardIds.add(card.id);
         cardToHandInfo.set(card.id, {
           playerIndex,
@@ -83,7 +84,7 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
     });
 
     // 2. 場のカードを収集
-    gameState.field.getHistory().forEach((playHistory, playIndex) => {
+    gameState.field.history.forEach((playHistory, playIndex) => {
       const totalCardsInPlay = playHistory.play.cards.length;
       playHistory.play.cards.forEach((card, cardIndex) => {
         fieldCardIds.add(card.id);
@@ -111,7 +112,7 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
             : info.playerIndex;  // ローカルより後のプレイヤーはそのまま
 
         const targetPos = info.isLocalPlayer
-          ? calculateHumanHandPosition(info.cardIndex, gameState.players[info.playerIndex].hand.size())
+          ? calculateHumanHandPosition(info.cardIndex, handSize(gameState.players[info.playerIndex].hand))
           : calculateCPUHandPosition(adjustedPlayerIndex, info.cardIndex, gameState.players.length);
 
         const locationChanged = pos.location !== 'hand' || pos.ownerId !== info.playerId;

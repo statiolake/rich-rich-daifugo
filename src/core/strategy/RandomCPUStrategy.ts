@@ -1,8 +1,9 @@
 import { Card, CardFactory, Suit, Rank } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
-import { FieldClass as Field } from '../domain/game/Field';
+import { Field, fieldIsEmpty } from '../domain/game/Field';
 import { GameState } from '../domain/game/GameState';
 import { PlayerStrategy, PlayDecision, CardValidator, CardSelectionContext } from './PlayerStrategy';
+import { handGetCards, handFindAllValidPlays, handFindPlayableCombinations } from '../domain/card/Hand';
 import type { IValidationEngine } from '../domain/card/Hand';
 
 export class RandomCPUStrategy implements PlayerStrategy {
@@ -20,9 +21,9 @@ export class RandomCPUStrategy implements PlayerStrategy {
     // 出せるカードの組み合わせを取得
     let playableCards: Card[][];
     if (this.ruleEngine) {
-      playableCards = player.hand.findAllValidPlays(player, field, gameState, this.ruleEngine);
+      playableCards = handFindAllValidPlays(player.hand, player, field, gameState, this.ruleEngine);
     } else {
-      const playablePlays = player.hand.findPlayableCombinations(field, gameState.isRevolution);
+      const playablePlays = handFindPlayableCombinations(player.hand, field, gameState.isRevolution);
       playableCards = playablePlays.map(play => play.cards);
     }
 
@@ -32,7 +33,7 @@ export class RandomCPUStrategy implements PlayerStrategy {
     }
 
     // 場にカードがある場合、50%の確率でパス
-    if (!field.isEmpty() && Math.random() < 0.5) {
+    if (!fieldIsEmpty(field) && Math.random() < 0.5) {
       return { type: 'PASS' };
     }
 
@@ -43,7 +44,7 @@ export class RandomCPUStrategy implements PlayerStrategy {
 
   async decideExchangeCards(player: Player, count: number): Promise<Card[]> {
     // 手札の最初のN枚を返す（シンプルな実装）
-    const cards = player.hand.getCards();
+    const cards = handGetCards(player.hand);
     return cards.slice(0, count) as Card[];
   }
 
@@ -52,7 +53,7 @@ export class RandomCPUStrategy implements PlayerStrategy {
     validator: CardValidator,
     context?: CardSelectionContext
   ): Promise<Card[]> {
-    const handCards = player.hand.getCards();
+    const handCards = handGetCards(player.hand);
 
     // validatorを満たすカードの組み合わせを探す
     // 1枚選択から試す

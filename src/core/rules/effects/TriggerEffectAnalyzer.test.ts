@@ -4,7 +4,7 @@ import { PlayAnalyzer, PlayType, Play } from '../../domain/card/Play';
 import { CardFactory, Suit } from '../../domain/card/Card';
 import { GameState, GamePhaseType } from '../../domain/game/GameState';
 import { createPlayer, PlayerType } from '../../domain/player/Player';
-import { FieldClass as Field } from '../../domain/game/Field';
+import { createField, fieldAddPlay } from '../../domain/game/Field';
 import { DEFAULT_RULE_SETTINGS } from '../../domain/game/RuleSettings';
 
 describe('TriggerEffectAnalyzer', () => {
@@ -16,7 +16,7 @@ describe('TriggerEffectAnalyzer', () => {
         createPlayer('1', 'Player1', PlayerType.CPU),
       ],
       currentPlayerIndex: 0,
-      field: new Field(),
+      field: createField(),
       discardPile: [],
       phase: GamePhaseType.PLAY,
       isRevolution: false,
@@ -450,7 +450,7 @@ describe('TriggerEffectAnalyzer', () => {
   });
 
   describe('マークしばり', () => {
-    // 注意: analyze() は field.addPlay() の前に呼ばれる想定。
+    // 注意: analyze() は fieldAddPlay(field,) の前に呼ばれる想定。
     // 今回のプレイは play 引数で渡され、前回のプレイが field に入っている状態。
 
     it('場が空の時に1枚出してもマークしばりは発動しない', () => {
@@ -471,9 +471,9 @@ describe('TriggerEffectAnalyzer', () => {
       const play = PlayAnalyzer.analyze(cards)!;
 
       // 場に前回のプレイ（スペード）がある状態を作成
-      const field = new Field();
+      const field = createField();
       const prevPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, 'Q')])!;
-      field.addPlay(prevPlay, { value: 'player1' } as any);
+      fieldAddPlay(field,prevPlay, { value: 'player1' } as any);
 
       const gameState = createMockGameState({
         ruleSettings: { ...DEFAULT_RULE_SETTINGS, suitLock: true },
@@ -490,9 +490,9 @@ describe('TriggerEffectAnalyzer', () => {
       const play = PlayAnalyzer.analyze(cards)!;
 
       // 場に前回のプレイ（スペード）がある状態を作成
-      const field = new Field();
+      const field = createField();
       const prevPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, 'Q')])!;
-      field.addPlay(prevPlay, { value: 'player1' } as any);
+      fieldAddPlay(field,prevPlay, { value: 'player1' } as any);
 
       const gameState = createMockGameState({
         ruleSettings: { ...DEFAULT_RULE_SETTINGS, suitLock: true },
@@ -509,9 +509,9 @@ describe('TriggerEffectAnalyzer', () => {
       const play = PlayAnalyzer.analyze(cards)!;
 
       // 場に前回のプレイ（スペード）がある状態を作成
-      const field = new Field();
+      const field = createField();
       const prevPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, 'Q')])!;
-      field.addPlay(prevPlay, { value: 'player1' } as any);
+      fieldAddPlay(field,prevPlay, { value: 'player1' } as any);
 
       const gameState = createMockGameState({
         ruleSettings: { ...DEFAULT_RULE_SETTINGS, suitLock: true },
@@ -526,7 +526,7 @@ describe('TriggerEffectAnalyzer', () => {
   });
 
   describe('数字しばり', () => {
-    // 注意: analyze() は field.addPlay() の前に呼ばれる想定。
+    // 注意: analyze() は fieldAddPlay(field,) の前に呼ばれる想定。
     // 今回のプレイは play 引数で渡され、前回のプレイが field に入っている状態。
 
     it('場が空の時に階段を出しても数字しばりは発動しない', () => {
@@ -555,13 +555,13 @@ describe('TriggerEffectAnalyzer', () => {
       const play = PlayAnalyzer.analyze(cards)!;
 
       // 場に前回のプレイ（階段）がある状態を作成
-      const field = new Field();
+      const field = createField();
       const prevPlay = PlayAnalyzer.analyze([
         CardFactory.create(Suit.HEART, '5'),
         CardFactory.create(Suit.HEART, '6'),
         CardFactory.create(Suit.HEART, '7'),
       ])!;
-      field.addPlay(prevPlay, { value: 'player1' } as any);
+      fieldAddPlay(field,prevPlay, { value: 'player1' } as any);
 
       const gameState = createMockGameState({
         ruleSettings: { ...DEFAULT_RULE_SETTINGS, numberLock: true, stairs: true },
@@ -582,13 +582,13 @@ describe('TriggerEffectAnalyzer', () => {
       const play = PlayAnalyzer.analyze(cards)!;
 
       // 場に前回のプレイ（階段）がある状態を作成
-      const field = new Field();
+      const field = createField();
       const prevPlay = PlayAnalyzer.analyze([
         CardFactory.create(Suit.HEART, '5'),
         CardFactory.create(Suit.HEART, '6'),
         CardFactory.create(Suit.HEART, '7'),
       ])!;
-      field.addPlay(prevPlay, { value: 'player1' } as any);
+      fieldAddPlay(field,prevPlay, { value: 'player1' } as any);
 
       const gameState = createMockGameState({
         ruleSettings: { ...DEFAULT_RULE_SETTINGS, numberLock: true, stairs: true },
@@ -608,9 +608,9 @@ describe('TriggerEffectAnalyzer', () => {
       const play = PlayAnalyzer.analyze(cards)!;
 
       // 場に8を置く
-      const field = new Field();
+      const field = createField();
       const eightPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, '8')])!;
-      field.addPlay(eightPlay, { value: 'player1' } as any);
+      fieldAddPlay(field,eightPlay, { value: 'player1' } as any);
 
       const gameState = createMockGameState({
         ruleSettings: { ...DEFAULT_RULE_SETTINGS, tenCounter: true },
@@ -628,9 +628,9 @@ describe('TriggerEffectAnalyzer', () => {
       const play = PlayAnalyzer.analyze(cards)!;
 
       // 場にスペードの8を置く
-      const field = new Field();
+      const field = createField();
       const eightPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, '8')])!;
-      field.addPlay(eightPlay, { value: 'player1' } as any);
+      fieldAddPlay(field,eightPlay, { value: 'player1' } as any);
 
       const gameState = createMockGameState({
         ruleSettings: { ...DEFAULT_RULE_SETTINGS, tenCounter: true },
@@ -648,9 +648,9 @@ describe('TriggerEffectAnalyzer', () => {
       const play = PlayAnalyzer.analyze(cards)!;
 
       // 場に8を置く
-      const field = new Field();
+      const field = createField();
       const eightPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, '8')])!;
-      field.addPlay(eightPlay, { value: 'player1' } as any);
+      fieldAddPlay(field,eightPlay, { value: 'player1' } as any);
 
       const gameState = createMockGameState({
         ruleSettings: { ...DEFAULT_RULE_SETTINGS, tenCounter: true },
@@ -668,9 +668,9 @@ describe('TriggerEffectAnalyzer', () => {
       const play = PlayAnalyzer.analyze(cards)!;
 
       // 場に8を置く
-      const field = new Field();
+      const field = createField();
       const eightPlay = PlayAnalyzer.analyze([CardFactory.create(Suit.SPADE, '8')])!;
-      field.addPlay(eightPlay, { value: 'player1' } as any);
+      fieldAddPlay(field,eightPlay, { value: 'player1' } as any);
 
       const gameState = createMockGameState({
         ruleSettings: { ...DEFAULT_RULE_SETTINGS, tenCounter: false },
@@ -866,14 +866,14 @@ describe('TriggerEffectAnalyzer', () => {
 
   describe('融合革命', () => {
     it('場のペアに同ランクのペアを追加して4枚で融合革命が発動', () => {
-      const field = new Field();
+      const field = createField();
       // 場に3のペアを出す
       const fieldCards = [
         CardFactory.create(Suit.SPADE, '3'),
         CardFactory.create(Suit.HEART, '3'),
       ];
       const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
-      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+      fieldAddPlay(field,fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
 
       // 手札から3のペアを出す
       const handCards = [
@@ -892,11 +892,11 @@ describe('TriggerEffectAnalyzer', () => {
     });
 
     it('場のシングルに3枚を追加して4枚で融合革命が発動', () => {
-      const field = new Field();
+      const field = createField();
       // 場に3のシングルを出す
       const fieldCards = [CardFactory.create(Suit.SPADE, '5')];
       const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
-      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+      fieldAddPlay(field,fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
 
       // 手札から5のトリプルを出す
       const handCards = [
@@ -916,14 +916,14 @@ describe('TriggerEffectAnalyzer', () => {
     });
 
     it('異なるランクでは融合革命が発動しない', () => {
-      const field = new Field();
+      const field = createField();
       // 場に3のペアを出す
       const fieldCards = [
         CardFactory.create(Suit.SPADE, '3'),
         CardFactory.create(Suit.HEART, '3'),
       ];
       const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
-      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+      fieldAddPlay(field,fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
 
       // 手札から5のペアを出す（ランクが違う）
       const handCards = [
@@ -942,11 +942,11 @@ describe('TriggerEffectAnalyzer', () => {
     });
 
     it('合計3枚では融合革命が発動しない', () => {
-      const field = new Field();
+      const field = createField();
       // 場に3のシングルを出す
       const fieldCards = [CardFactory.create(Suit.SPADE, '3')];
       const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
-      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+      fieldAddPlay(field,fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
 
       // 手札から3のペアを出す（合計3枚）
       const handCards = [
@@ -965,13 +965,13 @@ describe('TriggerEffectAnalyzer', () => {
     });
 
     it('fusionRevolutionルールがOFFの場合は発動しない', () => {
-      const field = new Field();
+      const field = createField();
       const fieldCards = [
         CardFactory.create(Suit.SPADE, '3'),
         CardFactory.create(Suit.HEART, '3'),
       ];
       const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
-      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+      fieldAddPlay(field,fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
 
       const handCards = [
         CardFactory.create(Suit.DIAMOND, '3'),
@@ -991,14 +991,14 @@ describe('TriggerEffectAnalyzer', () => {
 
   describe('追革', () => {
     it('場のペアと同ランクのペアで追革が発動', () => {
-      const field = new Field();
+      const field = createField();
       // 場に5のペアを出す
       const fieldCards = [
         CardFactory.create(Suit.SPADE, '5'),
         CardFactory.create(Suit.HEART, '5'),
       ];
       const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
-      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+      fieldAddPlay(field,fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
 
       // 手札から5のペアを出す
       const handCards = [
@@ -1017,7 +1017,7 @@ describe('TriggerEffectAnalyzer', () => {
     });
 
     it('場がペアでない場合は追革が発動しない', () => {
-      const field = new Field();
+      const field = createField();
       // 場に5のトリプルを出す
       const fieldCards = [
         CardFactory.create(Suit.SPADE, '5'),
@@ -1025,7 +1025,7 @@ describe('TriggerEffectAnalyzer', () => {
         CardFactory.create(Suit.DIAMOND, '5'),
       ];
       const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
-      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+      fieldAddPlay(field,fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
 
       // 手札から5のペアを出す
       const handCards = [
@@ -1044,14 +1044,14 @@ describe('TriggerEffectAnalyzer', () => {
     });
 
     it('異なるランクでは追革が発動しない', () => {
-      const field = new Field();
+      const field = createField();
       // 場に5のペアを出す
       const fieldCards = [
         CardFactory.create(Suit.SPADE, '5'),
         CardFactory.create(Suit.HEART, '5'),
       ];
       const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
-      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+      fieldAddPlay(field,fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
 
       // 手札から7のペアを出す（ランクが違う）
       const handCards = [
@@ -1070,13 +1070,13 @@ describe('TriggerEffectAnalyzer', () => {
     });
 
     it('tsuiKakuルールがOFFの場合は発動しない', () => {
-      const field = new Field();
+      const field = createField();
       const fieldCards = [
         CardFactory.create(Suit.SPADE, '5'),
         CardFactory.create(Suit.HEART, '5'),
       ];
       const fieldPlay = PlayAnalyzer.analyze(fieldCards)!;
-      field.addPlay(fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
+      fieldAddPlay(field,fieldPlay, createPlayer('1', 'Player1', PlayerType.CPU).id);
 
       const handCards = [
         CardFactory.create(Suit.DIAMOND, '5'),
