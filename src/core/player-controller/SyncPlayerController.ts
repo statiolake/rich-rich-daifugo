@@ -10,6 +10,7 @@ import { Card } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
 import { PlayerController, Validator } from '../domain/player/PlayerController';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
+import type { PlayerActionEvent } from '../domain/player/CoreAction';
 
 export class SyncPlayerController implements PlayerController {
   constructor(
@@ -21,13 +22,10 @@ export class SyncPlayerController implements PlayerController {
   async chooseCardsInHand(validator: Validator, prompt?: string): Promise<Card[]> {
     const selectedCards = await this.delegate.chooseCardsInHand(validator, prompt);
 
-    this.eventBus.emit('player:action', {
-      playerId: this.playerId,
-      action: {
-        type: 'CARD_SELECTION',
-        cardIds: selectedCards.map(c => c.id),
-        isPass: selectedCards.length === 0,
-      },
+    this.emitAction({
+      type: 'CARD_SELECTION',
+      cardIds: selectedCards.map(c => c.id),
+      isPass: selectedCards.length === 0,
     });
 
     return selectedCards;
@@ -36,10 +34,7 @@ export class SyncPlayerController implements PlayerController {
   async chooseRankForQueenBomber(): Promise<string> {
     const rank = await this.delegate.chooseRankForQueenBomber();
 
-    this.eventBus.emit('player:action', {
-      playerId: this.playerId,
-      action: { type: 'RANK_SELECTION', rank },
-    });
+    this.emitAction({ type: 'RANK_SELECTION', rank });
 
     return rank;
   }
@@ -47,13 +42,10 @@ export class SyncPlayerController implements PlayerController {
   async chooseCardsFromDiscard(discardPile: Card[], maxCount: number, prompt: string): Promise<Card[]> {
     const selectedCards = await this.delegate.chooseCardsFromDiscard(discardPile, maxCount, prompt);
 
-    this.eventBus.emit('player:action', {
-      playerId: this.playerId,
-      action: {
-        type: 'CARD_SELECTION',
-        cardIds: selectedCards.map(c => c.id),
-        isPass: selectedCards.length === 0,
-      },
+    this.emitAction({
+      type: 'CARD_SELECTION',
+      cardIds: selectedCards.map(c => c.id),
+      isPass: selectedCards.length === 0,
     });
 
     return selectedCards;
@@ -62,12 +54,9 @@ export class SyncPlayerController implements PlayerController {
   async chooseCardsForExchange(handCards: Card[], exactCount: number, prompt: string): Promise<Card[]> {
     const selectedCards = await this.delegate.chooseCardsForExchange(handCards, exactCount, prompt);
 
-    this.eventBus.emit('player:action', {
-      playerId: this.playerId,
-      action: {
-        type: 'CARD_EXCHANGE',
-        cardIds: selectedCards.map(c => c.id),
-      },
+    this.emitAction({
+      type: 'CARD_EXCHANGE',
+      cardIds: selectedCards.map(c => c.id),
     });
 
     return selectedCards;
@@ -80,12 +69,9 @@ export class SyncPlayerController implements PlayerController {
   ): Promise<string> {
     const targetPlayerId = await this.delegate.choosePlayerForBlackMarket(playerIds, playerNames, prompt);
 
-    this.eventBus.emit('player:action', {
-      playerId: this.playerId,
-      action: {
-        type: 'PLAYER_SELECTION',
-        targetPlayerId,
-      },
+    this.emitAction({
+      type: 'PLAYER_SELECTION',
+      targetPlayerId,
     });
 
     return targetPlayerId;
@@ -94,13 +80,10 @@ export class SyncPlayerController implements PlayerController {
   async chooseCardsFromOpponentHand(cards: Card[], maxCount: number, prompt: string): Promise<Card[]> {
     const selectedCards = await this.delegate.chooseCardsFromOpponentHand(cards, maxCount, prompt);
 
-    this.eventBus.emit('player:action', {
-      playerId: this.playerId,
-      action: {
-        type: 'CARD_SELECTION',
-        cardIds: selectedCards.map(c => c.id),
-        isPass: selectedCards.length === 0,
-      },
+    this.emitAction({
+      type: 'CARD_SELECTION',
+      cardIds: selectedCards.map(c => c.id),
+      isPass: selectedCards.length === 0,
     });
 
     return selectedCards;
@@ -109,12 +92,9 @@ export class SyncPlayerController implements PlayerController {
   async choosePlayer(players: Player[], prompt: string): Promise<Player | null> {
     const selectedPlayer = await this.delegate.choosePlayer(players, prompt);
 
-    this.eventBus.emit('player:action', {
-      playerId: this.playerId,
-      action: {
-        type: 'PLAYER_SELECTION',
-        targetPlayerId: selectedPlayer?.id ?? '',
-      },
+    this.emitAction({
+      type: 'PLAYER_SELECTION',
+      targetPlayerId: selectedPlayer?.id ?? '',
     });
 
     return selectedPlayer;
@@ -123,10 +103,7 @@ export class SyncPlayerController implements PlayerController {
   async chooseCardRank(prompt: string): Promise<string> {
     const rank = await this.delegate.chooseCardRank(prompt);
 
-    this.eventBus.emit('player:action', {
-      playerId: this.playerId,
-      action: { type: 'RANK_SELECTION', rank },
-    });
+    this.emitAction({ type: 'RANK_SELECTION', rank });
 
     return rank;
   }
@@ -134,8 +111,10 @@ export class SyncPlayerController implements PlayerController {
   async choosePlayerOrder(players: Player[], prompt: string): Promise<Player[] | null> {
     const orderedPlayers = await this.delegate.choosePlayerOrder(players, prompt);
 
-    // TODO: PLAYER_ORDER型のアクションを追加する必要がある
-    // 現在は同期なし
+    this.emitAction({
+      type: 'PLAYER_ORDER',
+      playerIds: orderedPlayers?.map(p => p.id) ?? [],
+    });
 
     return orderedPlayers;
   }
@@ -143,9 +122,18 @@ export class SyncPlayerController implements PlayerController {
   async chooseCountdownValue(min: number, max: number): Promise<number> {
     const value = await this.delegate.chooseCountdownValue(min, max);
 
-    // TODO: COUNTDOWN_VALUE型のアクションを追加する必要がある
-    // 現在は同期なし
+    this.emitAction({
+      type: 'COUNTDOWN_VALUE',
+      value,
+    });
 
     return value;
+  }
+
+  private emitAction(action: PlayerActionEvent['action']): void {
+    this.eventBus.emit('player:action', {
+      playerId: this.playerId,
+      action,
+    } satisfies PlayerActionEvent);
   }
 }

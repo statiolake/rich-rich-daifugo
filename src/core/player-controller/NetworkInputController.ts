@@ -7,12 +7,15 @@
  *
  * すべての選択は必ずキューから取り出す方式で統一。
  * データレースを避けるため、キューが空の場合は追加されるまでawaitする。
+ *
+ * Core層に属し、CoreAction型を使用する。
+ * ネットワークプロトコル形式（PlayerAction）からの変換は呼び出し元で行う。
  */
 
 import { Card } from '../domain/card/Card';
 import { Player } from '../domain/player/Player';
 import { PlayerController, Validator } from '../domain/player/PlayerController';
-import { PlayerAction } from '../../infrastructure/network/NetworkProtocol';
+import { CoreAction } from '../domain/player/CoreAction';
 
 // カードIDからCardオブジェクトを解決するための関数型
 type CardResolver = (cardIds: string[]) => Card[];
@@ -22,7 +25,7 @@ type QueueWaiter = () => void;
 
 export class NetworkInputController implements PlayerController {
   private playerId: string;
-  private actionQueue: PlayerAction[] = [];
+  private actionQueue: CoreAction[] = [];
   private queueWaiters: QueueWaiter[] = [];
   private cardResolver: CardResolver | null = null;
 
@@ -40,8 +43,9 @@ export class NetworkInputController implements PlayerController {
   /**
    * ホストからACTION_PERFORMEDを受信した時に呼ばれる
    * キューに追加し、待機中のリゾルバがあれば通知する
+   * 呼び出し元でPlayerAction→CoreActionへの変換を行ってから渡すこと
    */
-  onActionReceived(action: PlayerAction): void {
+  onActionReceived(action: CoreAction): void {
     console.log(`[NetworkInputController:${this.playerId}] onActionReceived:`, action.type);
 
     // キューに追加
@@ -59,7 +63,7 @@ export class NetworkInputController implements PlayerController {
   /**
    * 指定されたタイプのアクションがキューに追加されるまで待機し、取り出す
    */
-  private async waitForAction(actionType: string): Promise<PlayerAction> {
+  private async waitForAction(actionType: string): Promise<CoreAction> {
     console.log(`[NetworkInputController:${this.playerId}] waitForAction:`, actionType);
 
     // キューに該当タイプのアクションがあるか確認
@@ -221,16 +225,35 @@ export class NetworkInputController implements PlayerController {
   }
 
   async choosePlayerOrder(players: Player[], prompt: string): Promise<Player[] | null> {
-    // TODO: PLAYER_ORDER型のアクションを追加する必要がある
-    // 現在は暫定的にそのまま返す
-    console.log(`[NetworkInputController:${this.playerId}] choosePlayerOrder called (not yet synced)`);
-    return players;
+    console.log(`[NetworkInputController:${this.playerId}] choosePlayerOrder called`);
+
+    const action = await this.waitForAction('PLAYER_ORDER');
+
+    if (action.type === 'PLAYER_ORDER') {
+      // playerIdsの順序に従ってplayersを並び替え
+      const orderedPlayers: Player[] = [];
+      for (const playerId of action.playerIds) {
+        const player = players.find(p => p.id === playerId);
+        if (player) {
+          orderedPlayers.push(player);
+        }
+      }
+      return orderedPlayers.length > 0 ? orderedPlayers : null;
+    }
+
+    return null;
   }
 
   async chooseCountdownValue(min: number, max: number): Promise<number> {
-    // TODO: COUNTDOWN_VALUE型のアクションを追加する必要がある
-    // 現在は暫定的に最小値を返す
-    console.log(`[NetworkInputController:${this.playerId}] chooseCountdownValue called (not yet synced)`);
-    return min;
+    console.log(`[NetworkInputController:${this.playerId}] chooseCountdownValue called`);
+
+    const action = await this.waitForAction('COUNTDOWN_VALUE');
+
+    if (action.type === 'COUNTDOWN_VALUE') {
+      // min/max範囲内に収める
+      return Math.max(min, Math.min(max, action.value));
+    }
+
+    return min; // デフォルト
   }
 }

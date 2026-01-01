@@ -14,9 +14,11 @@ import { CPUPlayerController } from '../players/CPUPlayerController';
 import { PlayerController, Validator } from '../../core/domain/player/PlayerController';
 import { CPUStrategy } from '../../core/strategy/PlayerStrategy';
 import { serializeGameState, deserializeGameState } from '../../infrastructure/network/GameStateSerializer';
-import { PlayerAction, SerializedGameState, GuestMessage } from '../../infrastructure/network/NetworkProtocol';
+import { SerializedGameState, GuestMessage, PlayerAction } from '../../infrastructure/network/NetworkProtocol';
 import { useMultiplayerStore } from './multiplayerStore';
 import { NetworkInputController } from '../../core/player-controller/NetworkInputController';
+import { CoreAction } from '../../core/domain/player/CoreAction';
+import { networkActionToCoreAction, coreActionToNetworkAction } from '../../infrastructure/network/ActionAdapter';
 import { SyncPlayerController } from '../../core/player-controller/SyncPlayerController';
 import { GuestPlayerController } from '../players/GuestPlayerController';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
@@ -528,27 +530,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
               const controller = networkControllers.get(playerId);
               console.log('[Host] Found NetworkInputController:', !!controller);
               if (controller) {
-                // INPUT_RESPONSEをPlayerActionに変換してNetworkInputControllerに渡す
+                // INPUT_RESPONSEをPlayerActionに変換し、CoreActionに変換してNetworkInputControllerに渡す
                 const response = message.response;
-                let action: PlayerAction;
+                let networkAction: PlayerAction;
                 if (response.type === 'CARD_SELECTION') {
-                  action = {
+                  networkAction = {
                     type: 'CARD_SELECTION',
                     cardIds: response.selectedCardIds,
                     isPass: response.isPass,
                   };
                 } else if (response.type === 'RANK_SELECTION') {
-                  action = {
+                  networkAction = {
                     type: 'RANK_SELECTION',
                     rank: response.selectedRank,
                   };
                 } else if (response.type === 'CARD_EXCHANGE') {
-                  action = {
+                  networkAction = {
                     type: 'CARD_EXCHANGE',
                     cardIds: response.selectedCardIds,
                   };
                 } else if (response.type === 'SUIT_SELECTION') {
-                  action = {
+                  networkAction = {
                     type: 'SUIT_SELECTION',
                     suit: response.selectedSuit,
                   };
@@ -556,8 +558,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
                   console.log('[Host] Unknown response type');
                   return;
                 }
-                console.log('[Host] Dispatching action to NetworkInputController:', action);
-                controller.onActionReceived(action);
+                // PlayerAction -> CoreAction変換
+                const coreAction = networkActionToCoreAction(networkAction);
+                console.log('[Host] Dispatching action to NetworkInputController:', coreAction);
+                controller.onActionReceived(coreAction);
                 console.log('[Host] Action dispatched successfully');
               }
             }
@@ -639,12 +643,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
 
       // プレイヤーアクションイベント（ゲスト側GameEngine同期用）
-      eventBus.on('player:action', (data: { playerId: string; action: PlayerAction }) => {
-        // 全ゲストにアクションをブロードキャスト
+      eventBus.on('player:action', (data: { playerId: string; action: CoreAction }) => {
+        // CoreAction -> PlayerAction変換してブロードキャスト
+        const networkAction = coreActionToNetworkAction(data.action);
         hostManager.broadcast({
           type: 'ACTION_PERFORMED',
           playerId: data.playerId,
-          action: data.action,
+          action: networkAction,
         });
       });
 
@@ -808,7 +813,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const controller = networkControllers.get(playerId);
     if (controller) {
       console.log(`[Guest] Received action from ${playerId}:`, action);
-      controller.onActionReceived(action);
+      // PlayerAction -> CoreAction変換
+      const coreAction = networkActionToCoreAction(action);
+      controller.onActionReceived(coreAction);
     } else {
       console.warn(`[Guest] No NetworkInputController for player ${playerId}`);
     }
