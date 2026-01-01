@@ -181,18 +181,7 @@ export class PlayPhase implements GamePhase {
       throw new Error(`Invalid play: ${validation.reason}`);
     }
 
-    // 特殊ルール（女装、語呂合わせ等）の場合、通常のPlayとして解析できない可能性がある
-    // その場合はSINGLEとして扱う（最低限の動作を保証）
-    const ruleSettings = gameState.ruleSettings;
-    const play = PlayAnalyzer.analyze(cards, ruleSettings.skipStair, ruleSettings.doubleStair, {
-      enableTunnel: ruleSettings.tunnel,
-      enableSpadeStair: ruleSettings.spadeStair,
-      enableTaepodong: ruleSettings.taepodong,
-    }) ?? {
-      cards,
-      type: cards.length === 1 ? 'SINGLE' : 'PAIR',
-      strength: cards.length > 0 ? cards[0].strength : 0,
-    } as Play;
+    const play = PlayAnalyzer.analyze(cards)!;
 
     // エフェクトを分析（field.addPlay() の前に行う - プレビューと同じタイミング）
     const effects = this.effectAnalyzer.analyze(play, gameState);
