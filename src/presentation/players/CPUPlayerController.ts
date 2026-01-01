@@ -21,7 +21,7 @@ export class CPUPlayerController implements PlayerController {
     // CPU思考時間をシミュレート
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    const handCards = this.handGetCards(player.hand);
+    const handCards = handGetCards(this.player.hand);
 
     // ビット全探索で validator を満たすすべての組み合わせを列挙
     const validCombinations: Card[][] = [];
