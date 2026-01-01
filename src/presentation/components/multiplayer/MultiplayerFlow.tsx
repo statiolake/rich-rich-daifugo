@@ -147,7 +147,7 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
   const handleSelectHost = () => {
     const name = playerName.trim() || 'ホスト';
     initAsHost(name);
-    setStep('signaling');
+    setStep('lobby'); // シグナリングをスキップして直接ロビーへ
   };
 
   const handleSelectGuest = () => {
