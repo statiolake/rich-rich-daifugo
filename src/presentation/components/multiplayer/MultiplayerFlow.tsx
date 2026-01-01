@@ -107,6 +107,9 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
   useEffect(() => {
     if (mode === 'guest') {
       const handleHostMessage = (message: HostMessage) => {
+        // ハンドラ内で常に最新のlocalPlayerIdを取得
+        const currentLocalPlayerId = useMultiplayerStore.getState().localPlayerId;
+
         switch (message.type) {
           case 'GAME_STARTED':
             // ゲーム開始メッセージを受信
@@ -115,7 +118,7 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
             const allCards = CardFactory.createDeck(true);
             initializeCardPositions(allCards);
             if (message.initialState) {
-              const gameState = deserializeGameState(message.initialState, localPlayerId);
+              const gameState = deserializeGameState(message.initialState, currentLocalPlayerId);
               updateGameStateFromHost(gameState);
             }
             onStartGame();
@@ -124,7 +127,7 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
           case 'GAME_STATE':
             // ゲーム状態を更新
             if (message.state) {
-              const gameState = deserializeGameState(message.state, localPlayerId);
+              const gameState = deserializeGameState(message.state, currentLocalPlayerId);
               updateGameStateFromHost(gameState);
             }
             break;
@@ -148,7 +151,7 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
 
       setHostMessageHandler(handleHostMessage);
     }
-  }, [mode, localPlayerId, setHostMessageHandler, onStartGame, updateGameStateFromHost, setGuestMode, initializeCardPositions]);
+  }, [mode, setHostMessageHandler, onStartGame, updateGameStateFromHost, setGuestMode, initializeCardPositions]);
 
   const handleSelectHost = () => {
     const name = playerName.trim() || 'ホスト';

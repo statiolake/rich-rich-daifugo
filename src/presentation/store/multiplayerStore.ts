@@ -66,6 +66,7 @@ interface MultiplayerStore {
   // Actions - ホスト側ブロードキャスト
   broadcast: (message: HostMessage) => void;
   sendToPlayer: (playerId: string, message: HostMessage) => void;
+  broadcastPlayerList: (players: NetworkPlayer[]) => void;
 
   // ゲーム開始可能かどうか
   canStartGame: () => boolean;
@@ -137,11 +138,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
           set({ players: updatedPlayers });
 
           // プレイヤーリストを全員に送信
-          get().broadcast({
-            type: 'PLAYER_LIST',
-            players: updatedPlayers,
-            hostId: get().localPlayerId,
-          });
+          get().broadcastPlayerList(updatedPlayers);
         }
       },
     });
@@ -177,6 +174,10 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         const { hostMessageHandler } = get();
         if (message.type === 'PLAYER_LIST') {
           set({ players: message.players });
+          // ホストから通知された自分のプレイヤーIDを保存
+          if (message.yourPlayerId) {
+            set({ localPlayerId: message.yourPlayerId });
+          }
         }
         hostMessageHandler?.(message);
       },
@@ -297,11 +298,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     set({ players: updatedPlayers, error: null });
 
     // 全員にプレイヤーリストを送信
-    get().broadcast({
-      type: 'PLAYER_LIST',
-      players: updatedPlayers,
-      hostId: get().localPlayerId,
-    });
+    get().broadcastPlayerList(updatedPlayers);
   },
 
   // ホスト: CPU削除
@@ -317,11 +314,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     set({ players: updatedPlayers });
 
     // 全員にプレイヤーリストを送信
-    get().broadcast({
-      type: 'PLAYER_LIST',
-      players: updatedPlayers,
-      hostId: get().localPlayerId,
-    });
+    get().broadcastPlayerList(updatedPlayers);
   },
 
   // ホスト: プレイヤー削除（切断）
@@ -343,11 +336,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     set({ players: updatedPlayers });
 
     // 全員にプレイヤーリストを送信
-    get().broadcast({
-      type: 'PLAYER_LIST',
-      players: updatedPlayers,
-      hostId: get().localPlayerId,
-    });
+    get().broadcastPlayerList(updatedPlayers);
   },
 
   // ゲスト: オファー受け入れ
@@ -389,11 +378,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       set({ players: updatedPlayers });
 
       // 全員にプレイヤーリストを送信
-      get().broadcast({
-        type: 'PLAYER_LIST',
-        players: updatedPlayers,
-        hostId: localPlayerId,
-      });
+      get().broadcastPlayerList(updatedPlayers);
     }
   },
 
@@ -412,6 +397,21 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   sendToPlayer: (playerId, message) => {
     const { hostManager } = get();
     hostManager?.sendToPlayer(playerId, message);
+  },
+
+  // プレイヤーリストを全ゲストに送信（各ゲストに自分のIDを通知）
+  broadcastPlayerList: (players: NetworkPlayer[]) => {
+    const hostId = get().localPlayerId;
+    players.forEach((player) => {
+      if (player.type === 'GUEST') {
+        get().sendToPlayer(player.id, {
+          type: 'PLAYER_LIST',
+          players,
+          hostId,
+          yourPlayerId: player.id,
+        });
+      }
+    });
   },
 
   // ゲーム開始可能判定

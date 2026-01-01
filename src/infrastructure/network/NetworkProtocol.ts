@@ -166,6 +166,7 @@ export interface PlayerListMessage {
   type: 'PLAYER_LIST';
   players: NetworkPlayer[];
   hostId: string;
+  yourPlayerId?: string; // ゲストに自分のプレイヤーIDを通知
 }
 
 export interface GameStateMessage {
