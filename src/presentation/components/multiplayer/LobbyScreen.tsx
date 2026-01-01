@@ -256,7 +256,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           {/* ゲーム開始（ホストのみ） */}
           {isHost && (
             <button
-              onClick={onStartGame}
+              onClick={() => {
+                console.log('[LobbyScreen] Start game button clicked');
+                onStartGame();
+              }}
               disabled={!canStartGame()}
               className="w-full py-4 px-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold text-lg rounded-lg transition-all"
             >

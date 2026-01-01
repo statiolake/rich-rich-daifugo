@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
+import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { PlayerArea } from '../player/PlayerArea';
 import { HumanControl } from '../player/HumanControl';
 import { UnifiedCardLayer } from './UnifiedCardLayer';
@@ -44,15 +45,24 @@ export const GameBoard: React.FC = () => {
   const activeCutIns = useGameStore(state => state.activeCutIns);
   const removeCutIn = useGameStore(state => state.removeCutIn);
   const localPlayerId = useGameStore(state => state.localPlayerId);
+  const multiplayerMode = useMultiplayerStore(state => state.mode);
 
   // マルチプレイモード
+  // デバッグログ
+  console.log('[GameBoard] Render - isMultiplayerMode:', isMultiplayerMode, 'gameState:', !!gameState, 'multiplayerMode:', multiplayerMode);
   if (isMultiplayerMode && !gameState) {
     return (
       <MultiplayerFlow
         initialPlayerName={playerName}
         onStartGame={() => {
           // マルチプレイゲーム開始（ホストの場合のみ実行される）
-          startMultiplayerGame();
+          // ゲストの場合は initGuestGameEngine で既にgameStateが設定されているのでここは呼ばれない
+          console.log('[GameBoard] onStartGame called, multiplayerMode:', multiplayerMode);
+          if (multiplayerMode === 'host') {
+            console.log('[GameBoard] Calling startMultiplayerGame');
+            startMultiplayerGame();
+          }
+          // ゲストの場合は gameState が設定済みなので自動的にゲーム画面に遷移する
         }}
         onCancel={() => setIsMultiplayerMode(false)}
       />

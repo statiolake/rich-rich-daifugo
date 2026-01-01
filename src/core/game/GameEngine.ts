@@ -68,8 +68,10 @@ export class GameEngine {
    * ゲームを開始（非同期ループ）
    */
   async start(): Promise<void> {
+    console.log('[GameEngine] Starting game...');
     // SETUP フェーズ
     await this.currentPhase.enter(this.gameState);
+    console.log('[GameEngine] SETUP phase completed, emitting game:started');
     this.eventEmitter.emit('game:started', { gameState: this.getState() });
 
     // EXCHANGE フェーズに移行（2ラウンド目以降はカード交換が発生）
@@ -107,6 +109,39 @@ export class GameEngine {
 
   getRuleEngine(): RuleEngine {
     return this.ruleEngine;
+  }
+
+  /**
+   * ゲスト用: 初期状態を設定
+   * ホストから受信した初期状態でGameStateを上書き
+   */
+  setInitialState(state: GameState): void {
+    this.gameState = state;
+  }
+
+  /**
+   * ゲスト用: PlayPhaseからゲームを開始
+   * ホストから初期状態を受信済みの前提で、PlayPhaseのループを開始する
+   */
+  async startFromPlayPhase(): Promise<void> {
+    // 現在のフェーズをPlayPhaseに設定
+    this.gameState.phase = GamePhaseType.PLAY;
+    this.currentPhase = this.phases.get(GamePhaseType.PLAY)!;
+
+    console.log('[Guest] Starting game from PlayPhase');
+
+    // PlayPhaseに入る（enterは呼ばない - ホスト側で既に処理済み）
+    // ゲームループを開始
+    await this.runPlayLoop();
+
+    this.eventEmitter.emit('game:ended', { gameState: this.getState() });
+  }
+
+  /**
+   * イベントエミッターを取得
+   */
+  getEventEmitter(): GameEventEmitter {
+    return this.eventEmitter;
   }
 
   /**

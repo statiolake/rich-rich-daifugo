@@ -8,15 +8,13 @@
  * 4. ゲーム開始
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { useGameStore } from '../../store/gameStore';
 import { useCardPositionStore } from '../../store/cardPositionStore';
 import { SignalingPanel } from './SignalingPanel';
 import { LobbyScreen } from './LobbyScreen';
-import { deserializeGameState } from '../../../infrastructure/network/GameStateSerializer';
-import { GuestInputHandler } from '../../../infrastructure/network/GuestInputHandler';
 import { HostMessage } from '../../../infrastructure/network/NetworkProtocol';
 import { CardFactory } from '../../../core/domain/card/Card';
 
@@ -51,13 +49,10 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
     sendToHost,
   } = useMultiplayerStore();
 
-  const updateGameStateFromHost = useGameStore(state => state.updateGameStateFromHost);
-  const setGuestMode = useGameStore(state => state.setGuestMode);
-  const enableGuestCardSelection = useGameStore(state => state.enableGuestCardSelection);
+  const initGuestGameEngine = useGameStore(state => state.initGuestGameEngine);
+  const onActionPerformed = useGameStore(state => state.onActionPerformed);
+  const checkStateHash = useGameStore(state => state.checkStateHash);
   const initializeCardPositions = useCardPositionStore(state => state.initialize);
-
-  // GuestInputHandler のインスタンスを保持
-  const guestInputHandlerRef = useRef<GuestInputHandler | null>(null);
 
   // ゲストが接続完了したらロビーに移動
   useEffect(() => {
@@ -66,76 +61,50 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
     }
   }, [mode, connectionState, players.length]);
 
-  // ゲスト側: GuestInputHandlerを初期化
-  useEffect(() => {
-    if (mode === 'guest') {
-      guestInputHandlerRef.current = new GuestInputHandler({
-        sendResponse: (message) => {
-          sendToHost(message);
-        },
-        onCardSelectionRequest: (request) => {
-          if (request.type !== 'CARD_SELECTION') return;
-          // カード選択UIを有効化
-          enableGuestCardSelection(
-            request.validCardIds,
-            request.canPass,
-            (selectedCardIds, isPass) => {
-              // 選択完了時にGuestInputHandlerに通知
-              guestInputHandlerRef.current?.submitCardSelection(selectedCardIds, isPass);
-            },
-            'カードを選択してください'
-          );
-        },
-        onRankSelectionRequest: (_request) => {
-          // TODO: ランク選択UIを表示
-          console.log('[Guest] Rank selection requested');
-        },
-        onExchangeRequest: (_request) => {
-          // TODO: カード交換UIを表示
-          console.log('[Guest] Exchange requested');
-        },
-      });
-    }
-
-    return () => {
-      guestInputHandlerRef.current?.dispose();
-      guestInputHandlerRef.current = null;
-    };
-  }, [mode, sendToHost, enableGuestCardSelection]);
-
   // ホストメッセージハンドラを設定
   useEffect(() => {
     if (mode === 'guest') {
       const handleHostMessage = (message: HostMessage) => {
-        // ハンドラ内で常に最新のlocalPlayerIdを取得
-        const currentLocalPlayerId = useMultiplayerStore.getState().localPlayerId;
-
         switch (message.type) {
           case 'GAME_STARTED':
             // ゲーム開始メッセージを受信
-            setGuestMode(true);
+            console.log('[Guest] Received GAME_STARTED message');
             // カードデッキを初期化（ジョーカー含む54枚）
             const allCards = CardFactory.createDeck(true);
             initializeCardPositions(allCards);
+            // ゲストGameEngineを初期化
             if (message.initialState) {
-              const gameState = deserializeGameState(message.initialState, currentLocalPlayerId);
-              updateGameStateFromHost(gameState);
+              console.log('[Guest] Calling initGuestGameEngine');
+              initGuestGameEngine(message.initialState, sendToHost);
             }
+            console.log('[Guest] Calling onStartGame');
             onStartGame();
             break;
 
-          case 'GAME_STATE':
-            // ゲーム状態を更新
-            if (message.state) {
-              const gameState = deserializeGameState(message.state, currentLocalPlayerId);
-              updateGameStateFromHost(gameState);
+          case 'ACTION_PERFORMED':
+            // 他プレイヤーのアクションを受信（ゲスト側GameEngineを同期）
+            if (message.playerId && message.action) {
+              onActionPerformed(message.playerId, message.action);
             }
             break;
 
-          case 'INPUT_REQUEST':
-            // 入力リクエストを処理
-            if (guestInputHandlerRef.current && message.request) {
-              guestInputHandlerRef.current.handleRequest(message.request);
+          case 'GAME_STATE':
+            // フォールバック: 状態の完全同期（必要に応じて）
+            console.log('[Guest] Received full state sync (fallback)');
+            break;
+
+          case 'STATE_HASH':
+            // 状態整合性チェック
+            if (message.turnNumber !== undefined && message.hash) {
+              const isValid = checkStateHash(message.turnNumber, message.hash);
+              if (!isValid) {
+                // 不整合検知 - 同期リクエストを送信
+                console.warn('[Guest] Requesting state sync due to hash mismatch');
+                sendToHost({
+                  type: 'SYNC_REQUEST',
+                  reason: 'hash_mismatch',
+                });
+              }
             }
             break;
 
@@ -151,7 +120,7 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
 
       setHostMessageHandler(handleHostMessage);
     }
-  }, [mode, setHostMessageHandler, onStartGame, updateGameStateFromHost, setGuestMode, initializeCardPositions]);
+  }, [mode, setHostMessageHandler, onStartGame, initGuestGameEngine, onActionPerformed, checkStateHash, initializeCardPositions, sendToHost]);
 
   const handleSelectHost = () => {
     const name = playerName.trim() || 'ホスト';

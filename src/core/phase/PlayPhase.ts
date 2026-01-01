@@ -117,6 +117,16 @@ export class PlayPhase implements GamePhase {
     // プレイヤーにカード選択を要求
     const selectedCards = await controller.chooseCardsInHand(validator);
 
+    // プレイヤーアクションイベントを発行（マルチプレイヤー同期用）
+    this.eventBus.emit('player:action', {
+      playerId: currentPlayer.id.value,
+      action: {
+        type: 'CARD_SELECTION',
+        cardIds: selectedCards.map(c => c.id),
+        isPass: selectedCards.length === 0,
+      },
+    });
+
     if (selectedCards.length === 0) {
       // パス
       await this.handlePass(gameState, currentPlayer);
@@ -137,7 +147,30 @@ export class PlayPhase implements GamePhase {
       }
     }
 
+    // 状態ハッシュイベントを発行（マルチプレイヤー整合性チェック用）
+    const turnNumber = gameState.field.getHistory().length;
+    this.eventBus.emit('turn:completed', {
+      turnNumber,
+      stateHash: this.computeStateHash(gameState),
+    });
+
     return null;
+  }
+
+  /**
+   * 状態のハッシュを計算（整合性チェック用）
+   */
+  private computeStateHash(gameState: GameState): string {
+    // 簡易ハッシュ: 重要な状態のみを含める
+    const data = {
+      currentPlayerIndex: gameState.currentPlayerIndex,
+      handSizes: gameState.players.map(p => p.hand.size()),
+      fieldCardCount: gameState.field.getHistory().length,
+      isRevolution: gameState.isRevolution,
+      passCount: gameState.passCount,
+    };
+    // 簡易ハッシュ（本番では適切なハッシュ関数を使用）
+    return btoa(JSON.stringify(data)).slice(0, 16);
   }
 
   async exit(_gameState: GameState): Promise<void> {

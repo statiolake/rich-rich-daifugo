@@ -75,7 +75,7 @@ export class GameConfigFactory {
   ): GameConfig {
     const playerConfigs: PlayerConfig[] = players.map((p) => {
       // ローカルプレイヤー（HOST or GUEST）はHUMANタイプ
-      // リモートのGUESTはHUMANタイプ（RemotePlayerControllerで制御）
+      // リモートのGUESTはHUMANタイプ（NetworkInputControllerで制御）
       // CPUはCPUタイプ
       const isLocalPlayer = p.id === localPlayerId;
       const type = p.type === 'CPU' ? PlayerType.CPU : PlayerType.HUMAN;

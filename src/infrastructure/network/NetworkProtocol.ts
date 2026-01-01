@@ -112,6 +112,21 @@ export type InputResponse =
   | CardExchangeResponse;
 
 // ============================================
+// プレイヤーアクション（ゲスト側GameEngine同期用）
+// ============================================
+
+/**
+ * プレイヤーが実行したアクション
+ * ホストがゲストに配信し、ゲスト側GameEngineを同期する
+ */
+export type PlayerAction =
+  | { type: 'CARD_SELECTION'; cardIds: string[]; isPass: boolean }
+  | { type: 'RANK_SELECTION'; rank: string }
+  | { type: 'SUIT_SELECTION'; suit: Suit }
+  | { type: 'CARD_EXCHANGE'; cardIds: string[] }
+  | { type: 'PLAYER_SELECTION'; targetPlayerId: string };
+
+// ============================================
 // シリアライズされたゲーム状態
 // ============================================
 
@@ -207,6 +222,26 @@ export interface PingMessage {
   timestamp: number;
 }
 
+/**
+ * プレイヤーがアクションを実行したことを通知
+ * ゲスト側GameEngineを同期するために使用
+ */
+export interface ActionPerformedMessage {
+  type: 'ACTION_PERFORMED';
+  playerId: string;
+  action: PlayerAction;
+}
+
+/**
+ * 状態整合性チェック用ハッシュ
+ * ホストが定期的に送信し、ゲストが不一致を検知したら完全同期をリクエスト
+ */
+export interface StateHashMessage {
+  type: 'STATE_HASH';
+  turnNumber: number;  // 現在のターン番号
+  hash: string;        // 状態のハッシュ（簡易チェック用）
+}
+
 export type HostMessage =
   | PlayerListMessage
   | GameStateMessage
@@ -215,7 +250,9 @@ export type HostMessage =
   | GameEndedMessage
   | PlayerDisconnectedMessage
   | ErrorMessage
-  | PingMessage;
+  | PingMessage
+  | ActionPerformedMessage
+  | StateHashMessage;
 
 // ============================================
 // ゲスト → ホスト メッセージ
@@ -242,11 +279,21 @@ export interface PongMessage {
   timestamp: number;
 }
 
+/**
+ * 状態同期リクエスト
+ * ゲストが状態の不整合を検知した場合にホストに送信
+ */
+export interface SyncRequestMessage {
+  type: 'SYNC_REQUEST';
+  reason: 'hash_mismatch' | 'timeout' | 'manual';
+}
+
 export type GuestMessage =
   | JoinMessage
   | InputResponseMessage
   | LeaveMessage
-  | PongMessage;
+  | PongMessage
+  | SyncRequestMessage;
 
 // ============================================
 // 共通メッセージ（双方向）
