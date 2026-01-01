@@ -17,6 +17,7 @@ type CardResolver = (cardIds: string[]) => Card[];
 export class NetworkInputController implements PlayerController {
   private playerId: string;
   private pendingResolvers = new Map<string, (action: PlayerAction) => void>();
+  private actionQueue: PlayerAction[] = [];  // アクションキュー
   private cardResolver: CardResolver | null = null;
 
   constructor(playerId: string) {
@@ -32,6 +33,7 @@ export class NetworkInputController implements PlayerController {
 
   /**
    * ホストからACTION_PERFORMEDを受信した時に呼ばれる
+   * resolverがまだなければキューに貯める
    */
   onActionReceived(action: PlayerAction): void {
     console.log(`[NetworkInputController:${this.playerId}] onActionReceived:`, action.type);
@@ -43,8 +45,23 @@ export class NetworkInputController implements PlayerController {
       this.pendingResolvers.delete(action.type);
       console.log(`[NetworkInputController:${this.playerId}] Resolver executed and removed`);
     } else {
-      console.warn(`[NetworkInputController:${this.playerId}] No pending resolver for action type: ${action.type}`);
+      // resolverがまだないのでキューに貯める
+      console.log(`[NetworkInputController:${this.playerId}] No resolver yet, queuing action`);
+      this.actionQueue.push(action);
     }
+  }
+
+  /**
+   * キューからアクションを取り出して処理を試みる
+   */
+  private tryProcessQueue(actionType: string): PlayerAction | null {
+    const index = this.actionQueue.findIndex(a => a.type === actionType);
+    if (index !== -1) {
+      const action = this.actionQueue.splice(index, 1)[0];
+      console.log(`[NetworkInputController:${this.playerId}] Found queued action:`, actionType);
+      return action;
+    }
+    return null;
   }
 
   /**
@@ -54,10 +71,33 @@ export class NetworkInputController implements PlayerController {
     return this.pendingResolvers.size > 0;
   }
 
+  /**
+   * キューにアクションがあるかどうか
+   */
+  hasQueuedActions(): boolean {
+    return this.actionQueue.length > 0;
+  }
+
   // --- PlayerController インターフェース実装 ---
 
   async chooseCardsInHand(validator: Validator, prompt?: string): Promise<Card[]> {
     console.log(`[NetworkInputController:${this.playerId}] chooseCardsInHand called, waiting for CARD_SELECTION`);
+
+    // まずキューを確認
+    const queuedAction = this.tryProcessQueue('CARD_SELECTION');
+    if (queuedAction && queuedAction.type === 'CARD_SELECTION') {
+      console.log(`[NetworkInputController:${this.playerId}] Using queued CARD_SELECTION action`);
+      if (queuedAction.isPass || queuedAction.cardIds.length === 0) {
+        return [];
+      } else if (this.cardResolver) {
+        return this.cardResolver(queuedAction.cardIds);
+      } else {
+        console.error('[NetworkInputController] No card resolver set');
+        return [];
+      }
+    }
+
+    // キューになければresolverを設定して待機
     return new Promise((resolve) => {
       this.pendingResolvers.set('CARD_SELECTION', (action) => {
         console.log(`[NetworkInputController:${this.playerId}] CARD_SELECTION resolver triggered`);
@@ -76,6 +116,12 @@ export class NetworkInputController implements PlayerController {
   }
 
   async chooseRankForQueenBomber(): Promise<string> {
+    // まずキューを確認
+    const queuedAction = this.tryProcessQueue('RANK_SELECTION');
+    if (queuedAction && queuedAction.type === 'RANK_SELECTION') {
+      return queuedAction.rank;
+    }
+
     return new Promise((resolve) => {
       this.pendingResolvers.set('RANK_SELECTION', (action) => {
         if (action.type === 'RANK_SELECTION') {
@@ -86,6 +132,19 @@ export class NetworkInputController implements PlayerController {
   }
 
   async chooseCardsFromDiscard(discardPile: Card[], maxCount: number, prompt: string): Promise<Card[]> {
+    // まずキューを確認
+    const queuedAction = this.tryProcessQueue('CARD_SELECTION');
+    if (queuedAction && queuedAction.type === 'CARD_SELECTION') {
+      if (queuedAction.cardIds.length === 0) {
+        return [];
+      } else {
+        const cards = queuedAction.cardIds
+          .map(id => discardPile.find(c => c.id === id))
+          .filter((c): c is Card => c !== undefined);
+        return cards;
+      }
+    }
+
     return new Promise((resolve) => {
       this.pendingResolvers.set('CARD_SELECTION', (action) => {
         if (action.type === 'CARD_SELECTION') {
@@ -104,6 +163,15 @@ export class NetworkInputController implements PlayerController {
   }
 
   async chooseCardsForExchange(handCards: Card[], exactCount: number, prompt: string): Promise<Card[]> {
+    // まずキューを確認
+    const queuedAction = this.tryProcessQueue('CARD_EXCHANGE');
+    if (queuedAction && queuedAction.type === 'CARD_EXCHANGE') {
+      const cards = queuedAction.cardIds
+        .map(id => handCards.find(c => c.id === id))
+        .filter((c): c is Card => c !== undefined);
+      return cards;
+    }
+
     return new Promise((resolve) => {
       this.pendingResolvers.set('CARD_EXCHANGE', (action) => {
         if (action.type === 'CARD_EXCHANGE') {
@@ -122,6 +190,12 @@ export class NetworkInputController implements PlayerController {
     playerNames: Map<string, string>,
     prompt: string
   ): Promise<string> {
+    // まずキューを確認
+    const queuedAction = this.tryProcessQueue('PLAYER_SELECTION');
+    if (queuedAction && queuedAction.type === 'PLAYER_SELECTION') {
+      return queuedAction.targetPlayerId;
+    }
+
     return new Promise((resolve) => {
       this.pendingResolvers.set('PLAYER_SELECTION', (action) => {
         if (action.type === 'PLAYER_SELECTION') {
@@ -132,6 +206,19 @@ export class NetworkInputController implements PlayerController {
   }
 
   async chooseCardsFromOpponentHand(cards: Card[], maxCount: number, prompt: string): Promise<Card[]> {
+    // まずキューを確認
+    const queuedAction = this.tryProcessQueue('CARD_SELECTION');
+    if (queuedAction && queuedAction.type === 'CARD_SELECTION') {
+      if (queuedAction.cardIds.length === 0) {
+        return [];
+      } else {
+        const selectedCards = queuedAction.cardIds
+          .map(id => cards.find(c => c.id === id))
+          .filter((c): c is Card => c !== undefined);
+        return selectedCards;
+      }
+    }
+
     return new Promise((resolve) => {
       this.pendingResolvers.set('CARD_SELECTION', (action) => {
         if (action.type === 'CARD_SELECTION') {
@@ -150,6 +237,12 @@ export class NetworkInputController implements PlayerController {
   }
 
   async choosePlayer(players: Player[], prompt: string): Promise<Player | null> {
+    // まずキューを確認
+    const queuedAction = this.tryProcessQueue('PLAYER_SELECTION');
+    if (queuedAction && queuedAction.type === 'PLAYER_SELECTION') {
+      return players.find(p => p.id.value === queuedAction.targetPlayerId) || null;
+    }
+
     return new Promise((resolve) => {
       this.pendingResolvers.set('PLAYER_SELECTION', (action) => {
         if (action.type === 'PLAYER_SELECTION') {
@@ -161,6 +254,12 @@ export class NetworkInputController implements PlayerController {
   }
 
   async chooseCardRank(prompt: string): Promise<string> {
+    // まずキューを確認
+    const queuedAction = this.tryProcessQueue('RANK_SELECTION');
+    if (queuedAction && queuedAction.type === 'RANK_SELECTION') {
+      return queuedAction.rank;
+    }
+
     return new Promise((resolve) => {
       this.pendingResolvers.set('RANK_SELECTION', (action) => {
         if (action.type === 'RANK_SELECTION') {
