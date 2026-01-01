@@ -24,9 +24,10 @@ import { HumanStrategy } from '../../core/strategy/HumanStrategy';
 import { RandomCPUStrategy } from '../../core/strategy/RandomCPUStrategy';
 import { HostConnectionManager } from '../../infrastructure/network/ConnectionManager';
 import { GuestMessage, SerializedGameState, PlayerAction } from '../../infrastructure/network/NetworkProtocol';
-import { serializeGameState, deserializeGameState } from '../../infrastructure/network/GameStateSerializer';
+import { deserializeGameState } from '../../infrastructure/network/GameStateSerializer';
 import { CoreAction } from '../../core/domain/player/CoreAction';
-import { networkActionToCoreAction, coreActionToNetworkAction } from '../../infrastructure/network/ActionAdapter';
+import { networkActionToCoreAction } from '../../infrastructure/network/ActionAdapter';
+import { NetworkEventBridge } from '../../infrastructure/network/NetworkEventBridge';
 
 /**
  * ゲーム開始設定
@@ -201,8 +202,15 @@ export class GameOrchestrator {
     // ゲストからのINPUT_RESPONSEを処理するハンドラを設定
     this.setupHostMessageHandler(hostManager, networkControllers);
 
-    // イベントリスナーを設定
-    this.setupHostEventListeners(eventBus, engine, config, hostManager);
+    // ローカルイベントリスナーを設定（UI更新用）
+    this.setupLocalEventListeners(eventBus);
+
+    // ネットワークイベントブリッジを設定（ゲスト同期用）
+    const guestPlayers = config.players
+      .filter(p => p.networkType === 'GUEST')
+      .map(p => ({ playerId: p.id, networkType: p.networkType! }));
+    const networkEventBridge = new NetworkEventBridge(eventBus, hostManager, guestPlayers);
+    networkEventBridge.setup(engine);
 
     // ゲームを開始（非同期）
     console.log('[Host] Starting multiplayer game engine...');
@@ -301,87 +309,20 @@ export class GameOrchestrator {
   }
 
   /**
-   * ホスト用イベントリスナーを設定
+   * ローカルイベントリスナーを設定（UI更新用、ネットワーク同期は別）
    */
-  private setupHostEventListeners(
-    eventBus: EventBus,
-    engine: GameEngine,
-    config: ReturnType<typeof GameConfigFactory.createMultiplayerGame>,
-    hostManager: HostConnectionManager
-  ): void {
+  private setupLocalEventListeners(eventBus: EventBus): void {
     eventBus.on('state:updated', (data) => {
       this.callbacks.onStateUpdated(data.gameState);
-
-      // 各ゲストに個別に状態を送信
-      for (const player of data.gameState.players) {
-        const pConfig = config.players.find(c => c.id === player.id);
-        if (pConfig?.networkType === 'GUEST') {
-          const serialized = serializeGameState(data.gameState, player.id);
-          hostManager.sendToPlayer(player.id, {
-            type: 'GAME_STATE',
-            state: serialized,
-            targetPlayerId: player.id,
-          });
-        }
-      }
     });
 
-    console.log('[Host] Registering game:started event listener');
     eventBus.on('game:started', (data) => {
       console.log('[Host] game:started event handler called!');
       this.callbacks.onGameStarted(data.gameState);
-
-      // 各ゲストに初期状態を送信
-      console.log('[Host] Sending GAME_STARTED to guests...');
-      for (const player of data.gameState.players) {
-        const pConfig = config.players.find(c => c.id === player.id);
-        if (pConfig?.networkType === 'GUEST') {
-          console.log(`[Host] Sending GAME_STARTED to player ${player.id}`);
-          const serialized = serializeGameState(data.gameState, player.id);
-          hostManager.sendToPlayer(player.id, {
-            type: 'GAME_STARTED',
-            initialState: serialized,
-          });
-        }
-      }
-      console.log('[Host] Finished sending GAME_STARTED to guests');
     });
 
     eventBus.on('game:ended', () => {
       console.log('Multiplayer game ended!');
-      const state = engine.getState();
-      const rankings = state.players
-        .filter((p) => p.finishPosition !== null)
-        .sort((a, b) => (a.finishPosition ?? 99) - (b.finishPosition ?? 99))
-        .map((p) => ({
-          playerId: p.id,
-          rank: p.finishPosition ?? 0,
-        }));
-
-      hostManager.broadcast({
-        type: 'GAME_ENDED',
-        finalRankings: rankings,
-      });
-    });
-
-    // プレイヤーアクションイベント（ゲスト側GameEngine同期用）
-    eventBus.on('player:action', (data: { playerId: string; action: CoreAction }) => {
-      // CoreAction -> PlayerAction変換してブロードキャスト
-      const networkAction = coreActionToNetworkAction(data.action);
-      hostManager.broadcast({
-        type: 'ACTION_PERFORMED',
-        playerId: data.playerId,
-        action: networkAction,
-      });
-    });
-
-    // ターン完了イベント（状態ハッシュ送信）
-    eventBus.on('turn:completed', (data: { turnNumber: number; stateHash: string }) => {
-      hostManager.broadcast({
-        type: 'STATE_HASH',
-        turnNumber: data.turnNumber,
-        hash: data.stateHash,
-      });
     });
   }
 
