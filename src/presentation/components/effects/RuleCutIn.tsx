@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { RuleCutInData } from '../../store/gameStore';
+import { RuleCutInData } from '../../store/cutInStore';
 
 interface RuleCutInProps {
   cutIns: RuleCutInData[];

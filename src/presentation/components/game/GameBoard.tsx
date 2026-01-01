@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
+import { useCutInStore } from '../../store/cutInStore';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { PlayerArea } from '../player/PlayerArea';
 import { HumanControl } from '../player/HumanControl';
@@ -42,10 +43,12 @@ export const GameBoard: React.FC = () => {
   const startMultiplayerGame = useGameStore(state => state.startMultiplayerGame);
   const continueGame = useGameStore(state => state.continueGame);
   const reset = useGameStore(state => state.reset);
-  const activeCutIns = useGameStore(state => state.activeCutIns);
-  const removeCutIn = useGameStore(state => state.removeCutIn);
   const localPlayerId = useGameStore(state => state.localPlayerId);
   const multiplayerMode = useMultiplayerStore(state => state.mode);
+
+  // cutInStoreからカットイン関連の状態を取得
+  const activeCutIns = useCutInStore(state => state.activeCutIns);
+  const removeCutIn = useCutInStore(state => state.removeCutIn);
 
   // マルチプレイモード
   // デバッグログ

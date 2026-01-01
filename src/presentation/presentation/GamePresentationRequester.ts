@@ -1,14 +1,20 @@
 import { PresentationRequester, CutIn, GameLog } from '../../core/domain/presentation/PresentationRequester';
 import { useGameStore } from '../store/gameStore';
+import { useCutInStore } from '../store/cutInStore';
 
 type GameStore = ReturnType<typeof useGameStore.getState>;
+type CutInStore = ReturnType<typeof useCutInStore.getState>;
 
 /**
  * プレゼンテーション層の実装
  * コア層のインターフェースを実装し、実際のUI表示を行う
  */
 export class GamePresentationRequester implements PresentationRequester {
-  constructor(private gameStore: GameStore) {}
+  private cutInStore: CutInStore;
+
+  constructor(private gameStore: GameStore) {
+    this.cutInStore = useCutInStore.getState();
+  }
 
   /**
    * ゲームログを追加
@@ -69,11 +75,14 @@ export class GamePresentationRequester implements PresentationRequester {
 
     if (cutIns.length === 0) return;
 
+    // 最新のcutInStoreを取得（Zustandの状態は変わる可能性があるため）
+    const cutInStore = useCutInStore.getState();
+
     // すべてのカットインを同時にキューに追加
     // enqueueCutInは各カットインが完了するまで待機するPromiseを返すので、
     // Promise.allで全部のカットインが完了するまで待機する
     const promises = cutIns.map((cutIn, index) =>
-      this.gameStore.enqueueCutIn({
+      cutInStore.enqueueCutIn({
         id: `${cutIn.effect}-${Date.now()}-${index}`,
         text: this.getText(cutIn.effect),
         variant: cutIn.variant,
