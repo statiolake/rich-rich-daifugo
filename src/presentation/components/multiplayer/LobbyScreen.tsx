@@ -2,9 +2,10 @@
  * ロビー画面
  *
  * プレイヤー一覧、CPU追加/削除、ゲーム開始ボタンを表示
+ * 複数の招待を並行して行えるUI
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { NetworkPlayer } from '../../../infrastructure/network/NetworkProtocol';
@@ -12,6 +13,15 @@ import { NetworkPlayer } from '../../../infrastructure/network/NetworkProtocol';
 interface LobbyScreenProps {
   onStartGame: () => void;
   onLeave: () => void;
+}
+
+// 招待スロットの状態
+interface InviteSlot {
+  id: string;
+  status: 'generating' | 'waiting_copy' | 'waiting_answer' | 'connecting' | 'connected' | 'error';
+  offerCode: string;
+  copied: boolean;
+  error?: string;
 }
 
 export const LobbyScreen: React.FC<LobbyScreenProps> = ({
@@ -35,13 +45,13 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
   const isHost = mode === 'host';
 
-  // オファーモーダル用の状態
-  const [showOfferModal, setShowOfferModal] = useState(false);
-  const [offerCode, setOfferCode] = useState('');
+  // 招待スロットの状態管理
+  const [inviteSlots, setInviteSlots] = useState<InviteSlot[]>([]);
+
+  // アンサー入力モーダル
+  const [answerModalSlotId, setAnswerModalSlotId] = useState<string | null>(null);
   const [answerInput, setAnswerInput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
 
   const getPlayerTypeLabel = (player: NetworkPlayer): string => {
     if (player.type === 'HOST') return 'ホスト';
@@ -61,7 +71,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   };
 
   const handleAddCPU = () => {
-    if (players.length >= 8) {
+    if (players.length + inviteSlots.length >= 8) {
       setError('プレイヤーは最大8人までです');
       return;
     }
@@ -72,54 +82,94 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     removeCPU(playerId);
   };
 
-  // 招待ボタンクリック時にオファーコード生成
-  const handleInviteClick = async () => {
-    if (!isHost || players.length >= 8) return;
+  // 招待スロットを追加
+  const handleAddInviteSlot = useCallback(async () => {
+    if (players.length + inviteSlots.length >= 8) {
+      setError('プレイヤーは最大8人までです');
+      return;
+    }
 
-    setShowOfferModal(true);
-    setOfferCode('');
-    setAnswerInput('');
-    setCopySuccess(false);
-    setIsGenerating(true);
+    const slotId = `invite-${Date.now()}`;
+
+    // 生成中状態でスロットを追加
+    setInviteSlots(prev => [...prev, {
+      id: slotId,
+      status: 'generating',
+      offerCode: '',
+      copied: false,
+    }]);
 
     try {
       const offer = await createOfferForGuest();
-      setOfferCode(offer);
+      setInviteSlots(prev => prev.map(slot =>
+        slot.id === slotId
+          ? { ...slot, status: 'waiting_copy', offerCode: offer }
+          : slot
+      ));
     } catch (err) {
-      setError('オファーコードの生成に失敗しました');
-      setShowOfferModal(false);
-    } finally {
-      setIsGenerating(false);
+      setInviteSlots(prev => prev.map(slot =>
+        slot.id === slotId
+          ? { ...slot, status: 'error', error: 'オファーコードの生成に失敗しました' }
+          : slot
+      ));
     }
-  };
+  }, [players.length, inviteSlots.length, createOfferForGuest, setError]);
+
+  // 招待スロットを削除
+  const handleRemoveInviteSlot = useCallback((slotId: string) => {
+    setInviteSlots(prev => prev.filter(slot => slot.id !== slotId));
+  }, []);
 
   // オファーコードをコピー
-  const handleCopyOffer = async () => {
+  const handleCopyOffer = useCallback(async (slotId: string, offerCode: string) => {
     try {
       await navigator.clipboard.writeText(offerCode);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
+      setInviteSlots(prev => prev.map(slot =>
+        slot.id === slotId
+          ? { ...slot, copied: true, status: 'waiting_answer' }
+          : slot
+      ));
     } catch (err) {
       setError('コピーに失敗しました');
     }
-  };
+  }, [setError]);
+
+  // アンサー入力モーダルを開く
+  const handleOpenAnswerModal = useCallback((slotId: string) => {
+    setAnswerModalSlotId(slotId);
+    setAnswerInput('');
+  }, []);
 
   // アンサーを受け入れ
-  const handleAcceptAnswer = async () => {
-    if (!answerInput.trim()) return;
+  const handleAcceptAnswer = useCallback(async () => {
+    if (!answerModalSlotId || !answerInput.trim()) return;
 
     setIsAccepting(true);
+    setInviteSlots(prev => prev.map(slot =>
+      slot.id === answerModalSlotId
+        ? { ...slot, status: 'connecting' }
+        : slot
+    ));
+
     try {
       await acceptAnswer('', answerInput.trim());
-      setShowOfferModal(false);
-      setOfferCode('');
+      // 接続成功 - スロットを削除（playersに追加される）
+      setInviteSlots(prev => prev.filter(slot => slot.id !== answerModalSlotId));
+      setAnswerModalSlotId(null);
       setAnswerInput('');
     } catch (err) {
-      setError('接続に失敗しました');
+      setInviteSlots(prev => prev.map(slot =>
+        slot.id === answerModalSlotId
+          ? { ...slot, status: 'error', error: '接続に失敗しました' }
+          : slot
+      ));
     } finally {
       setIsAccepting(false);
     }
-  };
+  }, [answerModalSlotId, answerInput, acceptAnswer]);
+
+  // 利用可能なスロット数
+  const availableSlots = 8 - players.length - inviteSlots.length;
 
   return (
     <motion.div
@@ -136,7 +186,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           </h2>
           <div className="flex items-center gap-2">
             <span className="text-white/50 text-sm">
-              {players.length}/8 人
+              {players.length + inviteSlots.length}/8 人
             </span>
           </div>
         </div>
@@ -162,12 +212,13 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             プレイヤー
           </label>
           <div className="space-y-2">
+            {/* 接続済みプレイヤー */}
             {players.map((player, index) => (
               <motion.div
                 key={player.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: index * 0.05 }}
                 className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/10"
               >
                 <div className="flex items-center gap-3">
@@ -205,12 +256,80 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               </motion.div>
             ))}
 
-            {/* 招待ボタン（ホストのみ、8人未満のとき表示） */}
-            {isHost && players.length < 8 && (
+            {/* 招待スロット */}
+            {isHost && inviteSlots.map((slot, index) => (
+              <motion.div
+                key={slot.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/30"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/40 text-sm font-orbitron w-6">
+                      {players.length + index + 1}.
+                    </span>
+                    <span className="text-blue-300 text-sm">招待中...</span>
+                    {slot.status === 'generating' && (
+                      <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                    )}
+                    {slot.status === 'connecting' && (
+                      <div className="flex items-center gap-1 text-yellow-300 text-xs">
+                        <div className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                        接続中
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRemoveInviteSlot(slot.id)}
+                    className="text-red-400 hover:text-red-300 transition-colors text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {slot.status === 'error' && (
+                  <div className="text-red-400 text-xs mb-2">{slot.error}</div>
+                )}
+
+                {(slot.status === 'waiting_copy' || slot.status === 'waiting_answer') && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleCopyOffer(slot.id, slot.offerCode)}
+                      className={`flex-1 py-2 px-3 text-xs font-bold rounded transition-all flex items-center justify-center gap-1 ${
+                        slot.copied
+                          ? 'bg-green-500 text-white'
+                          : 'bg-blue-500 hover:bg-blue-400 text-white'
+                      }`}
+                    >
+                      {slot.copied ? (
+                        <>✓ コピー済み</>
+                      ) : (
+                        <>📋 招待コードをコピー</>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleOpenAnswerModal(slot.id)}
+                      disabled={!slot.copied}
+                      className={`flex-1 py-2 px-3 text-xs font-bold rounded transition-all flex items-center justify-center gap-1 ${
+                        slot.copied
+                          ? 'bg-purple-500 hover:bg-purple-400 text-white'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      📝 アンサーを入力
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            ))}
+
+            {/* 招待スロット追加ボタン（ホストのみ、空きがある時） */}
+            {isHost && availableSlots > 0 && (
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={handleInviteClick}
+                onClick={handleAddInviteSlot}
                 className="w-full flex items-center justify-center p-3 bg-black/20 rounded-lg border border-dashed border-white/20 hover:border-blue-400/50 hover:bg-blue-500/10 cursor-pointer transition-all"
               >
                 <span className="text-sm text-white/50">
@@ -235,7 +354,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         {/* アクションボタン */}
         <div className="space-y-3">
           {/* CPU追加（ホストのみ） */}
-          {isHost && players.length < 8 && (
+          {isHost && availableSlots > 0 && (
             <button
               onClick={handleAddCPU}
               className="w-full py-3 px-4 bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-500 hover:to-gray-400 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2"
@@ -281,21 +400,21 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         {isHost && (
           <div className="mt-6 pt-4 border-t border-white/10">
             <p className="text-white/40 text-xs text-center">
-              空きスロットをクリックしてプレイヤーを招待できます
+              「プレイヤーを招待」で招待コードを生成し、相手に送信してください
             </p>
           </div>
         )}
       </div>
 
-      {/* オファーモーダル */}
+      {/* アンサー入力モーダル */}
       <AnimatePresence>
-        {showOfferModal && (
+        {answerModalSlotId && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowOfferModal(false)}
+            onClick={() => setAnswerModalSlotId(null)}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -305,59 +424,24 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="font-orbitron text-lg text-white font-bold mb-4">
-                🔗 プレイヤーを招待
+                📝 アンサーコードを入力
               </h3>
 
-              {/* ステップ1: オファーコード */}
-              <div className="mb-4">
-                <label className="block text-white/60 text-xs uppercase tracking-wider mb-2">
-                  ステップ1: このコードを相手に送信
-                </label>
-                {isGenerating ? (
-                  <div className="flex items-center justify-center p-4 bg-black/40 rounded-lg border border-white/20">
-                    <div className="animate-spin w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full" />
-                    <span className="ml-2 text-white/60">生成中...</span>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <textarea
-                      readOnly
-                      value={offerCode}
-                      className="w-full h-24 px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white text-xs font-mono resize-none focus:outline-none"
-                      placeholder="オファーコード"
-                    />
-                    <button
-                      onClick={handleCopyOffer}
-                      disabled={!offerCode}
-                      className={`absolute top-2 right-2 px-3 py-1 text-xs font-bold rounded transition-all ${
-                        copySuccess
-                          ? 'bg-green-500 text-white border border-green-400'
-                          : 'bg-blue-500 text-white border border-blue-400 hover:bg-blue-400'
-                      }`}
-                    >
-                      {copySuccess ? 'コピー済み!' : 'コピー'}
-                    </button>
-                  </div>
-                )}
-              </div>
+              <p className="text-white/60 text-sm mb-4">
+                相手から受け取ったアンサーコードを貼り付けてください
+              </p>
 
-              {/* ステップ2: アンサー入力 */}
-              <div className="mb-4">
-                <label className="block text-white/60 text-xs uppercase tracking-wider mb-2">
-                  ステップ2: 相手からのアンサーを貼り付け
-                </label>
-                <textarea
-                  value={answerInput}
-                  onChange={(e) => setAnswerInput(e.target.value)}
-                  className="w-full h-24 px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white text-xs font-mono resize-none focus:border-blue-400 focus:outline-none transition-colors"
-                  placeholder="アンサーコードを貼り付け..."
-                />
-              </div>
+              <textarea
+                value={answerInput}
+                onChange={(e) => setAnswerInput(e.target.value)}
+                className="w-full h-32 px-3 py-2 bg-black/40 border border-white/20 rounded-lg text-white text-xs font-mono resize-none focus:border-blue-400 focus:outline-none transition-colors mb-4"
+                placeholder="アンサーコードを貼り付け..."
+                autoFocus
+              />
 
-              {/* アクションボタン */}
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowOfferModal(false)}
+                  onClick={() => setAnswerModalSlotId(null)}
                   className="flex-1 py-2 px-4 bg-transparent border border-white/20 hover:border-white/40 text-white/60 hover:text-white/80 rounded-lg transition-all"
                 >
                   キャンセル
@@ -369,15 +453,6 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 >
                   {isAccepting ? '接続中...' : '接続'}
                 </button>
-              </div>
-
-              {/* 手順説明 */}
-              <div className="mt-4 pt-4 border-t border-white/10">
-                <p className="text-white/40 text-xs">
-                  1. オファーコードをコピーして相手に送信<br />
-                  2. 相手がゲームに参加してアンサーを生成<br />
-                  3. 相手から受け取ったアンサーを貼り付けて接続
-                </p>
               </div>
             </motion.div>
           </motion.div>
