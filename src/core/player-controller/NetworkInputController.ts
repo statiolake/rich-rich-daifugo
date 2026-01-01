@@ -34,12 +34,16 @@ export class NetworkInputController implements PlayerController {
    * ホストからACTION_PERFORMEDを受信した時に呼ばれる
    */
   onActionReceived(action: PlayerAction): void {
+    console.log(`[NetworkInputController:${this.playerId}] onActionReceived:`, action.type);
+    console.log(`[NetworkInputController:${this.playerId}] Pending resolvers:`, Array.from(this.pendingResolvers.keys()));
     const resolver = this.pendingResolvers.get(action.type);
     if (resolver) {
+      console.log(`[NetworkInputController:${this.playerId}] Found resolver, executing...`);
       resolver(action);
       this.pendingResolvers.delete(action.type);
+      console.log(`[NetworkInputController:${this.playerId}] Resolver executed and removed`);
     } else {
-      console.warn(`[NetworkInputController] No pending resolver for action type: ${action.type}`);
+      console.warn(`[NetworkInputController:${this.playerId}] No pending resolver for action type: ${action.type}`);
     }
   }
 
@@ -53,8 +57,10 @@ export class NetworkInputController implements PlayerController {
   // --- PlayerController インターフェース実装 ---
 
   async chooseCardsInHand(validator: Validator, prompt?: string): Promise<Card[]> {
+    console.log(`[NetworkInputController:${this.playerId}] chooseCardsInHand called, waiting for CARD_SELECTION`);
     return new Promise((resolve) => {
       this.pendingResolvers.set('CARD_SELECTION', (action) => {
+        console.log(`[NetworkInputController:${this.playerId}] CARD_SELECTION resolver triggered`);
         if (action.type === 'CARD_SELECTION') {
           if (action.isPass || action.cardIds.length === 0) {
             resolve([]);

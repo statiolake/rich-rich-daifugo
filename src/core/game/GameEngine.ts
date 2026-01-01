@@ -73,6 +73,7 @@ export class GameEngine {
     await this.currentPhase.enter(this.gameState);
     console.log('[GameEngine] SETUP phase completed, emitting game:started');
     this.eventEmitter.emit('game:started', { gameState: this.getState() });
+    console.log('[GameEngine] game:started event emitted');
 
     // EXCHANGE フェーズに移行（2ラウンド目以降はカード交換が発生）
     await this.transitionPhase(GamePhaseType.EXCHANGE);

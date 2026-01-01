@@ -11,8 +11,6 @@ export const HumanControl: React.FC = () => {
   const error = useGameStore(state => state.error);
   const clearError = useGameStore(state => state.clearError);
   const submitCardSelection = useGameStore(state => state.submitCardSelection);
-  const isGuestMode = useGameStore(state => state.isGuestMode);
-  const submitGuestCardSelection = useGameStore(state => state.submitGuestCardSelection);
   const submitQueenBomberRank = useGameStore(state => state.submitQueenBomberRank);
 
   // Discard selection state
@@ -367,11 +365,9 @@ export const HumanControl: React.FC = () => {
                       whileHover={isCurrentSelectionValid ? { scale: 1.05 } : {}}
                       whileTap={isCurrentSelectionValid ? { scale: 0.95 } : {}}
                       onClick={isCurrentSelectionValid ? () => {
-                        if (isGuestMode) {
-                          submitGuestCardSelection(isPassSelected);
-                        } else {
-                          submitCardSelection();
-                        }
+                        // GuestPlayerControllerはHumanPlayerControllerを継承しており、
+                        // cardSelectionCallbackを使用するため、常にsubmitCardSelectionを使用
+                        submitCardSelection();
                       } : undefined}
                       disabled={!isCurrentSelectionValid}
                       className={`

@@ -271,7 +271,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       config.players.forEach((pConfig) => {
         if (pConfig.type === PlayerType.HUMAN) {
-          playerControllers.set(pConfig.id, new HumanPlayerController(get(), pConfig.id));
+          playerControllers.set(pConfig.id, new HumanPlayerController(pConfig.id));
         } else {
           // CPU用のコントローラーは一時的にnull（gameStateが必要）
           playerControllers.set(pConfig.id, null as any);
@@ -479,7 +479,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         if (playerId === mpLocalPlayerId) {
           // ローカルプレイヤー（ホスト自身）
-          playerControllers.set(playerId, new HumanPlayerController(get(), playerId));
+          playerControllers.set(playerId, new HumanPlayerController(playerId));
         } else if (networkType === 'GUEST') {
           // リモートゲストプレイヤー - NetworkInputControllerを使用
           const networkController = new NetworkInputController(playerId);
@@ -513,10 +513,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // ゲストからのINPUT_RESPONSEを処理するハンドラを設定
       hostManager.setHandlers({
         onGuestMessage: (connectionId, message) => {
+          console.log('[Host] Received message from guest:', message.type, connectionId);
           if (message.type === 'INPUT_RESPONSE') {
+            console.log('[Host] Processing INPUT_RESPONSE:', message.response);
             const playerId = hostManager.getPlayerIdByConnectionId(connectionId);
+            console.log('[Host] Player ID for connection:', playerId);
             if (playerId) {
               const controller = networkControllers.get(playerId);
+              console.log('[Host] Found NetworkInputController:', !!controller);
               if (controller) {
                 // INPUT_RESPONSEをPlayerActionに変換してNetworkInputControllerに渡す
                 const response = message.response;
@@ -543,9 +547,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
                     suit: response.selectedSuit,
                   };
                 } else {
+                  console.log('[Host] Unknown response type');
                   return;
                 }
+                console.log('[Host] Dispatching action to NetworkInputController:', action);
                 controller.onActionReceived(action);
+                console.log('[Host] Action dispatched successfully');
               }
             }
           }
@@ -582,7 +589,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
       });
 
+      console.log('[Host] Registering game:started event listener');
       eventBus.on('game:started', (data) => {
+        console.log('[Host] game:started event handler called!');
         console.log('[Host] Multiplayer game started!', data.gameState);
         const allCards = CardFactory.createDeck(true);
         useCardPositionStore.getState().initialize(allCards);
@@ -735,7 +744,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       for (const pConfig of playerConfigs) {
         if (pConfig.id === mpLocalPlayerId) {
           // 自分はGuestPlayerController（選択完了時にホストに送信）
-          playerControllers.set(pConfig.id, new GuestPlayerController(get(), pConfig.id, sendToHost));
+          playerControllers.set(pConfig.id, new GuestPlayerController(pConfig.id, sendToHost));
         } else {
           // 他プレイヤーはNetworkInputController（ACTION_PERFORMED待機）
           const networkController = new NetworkInputController(pConfig.id);
@@ -1093,11 +1102,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   getValidCombinations: () => {
-    const { gameState, engine, cardSelectionValidator, isGuestMode } = get();
+    const { gameState, engine, cardSelectionValidator, isGuestMode, isMultiplayerMode, localPlayerId } = get();
     if (!gameState) return [];
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (!currentPlayer || currentPlayer.type !== PlayerType.HUMAN) {
+      return [];
+    }
+
+    // マルチプレイモードでは、ローカルプレイヤーの手番でのみ有効な組み合わせを計算
+    if (isMultiplayerMode && localPlayerId && currentPlayer.id.value !== localPlayerId) {
       return [];
     }
 
@@ -1132,11 +1146,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!engine) return [];
 
     // 通常の場合は既存のロジックを使用
+    // 重要: engine.getState()から最新の状態を取得する
+    // Zustandの状態はReactの再レンダリングタイミングで遅れる可能性があるため
     const ruleEngine = engine.getRuleEngine();
-    return currentPlayer.hand.findAllValidPlays(
-      currentPlayer,
-      gameState.field,
-      gameState,
+    const latestState = engine.getState();
+    const latestPlayer = latestState.players[latestState.currentPlayerIndex];
+
+    if (!latestPlayer || latestPlayer.type !== PlayerType.HUMAN) {
+      return [];
+    }
+
+    return latestPlayer.hand.findAllValidPlays(
+      latestPlayer,
+      latestState.field,
+      latestState,
       ruleEngine
     );
   },

@@ -10,27 +10,26 @@ import { Card } from '../../core/domain/card/Card';
 import { Player } from '../../core/domain/player/Player';
 import { GuestMessage } from '../../infrastructure/network/NetworkProtocol';
 import { HumanPlayerController } from './HumanPlayerController';
-import { useGameStore } from '../store/gameStore';
-
-type GameStore = ReturnType<typeof useGameStore.getState>;
 
 export class GuestPlayerController extends HumanPlayerController {
   private sendToHost: (message: GuestMessage) => void;
 
   constructor(
-    gameStore: GameStore,
     playerId: string,
     sendToHost: (message: GuestMessage) => void
   ) {
-    super(gameStore, playerId);
+    super(playerId);
     this.sendToHost = sendToHost;
   }
 
   async chooseCardsInHand(validator: Validator, prompt?: string): Promise<Card[]> {
+    console.log('[GuestPlayerController] chooseCardsInHand called');
     // 通常のUI選択を実行
     const selectedCards = await super.chooseCardsInHand(validator, prompt);
+    console.log('[GuestPlayerController] User selected cards:', selectedCards.map(c => c.id));
 
     // 選択結果をホストに送信
+    console.log('[GuestPlayerController] Sending INPUT_RESPONSE to host');
     this.sendToHost({
       type: 'INPUT_RESPONSE',
       response: {
@@ -39,6 +38,7 @@ export class GuestPlayerController extends HumanPlayerController {
         isPass: selectedCards.length === 0,
       }
     });
+    console.log('[GuestPlayerController] INPUT_RESPONSE sent');
 
     return selectedCards;
   }
