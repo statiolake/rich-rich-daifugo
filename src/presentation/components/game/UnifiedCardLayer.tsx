@@ -4,7 +4,6 @@ import { useCardPositionStore } from '../../store/cardPositionStore';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { Card } from '../card/Card';
 import { CardFactory, Card as CardType } from '../../../core/domain/card/Card';
-import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerService';
 import { useEffect, useMemo } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
 
@@ -24,7 +23,8 @@ export const UnifiedCardLayer: React.FC = () => {
   // ゲーム状態から特殊ルールの状態を取得
   const getRuleEngine = useGameStore(state => state.getRuleEngine);
   const clearSelection = useGameStore(state => state.clearSelection);
-  const humanPlayer = gameState ? LocalPlayerService.findLocalPlayer(gameState) : null;
+  const localPlayerId = useGameStore(state => state.localPlayerId);
+  const localPlayer = gameState?.players.find(p => p.id.value === localPlayerId) ?? null;
 
   // カード選択リクエスト・ランク選択リクエストの状態を取得（新しいアーキテクチャ）
   const isCardSelectionEnabled = useGameStore(state => state.isCardSelectionEnabled);
@@ -46,22 +46,22 @@ export const UnifiedCardLayer: React.FC = () => {
 
   // 禁止上がりのカードを決める（Hand.getForbiddenFinishCardIds()を使用）
   const forbiddenFinishCards = useMemo(() => {
-    if (!humanPlayer || !gameState) return new Set<string>();
+    if (!localPlayer || !gameState) return new Set<string>();
 
     const ruleEngine = getRuleEngine();
-    return humanPlayer.hand.getForbiddenFinishCardIds(
-      humanPlayer,
+    return localPlayer.hand.getForbiddenFinishCardIds(
+      localPlayer,
       gameState.field,
       gameState,
       ruleEngine
     );
-  }, [humanPlayer, gameState, getRuleEngine]);
+  }, [localPlayer, gameState, getRuleEngine]);
 
   // 光らせるカードを決める
   const legalCards = useMemo(() => {
     const legal = new Set<string>();
 
-    if (!humanPlayer) return legal;
+    if (!localPlayer) return legal;
 
     // 優先順位1: ランク選択リクエスト中は、カード選択を無効化
     if (isPendingRankSelection) {
@@ -93,7 +93,7 @@ export const UnifiedCardLayer: React.FC = () => {
     // HumanPlayerController.chooseCardsInHand() が呼ばれて初めてハイライトする
     // ゲーム開始直後など、まだ選択が有効化されていない状態ではハイライトしない
     return legal;
-  }, [validCombinations, selectedCards, humanPlayer, gameState, isValidatorBottomType, isPendingCardSelection, isPendingRankSelection]);
+  }, [validCombinations, selectedCards, localPlayer, gameState, isValidatorBottomType, isPendingCardSelection, isPendingRankSelection]);
 
   // 54枚のカードオブジェクトを取得（ジョーカーは固定IDなので毎回同じになる）
   const allCards = useMemo(() => CardFactory.createDeck(true), []);
@@ -161,7 +161,6 @@ export const UnifiedCardLayer: React.FC = () => {
         const isSelected = selectedCards.some((c) => c.id === card.id);
 
         // 自分の手札であればすべてクリック可能（valid/invalidに関わらず）
-        const localPlayerId = gameState ? LocalPlayerService.getLocalPlayerId(gameState) : undefined;
         const isClickable =
           cardPos.location === 'hand' && cardPos.ownerId === localPlayerId;
 

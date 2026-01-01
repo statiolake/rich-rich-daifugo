@@ -1,8 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
-import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
-import { LocalPlayerService } from '../../../core/domain/player/LocalPlayerService';
 import { useMemo, useState } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
 import { CardFactory, Suit, Rank, Card } from '../../../core/domain/card/Card';
@@ -42,8 +40,8 @@ export const HumanControl: React.FC = () => {
 
   const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.getHistory().length, cardSelectionValidatorForMemo]);
 
-  // マルチプレイのローカルプレイヤーID
-  const multiplayerLocalPlayerId = useMultiplayerStore(state => state.localPlayerId);
+  // ローカルプレイヤーID（シングル/マルチ共通）
+  const localPlayerId = useGameStore(state => state.localPlayerId);
 
   if (!gameState || gameState.phase === GamePhaseType.RESULT) return null;
 
@@ -51,12 +49,10 @@ export const HumanControl: React.FC = () => {
 
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
 
-  // ゲストモードの場合はlocalPlayerIdで、シングルプレイの場合はHUMANタイプで判定
-  const humanPlayer = isGuestMode
-    ? gameState.players.find(p => p.id.value === multiplayerLocalPlayerId)
-    : LocalPlayerService.findLocalPlayer(gameState);
+  // ローカルプレイヤーを取得（localPlayerIdで判定）
+  const localPlayer = gameState.players.find(p => p.id.value === localPlayerId);
 
-  if (!humanPlayer || humanPlayer.isFinished) {
+  if (!localPlayer || localPlayer.isFinished) {
     return null;
   }
 

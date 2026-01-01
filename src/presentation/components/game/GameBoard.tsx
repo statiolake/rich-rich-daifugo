@@ -43,6 +43,7 @@ export const GameBoard: React.FC = () => {
   const reset = useGameStore(state => state.reset);
   const activeCutIns = useGameStore(state => state.activeCutIns);
   const removeCutIn = useGameStore(state => state.removeCutIn);
+  const localPlayerId = useGameStore(state => state.localPlayerId);
 
   // マルチプレイモード
   if (isMultiplayerMode && !gameState) {
@@ -215,14 +216,18 @@ export const GameBoard: React.FC = () => {
   const isGameResult = gameState.phase === GamePhaseType.RESULT;
 
   // Player positions (4-player circular layout)
+  // ローカルプレイヤーを基準に他のプレイヤーを配置
+  const localPlayerIndex = gameState.players.findIndex(p => p.id.value === localPlayerId);
   const calculatePosition = (index: number, total: number): { x: number; y: number } => {
     const positions = [
-      { x: 50, y: 85 },  // Bottom (Human)
+      { x: 50, y: 85 },  // Bottom (ローカルプレイヤー)
       { x: 10, y: 50 },  // Left
       { x: 50, y: 15 },  // Top
       { x: 90, y: 50 },  // Right
     ];
-    return positions[index] || { x: 50, y: 50 };
+    // ローカルプレイヤーからの相対位置を計算
+    const relativeIndex = (index - localPlayerIndex + total) % total;
+    return positions[relativeIndex] || { x: 50, y: 50 };
   };
 
   const getRankBadgeClass = (rank: PlayerRank | null): string => {

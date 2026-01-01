@@ -54,6 +54,7 @@ interface GameStore {
   engine: GameEngine | null;
   isMultiplayerMode: boolean;
   isGuestMode: boolean;
+  localPlayerId: string | null;  // このクライアントが操作するプレイヤーのID
   guestCardSelectionCallback: GuestCardSelectionCallback | null;
   gameState: GameState | null;
   selectedCards: Card[];
@@ -178,6 +179,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   engine: null,
   isMultiplayerMode: false,
   isGuestMode: false,
+  localPlayerId: null,
   guestCardSelectionCallback: null,
   gameState: null,
   selectedCards: [],
@@ -254,6 +256,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // PlayerController マップを作成
       const playerControllers = new Map<string, PlayerController>();
 
+      // ローカルプレイヤーIDを特定（シングルプレイではHUMANプレイヤー）
+      const humanPlayerId = config.players.find(p => p.type === PlayerType.HUMAN)?.id ?? null;
+
       config.players.forEach((pConfig) => {
         if (pConfig.type === PlayerType.HUMAN) {
           playerControllers.set(pConfig.id, new HumanPlayerController(get(), pConfig.id));
@@ -300,7 +305,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         console.log('Game ended!');
       });
 
-      set({ engine, error: null });
+      set({ engine, localPlayerId: humanPlayerId, error: null });
 
       // ゲームを開始（非同期）
       engine.start().catch((error) => {
@@ -355,6 +360,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       engine: null,
       gameState: null,
+      isMultiplayerMode: false,
+      isGuestMode: false,
+      localPlayerId: null,
       selectedCards: [],
       error: null,
       movingCards: [],
@@ -402,7 +410,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   startMultiplayerGame: () => {
     try {
       const multiplayerStore = useMultiplayerStore.getState();
-      const { mode, players, localPlayerId, hostManager } = multiplayerStore;
+      const { mode, players, localPlayerId: mpLocalPlayerId, hostManager } = multiplayerStore;
 
       if (mode !== 'host') {
         console.error('Only host can start multiplayer game');
@@ -432,7 +440,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // マルチプレイ用のGameConfigを作成
       const config = GameConfigFactory.createMultiplayerGame(
         playerInfos,
-        localPlayerId,
+        mpLocalPlayerId,
         ruleSettings
       );
 
@@ -447,7 +455,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const playerId = pConfig.id;
         const networkType = pConfig.networkType;
 
-        if (playerId === localPlayerId) {
+        if (playerId === mpLocalPlayerId) {
           // ローカルプレイヤー（ホスト自身）
           playerControllers.set(playerId, new HumanPlayerController(get(), playerId));
         } else if (networkType === 'GUEST') {
@@ -579,6 +587,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({
         engine,
         isMultiplayerMode: true,
+        localPlayerId: mpLocalPlayerId,
         error: null,
       });
 
@@ -599,7 +608,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setGuestMode: (isGuest: boolean) => {
-    set({ isGuestMode: isGuest, isMultiplayerMode: true });
+    // ゲストモードに切り替える際、multiplayerStoreからlocalPlayerIdを取得
+    const mpLocalPlayerId = useMultiplayerStore.getState().localPlayerId;
+    set({ isGuestMode: isGuest, isMultiplayerMode: true, localPlayerId: mpLocalPlayerId });
   },
 
   enableGuestCardSelection: (validCardIds, canPass, callback, prompt) => {

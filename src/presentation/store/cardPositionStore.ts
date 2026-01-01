@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { Card } from '../../core/domain/card/Card';
 import { GameState } from '../../core/domain/game/GameState';
-import { PlayerType } from '../../core/domain/player/Player';
 import {
   calculateHumanHandPosition,
   calculateCPUHandPosition,
   calculateFieldPosition,
 } from '../utils/cardPositionCalculator';
+import { useGameStore } from './gameStore';
 
 // カード位置の状態
 export interface CardPosition {
@@ -60,10 +60,13 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
     const { cards } = get();
     const updated = new Map(cards);
 
+    // ローカルプレイヤーIDをgameStoreから取得（シングル/マルチ共通）
+    const localPlayerId = useGameStore.getState().localPlayerId;
+
     // 手札と場のカードIDのセットを作成
     const handCardIds = new Set<string>();
     const fieldCardIds = new Set<string>();
-    const cardToHandInfo = new Map<string, { playerIndex: number; playerId: string; cardIndex: number; isHuman: boolean }>();
+    const cardToHandInfo = new Map<string, { playerIndex: number; playerId: string; cardIndex: number; isLocalPlayer: boolean }>();
     const cardToFieldInfo = new Map<string, { playIndex: number; cardIndex: number; totalCards: number }>();
 
     // 1. 手札のカードを収集
@@ -74,7 +77,7 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
           playerIndex,
           playerId: player.id.value,
           cardIndex,
-          isHuman: player.type === PlayerType.HUMAN,
+          isLocalPlayer: player.id.value === localPlayerId,
         });
       });
     });
@@ -97,9 +100,19 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
       if (handCardIds.has(cardId)) {
         // 手札にあるカード
         const info = cardToHandInfo.get(cardId)!;
-        const targetPos = info.isHuman
+
+        // ローカルプレイヤーの手札は画面下に、他のプレイヤーは上部に配置
+        // マルチプレイの場合、ローカルプレイヤー以外のプレイヤーインデックスを計算
+        const localPlayerIndex = gameState.players.findIndex(p => p.id.value === localPlayerId);
+        const adjustedPlayerIndex = info.isLocalPlayer
+          ? 0  // ローカルプレイヤーは常に画面下（インデックス0相当）
+          : info.playerIndex < localPlayerIndex
+            ? info.playerIndex + 1  // ローカルより前のプレイヤーは+1
+            : info.playerIndex;  // ローカルより後のプレイヤーはそのまま
+
+        const targetPos = info.isLocalPlayer
           ? calculateHumanHandPosition(info.cardIndex, gameState.players[info.playerIndex].hand.size())
-          : calculateCPUHandPosition(info.playerIndex, info.cardIndex, gameState.players.length);
+          : calculateCPUHandPosition(adjustedPlayerIndex, info.cardIndex, gameState.players.length);
 
         const locationChanged = pos.location !== 'hand' || pos.ownerId !== info.playerId;
         const positionChanged = pos.x !== targetPos.x || pos.y !== targetPos.y;
@@ -111,7 +124,7 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
             y: targetPos.y,
             location: 'hand',
             ownerId: info.playerId,
-            isFaceUp: info.isHuman,
+            isFaceUp: info.isLocalPlayer,  // ローカルプレイヤーの手札のみ表向き
             opacity: 1,
             scale: 1,
             transitionDuration: locationChanged ? 500 : 200,
