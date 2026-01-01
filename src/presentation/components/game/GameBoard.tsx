@@ -263,8 +263,9 @@ export const GameBoard: React.FC = () => {
       <GameLog />
 
       {/* Turn Direction Arrows */}
+      {/* currentPlayerIndex をローカルプレイヤー基準の相対位置に変換 */}
       <TurnArrows
-        currentPlayerIndex={gameState.currentPlayerIndex}
+        currentPlayerIndex={(gameState.currentPlayerIndex - localPlayerIndex + gameState.players.length) % gameState.players.length}
         playerCount={gameState.players.length}
         isReversed={gameState.isReversed}
       />

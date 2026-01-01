@@ -32,6 +32,13 @@ export const HumanControl: React.FC = () => {
   const toggleDiscardCardSelection = useSelectionStore(state => state.toggleDiscardCardSelection);
   const submitDiscardSelection = useSelectionStore(state => state.submitDiscardSelection);
 
+  // Player selection state from selectionStore
+  const isPlayerSelectionEnabled = useSelectionStore(state => state.isPlayerSelectionEnabled);
+  const playerSelectionIds = useSelectionStore(state => state.playerSelectionIds);
+  const playerSelectionNames = useSelectionStore(state => state.playerSelectionNames);
+  const playerSelectionPrompt = useSelectionStore(state => state.playerSelectionPrompt);
+  const submitPlayerSelection = useSelectionStore(state => state.submitPlayerSelection);
+
   const [screenHeight, setScreenHeight] = useState(window.innerHeight);
 
   useWindowResize(() => {
@@ -56,6 +63,7 @@ export const HumanControl: React.FC = () => {
   const isPendingCardSelection = isCardSelectionEnabled;
   const isPendingRankSelection = isQueenBomberRankSelectionEnabled;
   const isPendingDiscardSelection = isDiscardSelectionEnabled;
+  const isPendingPlayerSelection = isPlayerSelectionEnabled;
 
   const validationResult = isPendingCardSelection
     ? (cardSelectionValidator ? cardSelectionValidator.validate(selectedCards) : { valid: false })
@@ -64,7 +72,7 @@ export const HumanControl: React.FC = () => {
 
   const triggerEffects = validationResult.triggeredEffects || [];
 
-  const needsSelection = isPendingCardSelection || isPendingRankSelection || isPendingDiscardSelection;
+  const needsSelection = isPendingCardSelection || isPendingRankSelection || isPendingDiscardSelection || isPendingPlayerSelection;
 
   return (
     <>
@@ -114,7 +122,56 @@ export const HumanControl: React.FC = () => {
 
         {/* Control Buttons */}
         <AnimatePresence mode="wait">
-          {isPendingDiscardSelection ? (
+          {isPendingPlayerSelection ? (
+            <motion.div
+              key="player-selection"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="flex flex-col items-center gap-4 pointer-events-auto"
+            >
+              {/* Prompt */}
+              <div className="game-panel px-6 py-3">
+                <span className="text-cyan-300 font-bold flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                  </svg>
+                  {playerSelectionPrompt || 'プレイヤーを選んでください'}
+                </span>
+              </div>
+
+              {/* Player Buttons */}
+              <div className="flex flex-wrap justify-center gap-3 max-w-2xl px-4">
+                {playerSelectionIds.map((playerId) => {
+                  const playerName = playerSelectionNames.get(playerId) || playerId;
+
+                  return (
+                    <motion.button
+                      key={playerId}
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => submitPlayerSelection(playerId)}
+                      className="px-6 py-3 rounded-xl font-bold transition-all duration-200
+                        bg-gradient-to-br from-cyan-600 to-cyan-700 text-white
+                        border-2 border-cyan-400/50 hover:border-cyan-300
+                        hover:from-cyan-500 hover:to-cyan-600"
+                      style={{
+                        boxShadow: '0 4px 15px rgba(6, 182, 212, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2)'
+                      }}
+                    >
+                      <span className="flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                        </svg>
+                        {playerName}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          ) : isPendingDiscardSelection ? (
             <motion.div
               key="discard-selection"
               initial={{ opacity: 0, y: 20 }}
