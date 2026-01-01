@@ -189,6 +189,18 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       },
       onStateChange: (state) => {
         set({ connectionState: state });
+        // 接続完了時にJOINメッセージを送信
+        if (state === 'connected') {
+          const { guestManager: gm, localPlayerName: name } = get();
+          if (gm) {
+            console.log('[MultiplayerStore] Sending JOIN message');
+            gm.sendToHost({
+              type: 'JOIN',
+              playerName: name,
+              version: PROTOCOL_VERSION,
+            });
+          }
+        }
       },
     });
 
@@ -348,19 +360,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     set({ connectionState: 'connecting' });
 
     const answer = await guestManager.acceptOfferFromHost(offer);
-
-    // 接続成功後、JOINメッセージを送信
-    // （接続が確立されるまで少し待つ）
-    setTimeout(() => {
-      const { guestManager: gm, connectionState } = get();
-      if (gm && connectionState === 'connected') {
-        gm.sendToHost({
-          type: 'JOIN',
-          playerName: localPlayerName,
-          version: PROTOCOL_VERSION,
-        });
-      }
-    }, 500);
+    // JOINメッセージはonStateChangeで'connected'になったときに送信される
 
     return answer;
   },
