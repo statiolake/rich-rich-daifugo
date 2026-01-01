@@ -4,6 +4,9 @@
  * ゲスト側GameEngineで使用。
  * ホストから受信したACTION_PERFORMEDメッセージを待機し、
  * その内容をGameEngineに返す。
+ *
+ * すべての選択は必ずキューから取り出す方式で統一。
+ * データレースを避けるため、キューが空の場合は追加されるまでawaitする。
  */
 
 import { Card } from '../domain/card/Card';
@@ -14,10 +17,13 @@ import { PlayerAction } from '../../infrastructure/network/NetworkProtocol';
 // カードIDからCardオブジェクトを解決するための関数型
 type CardResolver = (cardIds: string[]) => Card[];
 
+// 待機中のリゾルバ（キューにアクションが追加されたときに呼ばれる）
+type QueueWaiter = () => void;
+
 export class NetworkInputController implements PlayerController {
   private playerId: string;
-  private pendingResolvers = new Map<string, (action: PlayerAction) => void>();
-  private actionQueue: PlayerAction[] = [];  // アクションキュー
+  private actionQueue: PlayerAction[] = [];
+  private queueWaiters: QueueWaiter[] = [];
   private cardResolver: CardResolver | null = null;
 
   constructor(playerId: string) {
@@ -33,42 +39,55 @@ export class NetworkInputController implements PlayerController {
 
   /**
    * ホストからACTION_PERFORMEDを受信した時に呼ばれる
-   * resolverがまだなければキューに貯める
+   * キューに追加し、待機中のリゾルバがあれば通知する
    */
   onActionReceived(action: PlayerAction): void {
     console.log(`[NetworkInputController:${this.playerId}] onActionReceived:`, action.type);
-    console.log(`[NetworkInputController:${this.playerId}] Pending resolvers:`, Array.from(this.pendingResolvers.keys()));
-    const resolver = this.pendingResolvers.get(action.type);
-    if (resolver) {
-      console.log(`[NetworkInputController:${this.playerId}] Found resolver, executing...`);
-      resolver(action);
-      this.pendingResolvers.delete(action.type);
-      console.log(`[NetworkInputController:${this.playerId}] Resolver executed and removed`);
-    } else {
-      // resolverがまだないのでキューに貯める
-      console.log(`[NetworkInputController:${this.playerId}] No resolver yet, queuing action`);
-      this.actionQueue.push(action);
+
+    // キューに追加
+    this.actionQueue.push(action);
+    console.log(`[NetworkInputController:${this.playerId}] Action queued. Queue size: ${this.actionQueue.length}`);
+
+    // 待機中のリゾルバがあれば通知
+    if (this.queueWaiters.length > 0) {
+      const waiter = this.queueWaiters.shift()!;
+      console.log(`[NetworkInputController:${this.playerId}] Notifying waiter`);
+      waiter();
     }
   }
 
   /**
-   * キューからアクションを取り出して処理を試みる
+   * 指定されたタイプのアクションがキューに追加されるまで待機し、取り出す
    */
-  private tryProcessQueue(actionType: string): PlayerAction | null {
-    const index = this.actionQueue.findIndex(a => a.type === actionType);
-    if (index !== -1) {
-      const action = this.actionQueue.splice(index, 1)[0];
-      console.log(`[NetworkInputController:${this.playerId}] Found queued action:`, actionType);
+  private async waitForAction(actionType: string): Promise<PlayerAction> {
+    console.log(`[NetworkInputController:${this.playerId}] waitForAction:`, actionType);
+
+    // キューに該当タイプのアクションがあるか確認
+    const existingIndex = this.actionQueue.findIndex(a => a.type === actionType);
+    if (existingIndex !== -1) {
+      const action = this.actionQueue.splice(existingIndex, 1)[0];
+      console.log(`[NetworkInputController:${this.playerId}] Found in queue:`, actionType);
       return action;
     }
-    return null;
-  }
 
-  /**
-   * 待機中のアクションがあるかどうか
-   */
-  hasPendingAction(): boolean {
-    return this.pendingResolvers.size > 0;
+    // なければ追加されるまで待機
+    console.log(`[NetworkInputController:${this.playerId}] Waiting for:`, actionType);
+
+    return new Promise((resolve) => {
+      const checkQueue = () => {
+        const index = this.actionQueue.findIndex(a => a.type === actionType);
+        if (index !== -1) {
+          const action = this.actionQueue.splice(index, 1)[0];
+          console.log(`[NetworkInputController:${this.playerId}] Got from queue:`, actionType);
+          resolve(action);
+        } else {
+          // まだないので再度待機
+          this.queueWaiters.push(checkQueue);
+        }
+      };
+
+      this.queueWaiters.push(checkQueue);
+    });
   }
 
   /**
@@ -81,108 +100,66 @@ export class NetworkInputController implements PlayerController {
   // --- PlayerController インターフェース実装 ---
 
   async chooseCardsInHand(validator: Validator, prompt?: string): Promise<Card[]> {
-    console.log(`[NetworkInputController:${this.playerId}] chooseCardsInHand called, waiting for CARD_SELECTION`);
+    console.log(`[NetworkInputController:${this.playerId}] chooseCardsInHand called`);
 
-    // まずキューを確認
-    const queuedAction = this.tryProcessQueue('CARD_SELECTION');
-    if (queuedAction && queuedAction.type === 'CARD_SELECTION') {
-      console.log(`[NetworkInputController:${this.playerId}] Using queued CARD_SELECTION action`);
-      if (queuedAction.isPass || queuedAction.cardIds.length === 0) {
+    const action = await this.waitForAction('CARD_SELECTION');
+
+    if (action.type === 'CARD_SELECTION') {
+      if (action.isPass || action.cardIds.length === 0) {
         return [];
       } else if (this.cardResolver) {
-        return this.cardResolver(queuedAction.cardIds);
+        return this.cardResolver(action.cardIds);
       } else {
         console.error('[NetworkInputController] No card resolver set');
         return [];
       }
     }
 
-    // キューになければresolverを設定して待機
-    return new Promise((resolve) => {
-      this.pendingResolvers.set('CARD_SELECTION', (action) => {
-        console.log(`[NetworkInputController:${this.playerId}] CARD_SELECTION resolver triggered`);
-        if (action.type === 'CARD_SELECTION') {
-          if (action.isPass || action.cardIds.length === 0) {
-            resolve([]);
-          } else if (this.cardResolver) {
-            resolve(this.cardResolver(action.cardIds));
-          } else {
-            console.error('[NetworkInputController] No card resolver set');
-            resolve([]);
-          }
-        }
-      });
-    });
+    return [];
   }
 
   async chooseRankForQueenBomber(): Promise<string> {
-    // まずキューを確認
-    const queuedAction = this.tryProcessQueue('RANK_SELECTION');
-    if (queuedAction && queuedAction.type === 'RANK_SELECTION') {
-      return queuedAction.rank;
+    console.log(`[NetworkInputController:${this.playerId}] chooseRankForQueenBomber called`);
+
+    const action = await this.waitForAction('RANK_SELECTION');
+
+    if (action.type === 'RANK_SELECTION') {
+      return action.rank;
     }
 
-    return new Promise((resolve) => {
-      this.pendingResolvers.set('RANK_SELECTION', (action) => {
-        if (action.type === 'RANK_SELECTION') {
-          resolve(action.rank);
-        }
-      });
-    });
+    return '3'; // デフォルト
   }
 
   async chooseCardsFromDiscard(discardPile: Card[], maxCount: number, prompt: string): Promise<Card[]> {
-    // まずキューを確認
-    const queuedAction = this.tryProcessQueue('CARD_SELECTION');
-    if (queuedAction && queuedAction.type === 'CARD_SELECTION') {
-      if (queuedAction.cardIds.length === 0) {
+    console.log(`[NetworkInputController:${this.playerId}] chooseCardsFromDiscard called`);
+
+    const action = await this.waitForAction('CARD_SELECTION');
+
+    if (action.type === 'CARD_SELECTION') {
+      if (action.cardIds.length === 0) {
         return [];
       } else {
-        const cards = queuedAction.cardIds
+        return action.cardIds
           .map(id => discardPile.find(c => c.id === id))
           .filter((c): c is Card => c !== undefined);
-        return cards;
       }
     }
 
-    return new Promise((resolve) => {
-      this.pendingResolvers.set('CARD_SELECTION', (action) => {
-        if (action.type === 'CARD_SELECTION') {
-          if (action.cardIds.length === 0) {
-            resolve([]);
-          } else {
-            // discardPileからカードを検索
-            const cards = action.cardIds
-              .map(id => discardPile.find(c => c.id === id))
-              .filter((c): c is Card => c !== undefined);
-            resolve(cards);
-          }
-        }
-      });
-    });
+    return [];
   }
 
   async chooseCardsForExchange(handCards: Card[], exactCount: number, prompt: string): Promise<Card[]> {
-    // まずキューを確認
-    const queuedAction = this.tryProcessQueue('CARD_EXCHANGE');
-    if (queuedAction && queuedAction.type === 'CARD_EXCHANGE') {
-      const cards = queuedAction.cardIds
+    console.log(`[NetworkInputController:${this.playerId}] chooseCardsForExchange called`);
+
+    const action = await this.waitForAction('CARD_EXCHANGE');
+
+    if (action.type === 'CARD_EXCHANGE') {
+      return action.cardIds
         .map(id => handCards.find(c => c.id === id))
         .filter((c): c is Card => c !== undefined);
-      return cards;
     }
 
-    return new Promise((resolve) => {
-      this.pendingResolvers.set('CARD_EXCHANGE', (action) => {
-        if (action.type === 'CARD_EXCHANGE') {
-          // handCardsからカードを検索
-          const cards = action.cardIds
-            .map(id => handCards.find(c => c.id === id))
-            .filter((c): c is Card => c !== undefined);
-          resolve(cards);
-        }
-      });
-    });
+    return [];
   }
 
   async choosePlayerForBlackMarket(
@@ -190,100 +167,70 @@ export class NetworkInputController implements PlayerController {
     playerNames: Map<string, string>,
     prompt: string
   ): Promise<string> {
-    // まずキューを確認
-    const queuedAction = this.tryProcessQueue('PLAYER_SELECTION');
-    if (queuedAction && queuedAction.type === 'PLAYER_SELECTION') {
-      return queuedAction.targetPlayerId;
+    console.log(`[NetworkInputController:${this.playerId}] choosePlayerForBlackMarket called`);
+
+    const action = await this.waitForAction('PLAYER_SELECTION');
+
+    if (action.type === 'PLAYER_SELECTION') {
+      return action.targetPlayerId;
     }
 
-    return new Promise((resolve) => {
-      this.pendingResolvers.set('PLAYER_SELECTION', (action) => {
-        if (action.type === 'PLAYER_SELECTION') {
-          resolve(action.targetPlayerId);
-        }
-      });
-    });
+    return playerIds[0] || ''; // デフォルト
   }
 
   async chooseCardsFromOpponentHand(cards: Card[], maxCount: number, prompt: string): Promise<Card[]> {
-    // まずキューを確認
-    const queuedAction = this.tryProcessQueue('CARD_SELECTION');
-    if (queuedAction && queuedAction.type === 'CARD_SELECTION') {
-      if (queuedAction.cardIds.length === 0) {
+    console.log(`[NetworkInputController:${this.playerId}] chooseCardsFromOpponentHand called`);
+
+    const action = await this.waitForAction('CARD_SELECTION');
+
+    if (action.type === 'CARD_SELECTION') {
+      if (action.cardIds.length === 0) {
         return [];
       } else {
-        const selectedCards = queuedAction.cardIds
+        return action.cardIds
           .map(id => cards.find(c => c.id === id))
           .filter((c): c is Card => c !== undefined);
-        return selectedCards;
       }
     }
 
-    return new Promise((resolve) => {
-      this.pendingResolvers.set('CARD_SELECTION', (action) => {
-        if (action.type === 'CARD_SELECTION') {
-          if (action.cardIds.length === 0) {
-            resolve([]);
-          } else {
-            // cardsからカードを検索
-            const selectedCards = action.cardIds
-              .map(id => cards.find(c => c.id === id))
-              .filter((c): c is Card => c !== undefined);
-            resolve(selectedCards);
-          }
-        }
-      });
-    });
+    return [];
   }
 
   async choosePlayer(players: Player[], prompt: string): Promise<Player | null> {
-    // まずキューを確認
-    const queuedAction = this.tryProcessQueue('PLAYER_SELECTION');
-    if (queuedAction && queuedAction.type === 'PLAYER_SELECTION') {
-      return players.find(p => p.id.value === queuedAction.targetPlayerId) || null;
+    console.log(`[NetworkInputController:${this.playerId}] choosePlayer called`);
+
+    const action = await this.waitForAction('PLAYER_SELECTION');
+
+    if (action.type === 'PLAYER_SELECTION') {
+      return players.find(p => p.id.value === action.targetPlayerId) || null;
     }
 
-    return new Promise((resolve) => {
-      this.pendingResolvers.set('PLAYER_SELECTION', (action) => {
-        if (action.type === 'PLAYER_SELECTION') {
-          const player = players.find(p => p.id.value === action.targetPlayerId) || null;
-          resolve(player);
-        }
-      });
-    });
+    return null;
   }
 
   async chooseCardRank(prompt: string): Promise<string> {
-    // まずキューを確認
-    const queuedAction = this.tryProcessQueue('RANK_SELECTION');
-    if (queuedAction && queuedAction.type === 'RANK_SELECTION') {
-      return queuedAction.rank;
+    console.log(`[NetworkInputController:${this.playerId}] chooseCardRank called`);
+
+    const action = await this.waitForAction('RANK_SELECTION');
+
+    if (action.type === 'RANK_SELECTION') {
+      return action.rank;
     }
 
-    return new Promise((resolve) => {
-      this.pendingResolvers.set('RANK_SELECTION', (action) => {
-        if (action.type === 'RANK_SELECTION') {
-          resolve(action.rank);
-        }
-      });
-    });
+    return '3'; // デフォルト
   }
 
   async choosePlayerOrder(players: Player[], prompt: string): Promise<Player[] | null> {
-    // 9シャッフルはACTION_PERFORMEDで配列として送信される
-    // 今回は簡略化のため、そのまま元の順序を返す（将来的に対応）
-    return new Promise((resolve) => {
-      // TODO: PLAYER_ORDER型のアクションを追加する必要がある
-      resolve(players);
-    });
+    // TODO: PLAYER_ORDER型のアクションを追加する必要がある
+    // 現在は暫定的にそのまま返す
+    console.log(`[NetworkInputController:${this.playerId}] choosePlayerOrder called (not yet synced)`);
+    return players;
   }
 
   async chooseCountdownValue(min: number, max: number): Promise<number> {
-    // 終焉のカウントダウン用
-    // 今回は簡略化のため、最小値を返す（将来的に対応）
-    return new Promise((resolve) => {
-      // TODO: COUNTDOWN_VALUE型のアクションを追加する必要がある
-      resolve(min);
-    });
+    // TODO: COUNTDOWN_VALUE型のアクションを追加する必要がある
+    // 現在は暫定的に最小値を返す
+    console.log(`[NetworkInputController:${this.playerId}] chooseCountdownValue called (not yet synced)`);
+    return min;
   }
 }
