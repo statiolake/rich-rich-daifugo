@@ -115,17 +115,8 @@ export class PlayPhase implements GamePhase {
     };
 
     // プレイヤーにカード選択を要求
+    // 注意: SyncPlayerControllerがplayer:actionイベントを発行する
     const selectedCards = await controller.chooseCardsInHand(validator);
-
-    // プレイヤーアクションイベントを発行（マルチプレイヤー同期用）
-    this.eventBus.emit('player:action', {
-      playerId: currentPlayer.id.value,
-      action: {
-        type: 'CARD_SELECTION',
-        cardIds: selectedCards.map(c => c.id),
-        isPass: selectedCards.length === 0,
-      },
-    });
 
     if (selectedCards.length === 0) {
       // パス

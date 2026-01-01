@@ -17,6 +17,7 @@ import { serializeGameState, deserializeGameState } from '../../infrastructure/n
 import { PlayerAction, SerializedGameState, GuestMessage } from '../../infrastructure/network/NetworkProtocol';
 import { useMultiplayerStore } from './multiplayerStore';
 import { NetworkInputController } from '../../core/player-controller/NetworkInputController';
+import { SyncPlayerController } from '../../core/player-controller/SyncPlayerController';
 import { GuestPlayerController } from '../players/GuestPlayerController';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
 import { RandomCPUStrategy } from '../../core/strategy/RandomCPUStrategy';
@@ -458,6 +459,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const presentationRequester = new GamePresentationRequester(get());
 
       // PlayerController マップを作成
+      // 注意: すべてのPlayerControllerはSyncPlayerControllerでラップされ、
+      // 選択完了時にplayer:actionイベントを発行する（ゲスト同期用）
       const playerControllers = new Map<string, PlayerController>();
       const networkControllers = new Map<string, NetworkInputController>();
 
@@ -478,14 +481,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const networkType = pConfig.networkType;
 
         if (playerId === mpLocalPlayerId) {
-          // ローカルプレイヤー（ホスト自身）
-          playerControllers.set(playerId, new HumanPlayerController(playerId));
+          // ローカルプレイヤー（ホスト自身）- SyncPlayerControllerでラップ
+          const humanController = new HumanPlayerController(playerId);
+          playerControllers.set(playerId, new SyncPlayerController(playerId, humanController, eventBus));
         } else if (networkType === 'GUEST') {
-          // リモートゲストプレイヤー - NetworkInputControllerを使用
+          // リモートゲストプレイヤー - NetworkInputControllerを使用し、SyncPlayerControllerでラップ
           const networkController = new NetworkInputController(playerId);
           networkController.setCardResolver(cardResolver);
-          playerControllers.set(playerId, networkController);
           networkControllers.set(playerId, networkController);
+          playerControllers.set(playerId, new SyncPlayerController(playerId, networkController, eventBus));
         }
         // CPUはGameEngine側でnullを許容してCPUPlayerControllerを後から設定
       }
@@ -493,18 +497,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // 通常のGameEngineを作成
       const engine = new GameEngine(config, eventBus, presentationRequester, playerControllers);
 
-      // CPU用のコントローラーを設定
+      // CPU用のコントローラーを設定（SyncPlayerControllerでラップ）
       for (const pConfig of config.players) {
         if (pConfig.networkType === 'CPU') {
           const player = engine.getState().players.find(p => p.id.value === pConfig.id);
           if (player) {
+            const cpuController = new CPUPlayerController(
+              pConfig.strategy as CPUStrategy,
+              player,
+              engine.getState()
+            );
             playerControllers.set(
               pConfig.id,
-              new CPUPlayerController(
-                pConfig.strategy as CPUStrategy,
-                player,
-                engine.getState()
-              )
+              new SyncPlayerController(pConfig.id, cpuController, eventBus)
             );
           }
         }
