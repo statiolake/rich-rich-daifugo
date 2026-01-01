@@ -1,13 +1,13 @@
 import { PlayerController, Validator } from '../../core/domain/player/PlayerController';
 import { Card } from '../../core/domain/card/Card';
 import { Player } from '../../core/domain/player/Player';
-import { useGameStore } from '../store/gameStore';
+import { useSelectionStore } from '../store/selectionStore';
 
 /**
  * 人間プレイヤー用のコントローラー
  * UI経由でカード選択とランク選択を行う
  *
- * 注意: Zustandストアへのアクセスは常にuseGameStore.getState()を使用し、
+ * 注意: Zustandストアへのアクセスは常にuseSelectionStore.getState()を使用し、
  * スナップショットではなく最新の状態を取得すること。
  */
 export class HumanPlayerController implements PlayerController {
@@ -19,7 +19,7 @@ export class HumanPlayerController implements PlayerController {
    * 最新のストア状態を取得
    */
   protected getStore() {
-    return useGameStore.getState();
+    return useSelectionStore.getState();
   }
 
   async chooseCardsInHand(validator: Validator, prompt?: string): Promise<Card[]> {

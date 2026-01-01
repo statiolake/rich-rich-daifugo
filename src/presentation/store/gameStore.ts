@@ -19,6 +19,7 @@ import { useMultiplayerStore } from './multiplayerStore';
 import { NetworkInputController } from '../../core/player-controller/NetworkInputController';
 import { CoreAction } from '../../core/domain/player/CoreAction';
 import { networkActionToCoreAction, coreActionToNetworkAction } from '../../infrastructure/network/ActionAdapter';
+import { useSelectionStore } from './selectionStore';
 import { SyncPlayerController } from '../../core/player-controller/SyncPlayerController';
 import { GuestPlayerController } from '../players/GuestPlayerController';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
@@ -1115,7 +1116,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   getValidCombinations: () => {
-    const { gameState, engine, cardSelectionValidator, isGuestMode, isMultiplayerMode, localPlayerId } = get();
+    const { gameState, engine, isGuestMode, isMultiplayerMode, localPlayerId } = get();
     if (!gameState) return [];
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
@@ -1128,9 +1129,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return [];
     }
 
+    // selectionStoreからカード選択関連の状態を取得
+    const { cardSelectionValidator, isCardSelectionEnabled } = useSelectionStore.getState();
+
     // カード選択が有効でvalidatorがある場合（ゲストモード含む）
     // isCardSelectionEnabled もチェックして、選択が無効な時は計算しない
-    const isCardSelectionEnabled = get().isCardSelectionEnabled;
     if (cardSelectionValidator && isCardSelectionEnabled) {
       const handCards = handGetCards(currentPlayer.hand);
       const combinations: Card[][] = [];

@@ -1,26 +1,36 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
+import { useSelectionStore } from '../../store/selectionStore';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { useMemo, useState } from 'react';
 import { useWindowResize } from '../../hooks/useWindowResize';
 import { CardFactory, Suit, Rank, Card } from '../../../core/domain/card/Card';
 
 export const HumanControl: React.FC = () => {
+  // gameStoreからゲーム関連の状態を取得
   const gameState = useGameStore(state => state.gameState);
-  const selectedCards = useGameStore(state => state.selectedCards);
   const error = useGameStore(state => state.error);
   const clearError = useGameStore(state => state.clearError);
-  const submitCardSelection = useGameStore(state => state.submitCardSelection);
-  const submitQueenBomberRank = useGameStore(state => state.submitQueenBomberRank);
+  const localPlayerId = useGameStore(state => state.localPlayerId);
+  const getValidCombinations = useGameStore(state => state.getValidCombinations);
 
-  // Discard selection state
-  const isDiscardSelectionEnabled = useGameStore(state => state.isDiscardSelectionEnabled);
-  const discardSelectionPile = useGameStore(state => state.discardSelectionPile);
-  const discardSelectionMaxCount = useGameStore(state => state.discardSelectionMaxCount);
-  const discardSelectionPrompt = useGameStore(state => state.discardSelectionPrompt);
-  const selectedDiscardCards = useGameStore(state => state.selectedDiscardCards);
-  const toggleDiscardCardSelection = useGameStore(state => state.toggleDiscardCardSelection);
-  const submitDiscardSelection = useGameStore(state => state.submitDiscardSelection);
+  // selectionStoreから選択関連の状態を取得
+  const selectedCards = useSelectionStore(state => state.selectedCards);
+  const submitCardSelection = useSelectionStore(state => state.submitCardSelection);
+  const submitQueenBomberRank = useSelectionStore(state => state.submitQueenBomberRank);
+  const isCardSelectionEnabled = useSelectionStore(state => state.isCardSelectionEnabled);
+  const isQueenBomberRankSelectionEnabled = useSelectionStore(state => state.isQueenBomberRankSelectionEnabled);
+  const cardSelectionValidator = useSelectionStore(state => state.cardSelectionValidator);
+  const cardSelectionPrompt = useSelectionStore(state => state.cardSelectionPrompt);
+
+  // Discard selection state from selectionStore
+  const isDiscardSelectionEnabled = useSelectionStore(state => state.isDiscardSelectionEnabled);
+  const discardSelectionPile = useSelectionStore(state => state.discardSelectionPile);
+  const discardSelectionMaxCount = useSelectionStore(state => state.discardSelectionMaxCount);
+  const discardSelectionPrompt = useSelectionStore(state => state.discardSelectionPrompt);
+  const selectedDiscardCards = useSelectionStore(state => state.selectedDiscardCards);
+  const toggleDiscardCardSelection = useSelectionStore(state => state.toggleDiscardCardSelection);
+  const submitDiscardSelection = useSelectionStore(state => state.submitDiscardSelection);
 
   const [screenHeight, setScreenHeight] = useState(window.innerHeight);
 
@@ -28,18 +38,7 @@ export const HumanControl: React.FC = () => {
     setScreenHeight(window.innerHeight);
   }, 200);
 
-  const getValidCombinations = useGameStore(state => state.getValidCombinations);
-  const cardSelectionValidatorForMemo = useGameStore(state => state.cardSelectionValidator);
-
-  const isCardSelectionEnabled = useGameStore(state => state.isCardSelectionEnabled);
-  const isQueenBomberRankSelectionEnabled = useGameStore(state => state.isQueenBomberRankSelectionEnabled);
-  const cardSelectionValidator = useGameStore(state => state.cardSelectionValidator);
-  const cardSelectionPrompt = useGameStore(state => state.cardSelectionPrompt);
-
-  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.history.length, cardSelectionValidatorForMemo]);
-
-  // ローカルプレイヤーID（シングル/マルチ共通）
-  const localPlayerId = useGameStore(state => state.localPlayerId);
+  const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.history.length, cardSelectionValidator]);
 
   if (!gameState || gameState.phase === GamePhaseType.RESULT) return null;
 
@@ -221,7 +220,7 @@ export const HumanControl: React.FC = () => {
                       whileHover={{ scale: 1.1, y: -2 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => {
-                        useGameStore.setState({ selectedCards: [card] });
+                        useSelectionStore.setState({ selectedCards: [card] });
                       }}
                       className={`
                         w-14 h-16 rounded-xl font-bold transition-all duration-200

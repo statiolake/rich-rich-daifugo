@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
+import { useSelectionStore } from '../../store/selectionStore';
 import { useCardPositionStore } from '../../store/cardPositionStore';
 import { GamePhaseType } from '../../../core/domain/game/GameState';
 import { Card } from '../card/Card';
@@ -11,25 +12,26 @@ import { handSize, handGetCards, handGetForbiddenFinishCardIds } from '../../../
 export const UnifiedCardLayer: React.FC = () => {
   const cardPositions = useCardPositionStore((state) => state.cards);
   const gameState = useGameStore((state) => state.gameState);
-  const selectedCards = useGameStore((state) => state.selectedCards);
-  const toggleCardSelection = useGameStore((state) => state.toggleCardSelection);
   const syncWithGameState = useCardPositionStore((state) => state.syncWithGameState);
 
-  // すべてのフックを最初に呼び出す
-  // 有効な役をストアから取得
+  // selectionStoreから選択関連の状態を取得
+  const selectedCards = useSelectionStore((state) => state.selectedCards);
+  const toggleCardSelection = useSelectionStore((state) => state.toggleCardSelection);
+  const cardSelectionValidator = useSelectionStore(state => state.cardSelectionValidator);
+  const clearSelection = useSelectionStore(state => state.clearSelection);
+  const isCardSelectionEnabled = useSelectionStore(state => state.isCardSelectionEnabled);
+  const isQueenBomberRankSelectionEnabled = useSelectionStore(state => state.isQueenBomberRankSelectionEnabled);
+
+  // gameStoreからゲーム関連の状態を取得
   const getValidCombinations = useGameStore(state => state.getValidCombinations);
-  const cardSelectionValidator = useGameStore(state => state.cardSelectionValidator);
   const validCombinations = useMemo(() => getValidCombinations(), [getValidCombinations, gameState, gameState?.field.history.length, cardSelectionValidator]);
 
   // ゲーム状態から特殊ルールの状態を取得
   const getRuleEngine = useGameStore(state => state.getRuleEngine);
-  const clearSelection = useGameStore(state => state.clearSelection);
   const localPlayerId = useGameStore(state => state.localPlayerId);
   const localPlayer = gameState?.players.find(p => p.id === localPlayerId) ?? null;
 
-  // カード選択リクエスト・ランク選択リクエストの状態を取得（新しいアーキテクチャ）
-  const isCardSelectionEnabled = useGameStore(state => state.isCardSelectionEnabled);
-  const isQueenBomberRankSelectionEnabled = useGameStore(state => state.isQueenBomberRankSelectionEnabled);
+  // カード選択リクエスト・ランク選択リクエストの状態を取得
   const isPendingCardSelection = isCardSelectionEnabled;
   const isPendingRankSelection = isQueenBomberRankSelectionEnabled;
 
