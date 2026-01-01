@@ -872,15 +872,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   getValidCombinations: () => {
-    const { gameState, engine, cardSelectionValidator } = get();
-    if (!gameState || !engine) return [];
+    const { gameState, engine, cardSelectionValidator, isGuestMode } = get();
+    if (!gameState) return [];
 
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (!currentPlayer || currentPlayer.type !== PlayerType.HUMAN) {
       return [];
     }
 
-    // カード選択が有効でvalidatorがある場合
+    // カード選択が有効でvalidatorがある場合（ゲストモード含む）
     if (cardSelectionValidator) {
       const handCards = currentPlayer.hand.getCards();
       const combinations: Card[][] = [];
@@ -903,6 +903,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return combinations;
     }
 
+    // ゲストモードでengineがない場合は空配列
+    if (!engine && isGuestMode) {
+      return [];
+    }
+
+    if (!engine) return [];
+
     // 通常の場合は既存のロジックを使用
     const ruleEngine = engine.getRuleEngine();
     return currentPlayer.hand.findAllValidPlays(
@@ -914,8 +921,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   getRuleEngine: () => {
-    const { engine } = get();
+    const { engine, isGuestMode } = get();
     if (!engine) {
+      // ゲストモードの場合はengineがないので、
+      // RuleEngineを直接作成（ゲストはvalidation不要だが型互換のため）
+      if (isGuestMode) {
+        return new RuleEngine();
+      }
       throw new Error('Engine not initialized');
     }
     return engine.getRuleEngine();

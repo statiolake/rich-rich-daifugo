@@ -12,11 +12,13 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { useGameStore } from '../../store/gameStore';
+import { useCardPositionStore } from '../../store/cardPositionStore';
 import { SignalingPanel } from './SignalingPanel';
 import { LobbyScreen } from './LobbyScreen';
 import { deserializeGameState } from '../../../infrastructure/network/GameStateSerializer';
 import { GuestInputHandler } from '../../../infrastructure/network/GuestInputHandler';
 import { HostMessage } from '../../../infrastructure/network/NetworkProtocol';
+import { CardFactory } from '../../../core/domain/card/Card';
 
 type FlowStep = 'mode_select' | 'signaling' | 'lobby';
 
@@ -52,6 +54,7 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
   const updateGameStateFromHost = useGameStore(state => state.updateGameStateFromHost);
   const setGuestMode = useGameStore(state => state.setGuestMode);
   const enableGuestCardSelection = useGameStore(state => state.enableGuestCardSelection);
+  const initializeCardPositions = useCardPositionStore(state => state.initialize);
 
   // GuestInputHandler のインスタンスを保持
   const guestInputHandlerRef = useRef<GuestInputHandler | null>(null);
@@ -108,6 +111,9 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
           case 'GAME_STARTED':
             // ゲーム開始メッセージを受信
             setGuestMode(true);
+            // カードデッキを初期化（ジョーカー含む54枚）
+            const allCards = CardFactory.createDeck(true);
+            initializeCardPositions(allCards);
             if (message.initialState) {
               const gameState = deserializeGameState(message.initialState, localPlayerId);
               updateGameStateFromHost(gameState);
@@ -142,7 +148,7 @@ export const MultiplayerFlow: React.FC<MultiplayerFlowProps> = ({
 
       setHostMessageHandler(handleHostMessage);
     }
-  }, [mode, localPlayerId, setHostMessageHandler, onStartGame, updateGameStateFromHost]);
+  }, [mode, localPlayerId, setHostMessageHandler, onStartGame, updateGameStateFromHost, setGuestMode, initializeCardPositions]);
 
   const handleSelectHost = () => {
     const name = playerName.trim() || 'ホスト';
