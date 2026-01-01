@@ -419,7 +419,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     const { mode, players } = get();
     if (mode !== 'host') return false;
 
-    // 2人以上のプレイヤーが必要
-    return players.length >= 2;
+    // 4人以上のプレイヤーが必要
+    return players.length >= 4;
   },
 }));

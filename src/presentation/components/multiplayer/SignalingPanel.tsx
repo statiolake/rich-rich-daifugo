@@ -152,7 +152,7 @@ export const SignalingPanel: React.FC<SignalingPanelProps> = ({
                 />
                 <button
                   onClick={() => copyToClipboard(offer)}
-                  className="absolute top-2 right-2 px-2 py-1 bg-white/10 hover:bg-white/20 text-white/80 text-xs rounded transition-colors"
+                  className="absolute top-2 right-2 px-3 py-1 bg-blue-500 hover:bg-blue-400 text-white text-xs font-bold rounded transition-colors"
                 >
                   {copySuccess ? '✓ コピー済み' : 'コピー'}
                 </button>
@@ -203,75 +203,86 @@ export const SignalingPanel: React.FC<SignalingPanelProps> = ({
     }
   };
 
-  // ゲストモードのUI
+  // ゲストモードのUI（ホストと同じ2段構成）
   const renderGuestUI = () => {
-    switch (guestStep) {
-      case 'initial':
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-white/60 text-xs uppercase tracking-wider mb-2">
-                オファーコード（ホストから受信）
-              </label>
-              <textarea
-                value={offerInput}
-                onChange={(e) => setOfferInput(e.target.value)}
-                placeholder="ホストから受け取ったオファーコードを貼り付け"
-                className="w-full h-24 p-3 bg-black/40 border border-white/20 rounded-lg text-white/90 text-xs font-mono resize-none placeholder-white/30"
-              />
-            </div>
+    if (guestStep === 'connected') {
+      return (
+        <div className="space-y-4 text-center">
+          <div className="text-green-400 text-4xl">✓</div>
+          <p className="text-green-400 font-bold">接続完了！</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* ステップ1: ホストコード入力 */}
+        <div>
+          <label className="block text-white/60 text-xs uppercase tracking-wider mb-2">
+            ステップ1: ホストのコードを貼り付け
+          </label>
+          <textarea
+            value={offerInput}
+            onChange={(e) => setOfferInput(e.target.value)}
+            placeholder="ホストから受け取ったオファーコードを貼り付け"
+            className="w-full h-24 p-3 bg-black/40 border border-white/20 rounded-lg text-white/90 text-xs font-mono resize-none placeholder-white/30 focus:border-blue-400 focus:outline-none transition-colors"
+            disabled={guestStep === 'answer_created'}
+          />
+          {guestStep === 'initial' && (
             <button
               onClick={handleAcceptOffer}
               disabled={isProcessing || !offerInput.trim()}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 text-white font-bold rounded-lg transition-all"
+              className="w-full mt-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-gray-600 disabled:to-gray-500 text-white font-bold rounded-lg transition-all"
             >
               {isProcessing ? '処理中...' : 'アンサー生成'}
             </button>
-          </div>
-        );
+          )}
+        </div>
 
-      case 'answer_created':
-        return (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-white/60 text-xs uppercase tracking-wider mb-2">
-                アンサーコード（ホストに送信）
-              </label>
+        {/* ステップ2: アンサーコード（生成後に表示） */}
+        <div className="border-t border-white/10 pt-4">
+          <label className="block text-white/60 text-xs uppercase tracking-wider mb-2">
+            ステップ2: このコードをホストに送信
+          </label>
+          {guestStep === 'answer_created' ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
               <div className="relative">
                 <textarea
                   readOnly
                   value={answer}
-                  className="w-full h-24 p-3 bg-black/40 border border-white/20 rounded-lg text-white/90 text-xs font-mono resize-none"
+                  className="w-full h-24 p-3 bg-green-900/30 border-2 border-green-500/50 rounded-lg text-white text-xs font-mono resize-none"
                 />
                 <button
                   onClick={() => copyToClipboard(answer)}
-                  className="absolute top-2 right-2 px-2 py-1 bg-white/10 hover:bg-white/20 text-white/80 text-xs rounded transition-colors"
+                  className="absolute top-2 right-2 px-3 py-1 bg-green-500 hover:bg-green-400 text-white text-xs font-bold rounded transition-colors"
                 >
                   {copySuccess ? '✓ コピー済み' : 'コピー'}
                 </button>
               </div>
-              <p className="text-white/50 text-xs mt-1">
-                このコードをホストに送ってください
-              </p>
-            </div>
-
-            <div className="text-center py-4">
-              <div className="animate-pulse">
-                <div className="w-8 h-8 mx-auto border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-green-400 text-xs font-bold">
+                  ✓ このコードをホストに送ってください
+                </p>
+                <div className="flex items-center gap-2 text-white/50 text-xs">
+                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <span>接続待機中...</span>
+                </div>
               </div>
-              <p className="text-white/60 text-sm mt-2">接続待機中...</p>
+            </motion.div>
+          ) : (
+            <div className="w-full h-24 p-3 bg-black/20 border border-dashed border-white/20 rounded-lg flex items-center justify-center">
+              <span className="text-white/30 text-sm">
+                ホストコードを入力するとここにアンサーコードが表示されます
+              </span>
             </div>
-          </div>
-        );
-
-      case 'connected':
-        return (
-          <div className="space-y-4 text-center">
-            <div className="text-green-400 text-4xl">✓</div>
-            <p className="text-green-400 font-bold">接続完了！</p>
-          </div>
-        );
-    }
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (

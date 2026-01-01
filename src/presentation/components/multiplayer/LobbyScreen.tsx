@@ -61,8 +61,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   };
 
   const handleAddCPU = () => {
-    if (players.length >= 4) {
-      setError('プレイヤーは最大4人までです');
+    if (players.length >= 8) {
+      setError('プレイヤーは最大8人までです');
       return;
     }
     addCPU();
@@ -72,9 +72,9 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     removeCPU(playerId);
   };
 
-  // 空スロットクリック時にオファーコード生成
-  const handleEmptySlotClick = async () => {
-    if (!isHost || players.length >= 4) return;
+  // 招待ボタンクリック時にオファーコード生成
+  const handleInviteClick = async () => {
+    if (!isHost || players.length >= 8) return;
 
     setShowOfferModal(true);
     setOfferCode('');
@@ -136,7 +136,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           </h2>
           <div className="flex items-center gap-2">
             <span className="text-white/50 text-sm">
-              {players.length}/4 人
+              {players.length}/8 人
             </span>
           </div>
         </div>
@@ -205,27 +205,19 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               </motion.div>
             ))}
 
-            {/* 空スロット表示（クリックで招待） */}
-            {Array.from({ length: 4 - players.length }).map((_, index) => (
+            {/* 招待ボタン（ホストのみ、8人未満のとき表示） */}
+            {isHost && players.length < 8 && (
               <motion.button
-                key={`empty-${index}`}
-                whileHover={isHost ? { scale: 1.02 } : {}}
-                whileTap={isHost ? { scale: 0.98 } : {}}
-                onClick={isHost ? handleEmptySlotClick : undefined}
-                disabled={!isHost}
-                className={`
-                  flex items-center justify-center p-3 bg-black/20 rounded-lg border border-dashed
-                  ${isHost
-                    ? 'border-white/20 hover:border-blue-400/50 hover:bg-blue-500/10 cursor-pointer transition-all'
-                    : 'border-white/10 cursor-default'
-                  }
-                `}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleInviteClick}
+                className="w-full flex items-center justify-center p-3 bg-black/20 rounded-lg border border-dashed border-white/20 hover:border-blue-400/50 hover:bg-blue-500/10 cursor-pointer transition-all"
               >
-                <span className={`text-sm ${isHost ? 'text-white/50' : 'text-white/30'}`}>
-                  {isHost ? '+ クリックしてプレイヤーを招待' : '空きスロット'}
+                <span className="text-sm text-white/50">
+                  + プレイヤーを招待
                 </span>
               </motion.button>
-            ))}
+            )}
           </div>
         </div>
 
@@ -243,7 +235,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         {/* アクションボタン */}
         <div className="space-y-3">
           {/* CPU追加（ホストのみ） */}
-          {isHost && players.length < 4 && (
+          {isHost && players.length < 8 && (
             <button
               onClick={handleAddCPU}
               className="w-full py-3 px-4 bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-500 hover:to-gray-400 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2"
@@ -263,7 +255,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               disabled={!canStartGame()}
               className="w-full py-4 px-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-gray-600 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold text-lg rounded-lg transition-all"
             >
-              {canStartGame() ? 'ゲーム開始' : '2人以上でゲーム開始'}
+              {canStartGame() ? 'ゲーム開始' : '4人以上でゲーム開始'}
             </button>
           )}
 
@@ -337,10 +329,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                     <button
                       onClick={handleCopyOffer}
                       disabled={!offerCode}
-                      className={`absolute top-2 right-2 px-3 py-1 text-xs rounded transition-all ${
+                      className={`absolute top-2 right-2 px-3 py-1 text-xs font-bold rounded transition-all ${
                         copySuccess
-                          ? 'bg-green-500/30 text-green-300 border border-green-500/50'
-                          : 'bg-blue-500/30 text-blue-300 border border-blue-500/50 hover:bg-blue-500/50'
+                          ? 'bg-green-500 text-white border border-green-400'
+                          : 'bg-blue-500 text-white border border-blue-400 hover:bg-blue-400'
                       }`}
                     >
                       {copySuccess ? 'コピー済み!' : 'コピー'}
