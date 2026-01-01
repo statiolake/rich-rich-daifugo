@@ -63,7 +63,7 @@ export class SpecialRuleExecutor {
         return { valid: false, reason: '1枚選んでください' };
       };
 
-      const strategy = this.strategyMap.get(player.id.value);
+      const strategy = this.strategyMap.get(player.id);
       if (!strategy) return;
 
       const selectedCards = await strategy.selectCards(player, validator, {
@@ -108,7 +108,7 @@ export class SpecialRuleExecutor {
       return { valid: false, reason: '1枚選んでください' };
     };
 
-    const strategy = this.strategyMap.get(player.id.value);
+    const strategy = this.strategyMap.get(player.id);
     if (!strategy) return;
 
     const selectedCards = await strategy.selectCards(player, validator, {
@@ -144,7 +144,7 @@ export class SpecialRuleExecutor {
     }
 
     // 発動プレイヤーがランクを選択
-    const strategy = this.strategyMap.get(player.id.value);
+    const strategy = this.strategyMap.get(player.id);
     if (!strategy) return;
 
     const selectedRank = await strategy.selectRank(player);
@@ -160,7 +160,7 @@ export class SpecialRuleExecutor {
         continue;
       }
 
-      const playerStrategy = this.strategyMap.get(currentPlayer.id.value);
+      const playerStrategy = this.strategyMap.get(currentPlayer.id);
       if (!playerStrategy) continue;
 
       // Validator: 指定ランクのカード1枚、またはスキップ（空配列）

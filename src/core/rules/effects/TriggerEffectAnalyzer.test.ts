@@ -4,7 +4,7 @@ import { PlayAnalyzer, PlayType, Play } from '../../domain/card/Play';
 import { CardFactory, Suit } from '../../domain/card/Card';
 import { GameState, GamePhaseType } from '../../domain/game/GameState';
 import { createPlayer, PlayerType } from '../../domain/player/Player';
-import { Field } from '../../domain/game/Field';
+import { FieldClass as Field } from '../../domain/game/Field';
 import { DEFAULT_RULE_SETTINGS } from '../../domain/game/RuleSettings';
 
 describe('TriggerEffectAnalyzer', () => {

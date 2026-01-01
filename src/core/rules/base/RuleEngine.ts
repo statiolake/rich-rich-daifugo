@@ -1,6 +1,6 @@
 import { Card } from '../../domain/card/Card';
 import { Player } from '../../domain/player/Player';
-import { Field } from '../../domain/game/Field';
+import { FieldClass as Field } from '../../domain/game/Field';
 import { GameState } from '../../domain/game/GameState';
 import { RuleContext } from '../context/RuleContext';
 import { PlayValidator, ValidationResult } from '../validators/PlayValidator';
@@ -46,7 +46,7 @@ export class RuleEngine {
     // 都落ちは前回大富豪だったプレイヤーが今回1位でないと発生
     // ここでは一時的に、現在のプレイヤーが前回の大富豪だったかをチェック
     const isPlayerCityFallen = gameState.ruleSettings.cityFall &&
-      gameState.previousDaifugoId === player.id.value &&
+      gameState.previousDaifugoId === player.id &&
       gameState.cityFallOccurred;
 
     // RuleContext を生成

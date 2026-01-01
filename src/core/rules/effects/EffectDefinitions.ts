@@ -376,7 +376,7 @@ export const EFFECT_DEFINITIONS: Record<TriggerEffect, EffectDefinition> = {
     apply: (gameState, context) => {
       console.log('ラッキーセブンが発動しました！');
       if (context?.player) {
-        gameState.luckySeven = { playerId: context.player.id.value };
+        gameState.luckySeven = { playerId: context.player.id };
       }
     },
     cutIn: {

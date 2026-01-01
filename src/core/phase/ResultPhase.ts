@@ -39,24 +39,24 @@ export class ResultPhase implements GamePhase {
     const currentDaifugo = gameState.players.find(p => p.rank === PlayerRank.DAIFUGO);
     if (currentDaifugo) {
       // 連続勝利数を更新
-      if (gameState.previousDaifugoId === currentDaifugo.id.value) {
+      if (gameState.previousDaifugoId === currentDaifugo.id) {
         gameState.consecutiveDaifugoWins++;
       } else {
         gameState.consecutiveDaifugoWins = 1;
       }
-      gameState.previousDaifugoId = currentDaifugo.id.value;
+      gameState.previousDaifugoId = currentDaifugo.id;
     } else {
       gameState.consecutiveDaifugoWins = 0;
     }
 
     const currentDaihinmin = gameState.players.find(p => p.rank === PlayerRank.DAIHINMIN);
     if (currentDaihinmin) {
-      gameState.previousDaihinminId = currentDaihinmin.id.value;
+      gameState.previousDaihinminId = currentDaihinmin.id;
     }
 
     const currentFugo = gameState.players.find(p => p.rank === PlayerRank.FUGO);
     if (currentFugo) {
-      gameState.previousFugoId = currentFugo.id.value;
+      gameState.previousFugoId = currentFugo.id;
     }
 
     console.log('====================');
@@ -83,7 +83,7 @@ export class ResultPhase implements GamePhase {
     if (!gameState.previousDaifugoId) return false;
 
     const previousDaifugo = gameState.players.find(
-      p => p.id.value === gameState.previousDaifugoId
+      p => p.id === gameState.previousDaifugoId
     );
     if (!previousDaifugo) return false;
 
@@ -93,7 +93,7 @@ export class ResultPhase implements GamePhase {
 
       // 現在の大貧民を見つけて、そのプレイヤーのランクを1つ上げる
       const currentDaihinmin = gameState.players.find(
-        p => p.rank === PlayerRank.DAIHINMIN && p.id.value !== previousDaifugo.id.value
+        p => p.rank === PlayerRank.DAIHINMIN && p.id !== previousDaifugo.id
       );
       if (currentDaihinmin) {
         // 大貧民だったプレイヤーを貧民に昇格
@@ -119,7 +119,7 @@ export class ResultPhase implements GamePhase {
     if (gameState.consecutiveDaifugoWins < 2) return;
 
     const previousFugo = gameState.players.find(
-      p => p.id.value === gameState.previousFugoId
+      p => p.id === gameState.previousFugoId
     );
     if (!previousFugo) return;
 
@@ -127,7 +127,7 @@ export class ResultPhase implements GamePhase {
 
     // 現在の大貧民を見つけて、そのプレイヤーのランクを1つ上げる
     const currentDaihinmin = gameState.players.find(
-      p => p.rank === PlayerRank.DAIHINMIN && p.id.value !== previousFugo.id.value
+      p => p.rank === PlayerRank.DAIHINMIN && p.id !== previousFugo.id
     );
     if (currentDaihinmin) {
       // 大貧民だったプレイヤーを貧民に昇格
@@ -148,7 +148,7 @@ export class ResultPhase implements GamePhase {
     if (!gameState.previousFugoId) return;
 
     const previousFugo = gameState.players.find(
-      p => p.id.value === gameState.previousFugoId
+      p => p.id === gameState.previousFugoId
     );
     if (!previousFugo) return;
 
@@ -173,7 +173,7 @@ export class ResultPhase implements GamePhase {
     const winner = gameState.players.find(p => p.finishPosition === 1);
     if (!winner) return;
 
-    if (winner.id.value !== gameState.previousDaihinminId) return;
+    if (winner.id !== gameState.previousDaihinminId) return;
 
     console.log(`下剋上！${winner.name} が大貧民から1位に！全員のランクが逆転します`);
 
@@ -210,7 +210,7 @@ export class ResultPhase implements GamePhase {
 
     // 都落ちしたプレイヤーを見つける
     const fallenDaifugo = gameState.players.find(
-      p => p.id.value === gameState.previousDaifugoId
+      p => p.id === gameState.previousDaifugoId
     );
     if (!fallenDaifugo) return;
 
@@ -218,6 +218,6 @@ export class ResultPhase implements GamePhase {
 
     // 村八分対象としてマーク（次ラウンドのSetupPhaseで適用）
     // GameStateに村八分対象者を記録
-    gameState.murahachibuTargetId = fallenDaifugo.id.value;
+    gameState.murahachibuTargetId = fallenDaifugo.id;
   }
 }

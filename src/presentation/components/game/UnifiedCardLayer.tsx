@@ -24,7 +24,7 @@ export const UnifiedCardLayer: React.FC = () => {
   const getRuleEngine = useGameStore(state => state.getRuleEngine);
   const clearSelection = useGameStore(state => state.clearSelection);
   const localPlayerId = useGameStore(state => state.localPlayerId);
-  const localPlayer = gameState?.players.find(p => p.id.value === localPlayerId) ?? null;
+  const localPlayer = gameState?.players.find(p => p.id === localPlayerId) ?? null;
 
   // カード選択リクエスト・ランク選択リクエストの状態を取得（新しいアーキテクチャ）
   const isCardSelectionEnabled = useGameStore(state => state.isCardSelectionEnabled);

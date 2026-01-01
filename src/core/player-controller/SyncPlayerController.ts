@@ -113,7 +113,7 @@ export class SyncPlayerController implements PlayerController {
       playerId: this.playerId,
       action: {
         type: 'PLAYER_SELECTION',
-        targetPlayerId: selectedPlayer?.id.value ?? '',
+        targetPlayerId: selectedPlayer?.id ?? '',
       },
     });
 

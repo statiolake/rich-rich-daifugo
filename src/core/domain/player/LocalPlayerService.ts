@@ -19,13 +19,13 @@ export class LocalPlayerService {
    */
   static isLocalPlayer(player: Player, gameState: GameState): boolean {
     const localPlayer = this.findLocalPlayer(gameState);
-    return localPlayer?.id.value === player.id.value;
+    return localPlayer?.id === player.id;
   }
 
   /**
    * ローカルプレイヤーのIDを取得
    */
   static getLocalPlayerId(gameState: GameState): string | undefined {
-    return this.findLocalPlayer(gameState)?.id.value;
+    return this.findLocalPlayer(gameState)?.id;
   }
 }

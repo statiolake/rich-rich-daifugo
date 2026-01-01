@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { RuleEngine } from './base/RuleEngine';
 import { CardFactory, Suit } from '../domain/card/Card';
 import { createPlayer, PlayerType } from '../domain/player/Player';
-import { Field } from '../domain/game/Field';
+import { FieldClass as Field } from '../domain/game/Field';
 import { DEFAULT_RULE_SETTINGS } from '../domain/game/RuleSettings';
 import { createGameState } from '../domain/game/GameState';
 import { PlayType, PlayAnalyzer } from '../domain/card/Play';

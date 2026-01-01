@@ -202,7 +202,7 @@ export class NetworkInputController implements PlayerController {
     const action = await this.waitForAction('PLAYER_SELECTION');
 
     if (action.type === 'PLAYER_SELECTION') {
-      return players.find(p => p.id.value === action.targetPlayerId) || null;
+      return players.find(p => p.id === action.targetPlayerId) || null;
     }
 
     return null;

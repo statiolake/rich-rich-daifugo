@@ -1,5 +1,5 @@
 import { Hand } from '../card/Hand';
-import { PlayerId } from './PlayerId';
+import { PlayerId, createPlayerId } from './PlayerId';
 import { PlayerRank } from './PlayerRank';
 
 export enum PlayerType {
@@ -23,7 +23,7 @@ export function createPlayer(
   type: PlayerType
 ): Player {
   return {
-    id: new PlayerId(id),
+    id: createPlayerId(id),
     name,
     type,
     rank: null,

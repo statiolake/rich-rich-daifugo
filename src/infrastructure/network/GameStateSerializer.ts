@@ -6,11 +6,11 @@
  */
 
 import { Card, Suit } from '../../core/domain/card/Card';
-import { GameState, GamePhaseType, createGameState } from '../../core/domain/game/GameState';
-import { Field, PlayHistory } from '../../core/domain/game/Field';
+import { GameState, createGameState } from '../../core/domain/game/GameState';
+import { FieldClass as Field, PlayHistory } from '../../core/domain/game/Field';
 import { Player, PlayerType, createPlayer } from '../../core/domain/player/Player';
 import { Hand } from '../../core/domain/card/Hand';
-import { PlayerId } from '../../core/domain/player/PlayerId';
+import { createPlayerId } from '../../core/domain/player/PlayerId';
 import { PlayerRank } from '../../core/domain/player/PlayerRank';
 import { Play, PlayAnalyzer, PlayType } from '../../core/domain/card/Play';
 import {
@@ -49,7 +49,7 @@ export function deserializeCard(data: SerializedCard): Card {
  */
 export function serializePlayer(player: Player): SerializedPlayer {
   return {
-    id: player.id.value,
+    id: player.id, // branded type なので直接使用可能
     name: player.name,
     type: player.type,
     handCardIds: player.hand.getCards().map((c) => c.id),
@@ -88,7 +88,7 @@ export function deserializePlayer(
  */
 export function serializeFieldPlay(history: PlayHistory): SerializedFieldPlay {
   return {
-    playerId: history.playerId.value,
+    playerId: history.playerId, // branded type なので直接使用可能
     cardIds: history.play.cards.map((c) => c.id),
     isPass: history.play.cards.length === 0,
   };
@@ -117,12 +117,32 @@ export function deserializeField(
     if (cards.length > 0) {
       const play = PlayAnalyzer.analyze(cards);
       if (play) {
-        field.addPlay(play, new PlayerId(playData.playerId));
+        field.addPlay(play, createPlayerId(playData.playerId));
       }
     }
   }
 
   return field;
+}
+
+/**
+ * GameStateからプリミティブフィールドを抽出
+ * players, field, discardPile, excludedCards, blindCards, ruleSettings 以外の
+ * JSON.stringify可能なフィールドをすべて抽出
+ */
+function extractStateFields(state: GameState): Record<string, unknown> {
+  // クラスインスタンスやオブジェクト配列以外のフィールドを抽出
+  const {
+    players: _players,
+    field: _field,
+    discardPile: _discardPile,
+    excludedCards: _excludedCards,
+    blindCards: _blindCards,
+    ruleSettings: _ruleSettings,
+    ...primitiveFields
+  } = state;
+
+  return primitiveFields;
 }
 
 /**
@@ -149,7 +169,7 @@ export function serializeGameState(
   }
 
   // 場のカードを収集
-  for (const history of state.field.getHistory()) {
+  for (const history of state.field.history) {
     for (const card of history.play.cards) {
       if (!seenCardIds.has(card.id)) {
         allCards.push(serializeCard(card));
@@ -185,27 +205,19 @@ export function serializeGameState(
   // 対象プレイヤーの手札詳細
   let myHandCards: SerializedCard[] | undefined;
   if (targetPlayerId) {
-    const targetPlayer = state.players.find((p) => p.id.value === targetPlayerId);
+    const targetPlayer = state.players.find((p) => p.id === targetPlayerId);
     if (targetPlayer) {
       myHandCards = targetPlayer.hand.getCards().map(serializeCard);
     }
   }
 
   return {
-    round: state.round,
-    phase: state.phase,
-    currentPlayerIndex: state.currentPlayerIndex,
     players: state.players.map(serializePlayer),
-    fieldHistory: state.field.getHistory().map(serializeFieldPlay),
-    isRevolution: state.isRevolution,
-    isReversed: state.isReversed,
-    isElevenBack: state.isElevenBack,
-    isTwoBack: state.isTwoBack,
-    suitLock: state.suitLock,
-    numberLock: state.numberLock,
-    colorLock: state.colorLock,
+    fieldHistory: state.field.history.map(serializeFieldPlay),
     allCards,
     myHandCards,
+    // プリミティブフィールドを一括シリアライズ
+    stateFields: extractStateFields(state),
   };
 }
 
@@ -252,18 +264,29 @@ export function deserializeGameState(
   // GameStateを構築
   const state = createGameState(players);
 
-  // 各フィールドを設定
-  state.round = data.round;
-  state.phase = data.phase as GamePhaseType;
-  state.currentPlayerIndex = data.currentPlayerIndex;
+  // stateFieldsからすべてのフィールドを復元
+  const sf = data.stateFields;
+  Object.assign(state, sf);
+
+  // 特殊フィールドを上書き
   state.field = field;
-  state.isRevolution = data.isRevolution;
-  state.isReversed = data.isReversed;
-  state.isElevenBack = data.isElevenBack;
-  state.isTwoBack = data.isTwoBack;
-  state.suitLock = data.suitLock;
-  state.numberLock = data.numberLock;
-  state.colorLock = data.colorLock;
+
+  // discardPile, excludedCards, blindCardsをカードIDから復元
+  if (sf.discardPile && Array.isArray(sf.discardPile)) {
+    state.discardPile = (sf.discardPile as SerializedCard[]).map(c =>
+      allCardsMap.get(c.id) ?? deserializeCard(c)
+    );
+  }
+  if (sf.excludedCards && Array.isArray(sf.excludedCards)) {
+    state.excludedCards = (sf.excludedCards as SerializedCard[]).map(c =>
+      allCardsMap.get(c.id) ?? deserializeCard(c)
+    );
+  }
+  if (sf.blindCards && Array.isArray(sf.blindCards)) {
+    state.blindCards = (sf.blindCards as SerializedCard[]).map(c =>
+      allCardsMap.get(c.id) ?? deserializeCard(c)
+    );
+  }
 
   return state;
 }

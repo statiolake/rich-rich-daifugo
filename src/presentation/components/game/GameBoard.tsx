@@ -227,7 +227,7 @@ export const GameBoard: React.FC = () => {
 
   // Player positions (4-player circular layout)
   // ローカルプレイヤーを基準に他のプレイヤーを配置
-  const localPlayerIndex = gameState.players.findIndex(p => p.id.value === localPlayerId);
+  const localPlayerIndex = gameState.players.findIndex(p => p.id === localPlayerId);
   const calculatePosition = (index: number, total: number): { x: number; y: number } => {
     const positions = [
       { x: 50, y: 85 },  // Bottom (ローカルプレイヤー)
@@ -269,7 +269,7 @@ export const GameBoard: React.FC = () => {
       {/* Player Areas */}
       {gameState.players.map((player, index) => (
         <PlayerArea
-          key={player.id.value}
+          key={player.id}
           player={player}
           position={calculatePosition(index, gameState.players.length)}
           isCurrent={index === gameState.currentPlayerIndex}
@@ -321,7 +321,7 @@ export const GameBoard: React.FC = () => {
 
                       return (
                         <motion.div
-                          key={player.id.value}
+                          key={player.id}
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: idx * 0.1 }}

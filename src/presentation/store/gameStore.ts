@@ -285,7 +285,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // CPU用のコントローラーを作成（gameStateが利用可能になったので）
       config.players.forEach((pConfig) => {
         if (pConfig.type !== PlayerType.HUMAN) {
-          const player = engine.getState().players.find(p => p.id.value === pConfig.id);
+          const player = engine.getState().players.find(p => p.id === pConfig.id);
           if (player) {
             playerControllers.set(
               pConfig.id,
@@ -500,7 +500,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       // CPU用のコントローラーを設定（SyncPlayerControllerでラップ）
       for (const pConfig of config.players) {
         if (pConfig.networkType === 'CPU') {
-          const player = engine.getState().players.find(p => p.id.value === pConfig.id);
+          const player = engine.getState().players.find(p => p.id === pConfig.id);
           if (player) {
             const cpuController = new CPUPlayerController(
               pConfig.strategy as CPUStrategy,
@@ -582,13 +582,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         // 各ゲストに個別に状態を送信（手札情報はそれぞれ自分のものだけ見える）
         for (const player of data.gameState.players) {
-          const pConfig = config.players.find(c => c.id === player.id.value);
+          const pConfig = config.players.find(c => c.id === player.id);
           if (pConfig?.networkType === 'GUEST') {
-            const serialized = serializeGameState(data.gameState, player.id.value);
-            hostManager.sendToPlayer(player.id.value, {
+            const serialized = serializeGameState(data.gameState, player.id);
+            hostManager.sendToPlayer(player.id, {
               type: 'GAME_STATE',
               state: serialized,
-              targetPlayerId: player.id.value,
+              targetPlayerId: player.id,
             });
           }
         }
@@ -607,11 +607,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         // 各ゲストに初期状態を送信
         console.log('[Host] Sending GAME_STARTED to guests...');
         for (const player of data.gameState.players) {
-          const pConfig = config.players.find(c => c.id === player.id.value);
+          const pConfig = config.players.find(c => c.id === player.id);
           if (pConfig?.networkType === 'GUEST') {
-            console.log(`[Host] Sending GAME_STARTED to player ${player.id.value}`);
-            const serialized = serializeGameState(data.gameState, player.id.value);
-            hostManager.sendToPlayer(player.id.value, {
+            console.log(`[Host] Sending GAME_STARTED to player ${player.id}`);
+            const serialized = serializeGameState(data.gameState, player.id);
+            hostManager.sendToPlayer(player.id, {
               type: 'GAME_STARTED',
               initialState: serialized,
             });
@@ -627,7 +627,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           .filter((p) => p.finishPosition !== null)
           .sort((a, b) => (a.finishPosition ?? 99) - (b.finishPosition ?? 99))
           .map((p) => ({
-            playerId: p.id.value,
+            playerId: p.id,
             rank: p.finishPosition ?? 0,
           }));
 
@@ -1116,7 +1116,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // マルチプレイモードでは、ローカルプレイヤーの手番でのみ有効な組み合わせを計算
-    if (isMultiplayerMode && localPlayerId && currentPlayer.id.value !== localPlayerId) {
+    if (isMultiplayerMode && localPlayerId && currentPlayer.id !== localPlayerId) {
       return [];
     }
 

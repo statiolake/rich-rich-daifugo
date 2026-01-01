@@ -63,9 +63,9 @@ export class PlayPhase implements GamePhase {
       return null;
     }
 
-    const controller = this.playerControllers.get(currentPlayer.id.value);
+    const controller = this.playerControllers.get(currentPlayer.id);
     if (!controller) {
-      throw new Error(`Player controller not found for ${currentPlayer.id.value}`);
+      throw new Error(`Player controller not found for ${currentPlayer.id}`);
     }
 
     // 物資救援チェック（大貧民のターンで、場にカードがあり、未使用の場合）
@@ -209,7 +209,7 @@ export class PlayPhase implements GamePhase {
       const daihinmin = gameState.players.find(p => p.rank === PlayerRank.DAIHINMIN && !p.isFinished);
       if (daihinmin) {
         // 簡易実装: 大貧民のコントローラーに拾うか確認（ここではCPUは常に拾う）
-        const daihinminController = this.playerControllers.get(daihinmin.id.value);
+        const daihinminController = this.playerControllers.get(daihinmin.id);
         if (daihinminController) {
           console.log(`${daihinmin.name}に拾い食いの選択権があります`);
           // 自動で拾い食いを発動（実際のUI実装では確認ダイアログを出す）
@@ -343,7 +343,7 @@ export class PlayPhase implements GamePhase {
 
       // 8切り返し: カウンターしたプレイヤーが親になる
       if (eightCounterPlayer && !eightCounterPlayer.isFinished) {
-        const eightCounterIndex = gameState.players.findIndex(p => p.id.value === eightCounterPlayer!.id.value);
+        const eightCounterIndex = gameState.players.findIndex(p => p.id === eightCounterPlayer!.id);
         if (eightCounterIndex !== -1) {
           gameState.currentPlayerIndex = eightCounterIndex;
           console.log(`8切り返し：${eightCounterPlayer.name} が親になりました`);
@@ -357,8 +357,8 @@ export class PlayPhase implements GamePhase {
       // 場のカードを出したプレイヤーを特定
       const lastPlayHistory = gameState.field.getLastPlay();
       if (lastPlayHistory) {
-        const fieldPlayer = gameState.players.find(p => p.id.value === lastPlayHistory.playerId.value);
-        if (fieldPlayer && !fieldPlayer.isFinished && fieldPlayer.id.value !== player.id.value) {
+        const fieldPlayer = gameState.players.find(p => p.id === lastPlayHistory.playerId);
+        if (fieldPlayer && !fieldPlayer.isFinished && fieldPlayer.id !== player.id) {
           console.log(`${fieldPlayer.name} と ${player.name} はターン休みです`);
         }
       }
@@ -720,7 +720,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 死の宣告対象がパスすると敗北
-    if (gameState.deathSentenceTarget === player.id.value) {
+    if (gameState.deathSentenceTarget === player.id) {
       console.log(`死の宣告発動！${player.name} はパスしたため敗北`);
       gameState.deathSentenceTarget = null; // 宣告解除
       this.handlePlayerDefeat(gameState, player);
@@ -773,7 +773,7 @@ export class PlayPhase implements GamePhase {
       let nextAcePlayer: Player | undefined = undefined;
       const lastPlay = gameState.field.getLastPlay();
       if (lastPlay) {
-        const lastPlayer = gameState.players.find(p => p.id.value === lastPlay.playerId.value);
+        const lastPlayer = gameState.players.find(p => p.id === lastPlay.playerId);
         // 3を含む場合、サルベージ権利
         if (lastPlay.play.cards.some(c => c.rank === '3')) {
           salvagePlayer = lastPlayer;
@@ -831,7 +831,7 @@ export class PlayPhase implements GamePhase {
   private handleLuckySevenVictory(gameState: GameState): void {
     if (!gameState.luckySeven) return;
 
-    const luckyPlayer = gameState.players.find(p => p.id.value === gameState.luckySeven!.playerId);
+    const luckyPlayer = gameState.players.find(p => p.id === gameState.luckySeven!.playerId);
     if (!luckyPlayer || luckyPlayer.isFinished) {
       gameState.luckySeven = null;
       return;
@@ -914,7 +914,7 @@ export class PlayPhase implements GamePhase {
 
     // 次期エース処理（Aで場が流れた時に親になる）
     if (nextAcePlayer && gameState.ruleSettings.nextAce && !nextAcePlayer.isFinished) {
-      const nextAceIndex = gameState.players.findIndex(p => p.id.value === nextAcePlayer.id.value);
+      const nextAceIndex = gameState.players.findIndex(p => p.id === nextAcePlayer.id);
       if (nextAceIndex !== -1) {
         gameState.currentPlayerIndex = nextAceIndex;
         console.log(`次期エース：${nextAcePlayer.name} が親になりました`);
@@ -1097,7 +1097,7 @@ export class PlayPhase implements GamePhase {
    * 7渡し処理（非同期）
    */
   private async handleSevenPass(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // バリデーター: 1枚だけ選択可能
@@ -1159,7 +1159,7 @@ export class PlayPhase implements GamePhase {
    * @param sevenCount 出された7の枚数（＝捨てる枚数）
    */
   private async handleSevenAttach(gameState: GameState, player: Player, sevenCount: number): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // 手札が足りない場合は持っている枚数まで
@@ -1210,7 +1210,7 @@ export class PlayPhase implements GamePhase {
    * @param nineCount 出された9の枚数（＝渡す枚数）
    */
   private async handleNineReturn(gameState: GameState, player: Player, nineCount: number): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // 直前のプレイヤーを探す
@@ -1280,7 +1280,7 @@ export class PlayPhase implements GamePhase {
    * 10捨て処理（非同期）
    */
   private async handleTenDiscard(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // バリデーター: 10より弱いカード1枚のみ
@@ -1343,7 +1343,7 @@ export class PlayPhase implements GamePhase {
    * @param queenCount 出されたQの枚数（＝選択できるランクの数）
    */
   private async handleQueenBomber(gameState: GameState, player: Player, queenCount: number): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // Q1枚ごとにランクを選択
@@ -1396,7 +1396,7 @@ export class PlayPhase implements GamePhase {
    * 3で場が流れた時に捨て札から1枚回収
    */
   private async handleSalvage(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // 捨て札がなければスキップ
@@ -1452,7 +1452,7 @@ export class PlayPhase implements GamePhase {
    * @param kingCount 出されたKの枚数（＝回収できる枚数の上限）
    */
   private async handleKingsMarch(gameState: GameState, player: Player, kingCount: number): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // 捨て札がなければスキップ
@@ -1508,7 +1508,7 @@ export class PlayPhase implements GamePhase {
    * 3x3で捨て札から任意カードを選び、次のプレイヤーに渡す
    */
   private async handleZombie(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // 捨て札がなければスキップ
@@ -1583,7 +1583,7 @@ export class PlayPhase implements GamePhase {
       return;
     }
 
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('コントローラーがないためサタンをスキップ');
       return;
@@ -1636,7 +1636,7 @@ export class PlayPhase implements GamePhase {
       return;
     }
 
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('コントローラーがないため栗拾いをスキップ');
       return;
@@ -1686,7 +1686,7 @@ export class PlayPhase implements GamePhase {
    * 9x3で手札2枚を捨て、捨て札から2枚引く
    */
   private async handleGalaxyExpress999(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('コントローラーがないため銀河鉄道999をスキップ');
       return;
@@ -1830,7 +1830,7 @@ export class PlayPhase implements GamePhase {
    */
   private handleFivePick(gameState: GameState, player: Player, fiveCount: number): void {
     // 自分以外のアクティブなプレイヤーを取得
-    const otherPlayers = gameState.players.filter(p => !p.isFinished && p.id.value !== player.id.value);
+    const otherPlayers = gameState.players.filter(p => !p.isFinished && p.id !== player.id);
 
     if (otherPlayers.length === 0) {
       console.log('5ピック：見れるプレイヤーがいません');
@@ -1949,7 +1949,7 @@ export class PlayPhase implements GamePhase {
     // 自分以外のアクティブなプレイヤーが捨て札からランダムに1枚引く
     for (const p of gameState.players) {
       // 自分はスキップ
-      if (p.id.value === player.id.value) continue;
+      if (p.id === player.id) continue;
       // 終了したプレイヤーはスキップ
       if (p.isFinished) continue;
       // 捨て札がなくなったらスキップ
@@ -2155,7 +2155,7 @@ export class PlayPhase implements GamePhase {
     const cardsToPass: Map<string, Card> = new Map();
 
     for (const player of activePlayers) {
-      const controller = this.playerControllers.get(player.id.value);
+      const controller = this.playerControllers.get(player.id);
       if (!controller) continue;
 
       // バリデーター: 1枚だけ選択可能
@@ -2174,14 +2174,14 @@ export class PlayPhase implements GamePhase {
       );
 
       if (cards.length === 1) {
-        cardsToPass.set(player.id.value, cards[0]);
+        cardsToPass.set(player.id, cards[0]);
       }
     }
 
     // カードを右隣のプレイヤーに渡す（席順で右隣 = 次のプレイヤー）
     // リバース状態でも物理的な右隣に渡す（ゲームの進行方向とは関係ない）
     for (const player of activePlayers) {
-      const cardToPass = cardsToPass.get(player.id.value);
+      const cardToPass = cardsToPass.get(player.id);
       if (!cardToPass) continue;
 
       // 右隣のプレイヤーを探す（物理的な位置で、インデックス+1）
@@ -2422,7 +2422,7 @@ export class PlayPhase implements GamePhase {
 
     for (const targetPlayer of gameState.players) {
       // 自分と上がったプレイヤーはスキップ
-      if (targetPlayer.id.value === player.id.value || targetPlayer.isFinished) continue;
+      if (targetPlayer.id === player.id || targetPlayer.isFinished) continue;
       if (targetPlayer.hand.isEmpty()) continue;
 
       const cardsToSteal = this.getStrongestCards(targetPlayer, gameState, 1);
@@ -2467,7 +2467,7 @@ export class PlayPhase implements GamePhase {
     }
 
     const leftNeighbor = gameState.players[leftNeighborIndex];
-    if (leftNeighbor.isFinished || leftNeighbor.id.value === player.id.value) {
+    if (leftNeighbor.isFinished || leftNeighbor.id === player.id) {
       console.log('王の特権：交換対象がいません');
       return;
     }
@@ -2561,7 +2561,7 @@ export class PlayPhase implements GamePhase {
       return;
     }
 
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('Qラブ：コントローラーがないためスキップ');
       return;
@@ -2614,7 +2614,7 @@ export class PlayPhase implements GamePhase {
    * ♥5/♦5を1枚出すと指名者と手札をシャッフルして同数に再配布
    */
   private async handleRedFive(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('赤い5：コントローラーがないためスキップ');
       return;
@@ -2622,7 +2622,7 @@ export class PlayPhase implements GamePhase {
 
     // 指名可能なプレイヤー（自分以外でまだ上がっていないプレイヤー）
     const targetPlayers = gameState.players.filter(
-      p => p.id.value !== player.id.value && !p.isFinished && !p.hand.isEmpty()
+      p => p.id !== player.id && !p.isFinished && !p.hand.isEmpty()
     );
 
     if (targetPlayers.length === 0) {
@@ -2631,8 +2631,8 @@ export class PlayPhase implements GamePhase {
     }
 
     // プレイヤーIDと名前のマップを作成
-    const playerIds = targetPlayers.map(p => p.id.value);
-    const playerNames = new Map(targetPlayers.map(p => [p.id.value, p.name]));
+    const playerIds = targetPlayers.map(p => p.id);
+    const playerNames = new Map(targetPlayers.map(p => [p.id, p.name]));
 
     // プレイヤーを指名
     const targetPlayerId = await controller.choosePlayerForBlackMarket(
@@ -2641,7 +2641,7 @@ export class PlayPhase implements GamePhase {
       '赤い5：手札を交換するプレイヤーを選んでください'
     );
 
-    const targetPlayer = targetPlayers.find(p => p.id.value === targetPlayerId);
+    const targetPlayer = targetPlayers.find(p => p.id === targetPlayerId);
     if (!targetPlayer) {
       console.log('赤い5：プレイヤーが選択されませんでした');
       return;
@@ -2715,7 +2715,7 @@ export class PlayPhase implements GamePhase {
    * プレイヤーが各対戦相手の手札を見て、1枚ずつカードを奪う
    */
   private async handleIndustrialRevolution(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('産業革命：コントローラーがないためスキップ');
       return;
@@ -2728,7 +2728,7 @@ export class PlayPhase implements GamePhase {
     // 各対戦相手から1枚ずつ奪う
     for (const opponent of gameState.players) {
       // 自分自身はスキップ
-      if (opponent.id.value === player.id.value) continue;
+      if (opponent.id === player.id) continue;
       // 終了したプレイヤーはスキップ
       if (opponent.isFinished) continue;
       // 手札がないプレイヤーはスキップ
@@ -2771,7 +2771,7 @@ export class PlayPhase implements GamePhase {
    * プレイヤーが対戦相手を1人指名し、その相手は以降パスすると敗北
    */
   private async handleDeathSentence(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('死の宣告：コントローラーがないためスキップ');
       return;
@@ -2779,7 +2779,7 @@ export class PlayPhase implements GamePhase {
 
     // 指名可能な対戦相手（自分以外でまだ終了していないプレイヤー）
     const targets = gameState.players.filter(
-      p => p.id.value !== player.id.value && !p.isFinished
+      p => p.id !== player.id && !p.isFinished
     );
 
     if (targets.length === 0) {
@@ -2796,7 +2796,7 @@ export class PlayPhase implements GamePhase {
     );
 
     if (targetPlayer) {
-      gameState.deathSentenceTarget = targetPlayer.id.value;
+      gameState.deathSentenceTarget = targetPlayer.id;
       console.log(`死の宣告：${targetPlayer.name} が指名されました。パスすると敗北します。`);
     }
   }
@@ -2806,7 +2806,7 @@ export class PlayPhase implements GamePhase {
    * Ax3で指名者と任意2枚⇔最強2枚を交換
    */
   private async handleBlackMarket(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('闇市：コントローラーがないためスキップ');
       return;
@@ -2814,7 +2814,7 @@ export class PlayPhase implements GamePhase {
 
     // 自分以外のアクティブプレイヤーを取得
     const targetPlayers = gameState.players.filter(
-      p => p.id.value !== player.id.value && !p.isFinished && p.hand.size() >= 2
+      p => p.id !== player.id && !p.isFinished && p.hand.size() >= 2
     );
 
     if (targetPlayers.length === 0) {
@@ -2909,7 +2909,7 @@ export class PlayPhase implements GamePhase {
    * 9を出すと指名者がランダムで自分の手札を1枚捨てる
    */
   private async handleNineGamble(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('9賭け：コントローラーがないためスキップ');
       return;
@@ -2917,7 +2917,7 @@ export class PlayPhase implements GamePhase {
 
     // 自分以外のアクティブプレイヤーを取得
     const targetPlayers = gameState.players.filter(
-      p => p.id.value !== player.id.value && !p.isFinished && p.hand.size() > 0
+      p => p.id !== player.id && !p.isFinished && p.hand.size() > 0
     );
 
     if (targetPlayers.length === 0) {
@@ -2972,7 +2972,7 @@ export class PlayPhase implements GamePhase {
    * 9x2で対戦相手の席順を自由に変更
    */
   private async handleNineShuffle(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('9シャッフル：コントローラーがないためスキップ');
       return;
@@ -2980,7 +2980,7 @@ export class PlayPhase implements GamePhase {
 
     // 自分以外のアクティブプレイヤーを取得
     const otherPlayers = gameState.players.filter(
-      p => p.id.value !== player.id.value && !p.isFinished
+      p => p.id !== player.id && !p.isFinished
     );
 
     if (otherPlayers.length < 2) {
@@ -2989,7 +2989,7 @@ export class PlayPhase implements GamePhase {
     }
 
     // 現在のプレイヤーの位置を記録
-    const currentPlayerIndex = gameState.players.findIndex(p => p.id.value === player.id.value);
+    const currentPlayerIndex = gameState.players.findIndex(p => p.id === player.id);
 
     // プレイヤーに新しい席順を選択させる
     const newOrder = await controller.choosePlayerOrder(
@@ -3023,7 +3023,7 @@ export class PlayPhase implements GamePhase {
     gameState.players = newPlayers;
 
     // currentPlayerIndexを再計算
-    gameState.currentPlayerIndex = gameState.players.findIndex(p => p.id.value === player.id.value);
+    gameState.currentPlayerIndex = gameState.players.findIndex(p => p.id === player.id);
 
     console.log(`9シャッフル：席順が変更されました -> ${newPlayers.map(p => p.name).join(' -> ')}`);
   }
@@ -3033,11 +3033,11 @@ export class PlayPhase implements GamePhase {
    * 6を出すと指名者にカード宣言、持っていれば貰える
    */
   private async handleSixClaim(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // 自分以外のアクティブなプレイヤーを取得
-    const otherPlayers = gameState.players.filter(p => !p.isFinished && p.id.value !== player.id.value);
+    const otherPlayers = gameState.players.filter(p => !p.isFinished && p.id !== player.id);
 
     if (otherPlayers.length === 0) {
       console.log('6もらい：対象プレイヤーがいません');
@@ -3097,11 +3097,11 @@ export class PlayPhase implements GamePhase {
    * 6もらいと同じロジック
    */
   private async handleNineClaim(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) throw new Error('Controller not found');
 
     // 自分以外のアクティブなプレイヤーを取得
-    const otherPlayers = gameState.players.filter(p => !p.isFinished && p.id.value !== player.id.value);
+    const otherPlayers = gameState.players.filter(p => !p.isFinished && p.id !== player.id);
 
     if (otherPlayers.length === 0) {
       console.log('9もらい：対象プレイヤーがいません');
@@ -3161,7 +3161,7 @@ export class PlayPhase implements GamePhase {
    * パスするごとにカウントが1減少、0でパスした人が敗北
    */
   private async handleEndCountdown(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('終焉のカウントダウン：コントローラーがないためスキップ');
       return;
@@ -3235,7 +3235,7 @@ export class PlayPhase implements GamePhase {
 
     for (const targetPlayer of gameState.players) {
       // 自分と上がったプレイヤーはスキップ
-      if (targetPlayer.id.value === player.id.value || targetPlayer.isFinished) continue;
+      if (targetPlayer.id === player.id || targetPlayer.isFinished) continue;
 
       // ジョーカーを全て奪う
       const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
@@ -3275,7 +3275,7 @@ export class PlayPhase implements GamePhase {
     // ジョーカーを持っているプレイヤーを探す
     for (const targetPlayer of gameState.players) {
       // 自分と上がったプレイヤーはスキップ
-      if (targetPlayer.id.value === player.id.value || targetPlayer.isFinished) continue;
+      if (targetPlayer.id === player.id || targetPlayer.isFinished) continue;
 
       // ジョーカーを1枚奪う
       const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');
@@ -3349,7 +3349,7 @@ export class PlayPhase implements GamePhase {
    * 8を出すと8切り＋任意プレイヤーにカードを渡せる
    */
   private async handleYagiriNoWatashi(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) {
       console.log('矢切の渡し：コントローラーがないためスキップ');
       return;
@@ -3363,7 +3363,7 @@ export class PlayPhase implements GamePhase {
 
     // 自分以外のアクティブプレイヤーを取得
     const targetPlayers = gameState.players.filter(
-      p => p.id.value !== player.id.value && !p.isFinished
+      p => p.id !== player.id && !p.isFinished
     );
 
     if (targetPlayers.length === 0) {
@@ -3527,7 +3527,7 @@ export class PlayPhase implements GamePhase {
    * 大貧民が開始時に設定、n回目のパスで敗北確定（10<=n<=50）
    */
   private async handleGuillotineClock(gameState: GameState, player: Player): Promise<void> {
-    const controller = this.playerControllers.get(player.id.value);
+    const controller = this.playerControllers.get(player.id);
     if (!controller) return;
 
     // プレイヤーに回数を選択させる（簡易実装: 10〜50の範囲でランダム）
@@ -3607,7 +3607,7 @@ export class PlayPhase implements GamePhase {
     // ジョーカーを持っている他のプレイヤーを探す
     for (const targetPlayer of gameState.players) {
       // 自分と既に上がったプレイヤーはスキップ
-      if (targetPlayer.id.value === player.id.value || targetPlayer.isFinished) continue;
+      if (targetPlayer.id === player.id || targetPlayer.isFinished) continue;
 
       // ジョーカーを持っているか確認
       const jokers = targetPlayer.hand.getCards().filter(c => c.rank === 'JOKER');

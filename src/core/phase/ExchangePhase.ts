@@ -136,7 +136,7 @@ export class ExchangePhase implements GamePhase {
     }
 
     // 高ランクプレイヤーがカードを選択
-    const controller = this.playerControllers.get(highPlayer.id.value);
+    const controller = this.playerControllers.get(highPlayer.id);
     if (!controller) {
       // CPUの場合は最弱カードを自動選択
       const weakestCards = this.getWeakestCards(highPlayer, cardsFromLow.length, gameState.isRevolution);
@@ -255,7 +255,7 @@ export class ExchangePhase implements GamePhase {
 
     // 前の大富豪（都落ちした人）を見つける
     const fallenDaifugo = gameState.players.find(
-      p => p.id.value === gameState.previousDaifugoId
+      p => p.id === gameState.previousDaifugoId
     );
     if (!fallenDaifugo) return;
 
@@ -263,7 +263,7 @@ export class ExchangePhase implements GamePhase {
     // 都落ちしたということは、前の大富豪が1位でなかったということ
     // つまり前ラウンドで1位になったプレイヤーと交換
     const winner = gameState.players.find(p => p.rank === PlayerRank.DAIFUGO);
-    if (!winner || winner.id.value === fallenDaifugo.id.value) return;
+    if (!winner || winner.id === fallenDaifugo.id) return;
 
     console.log(`賠償金発動！${fallenDaifugo.name} は都落ちのため ${winner.name} と追加1枚交換`);
 
@@ -382,7 +382,7 @@ export class ExchangePhase implements GamePhase {
       await this.presentationRequester.requestCutIns([{ effect: '独占禁止法', variant: 'gold' }]);
 
       // 2を1枚ずつ他のプレイヤーに配布
-      const otherPlayers = gameState.players.filter(p => p.id.value !== daifugo.id.value);
+      const otherPlayers = gameState.players.filter(p => p.id !== daifugo.id);
       for (let i = 0; i < Math.min(twos.length, otherPlayers.length); i++) {
         const cardToGive = twos[i];
         const targetPlayer = otherPlayers[i];

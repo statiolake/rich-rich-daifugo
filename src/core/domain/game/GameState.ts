@@ -1,5 +1,5 @@
 import { Player } from '../player/Player';
-import { Field } from './Field';
+import { FieldClass as Field } from './Field';
 import { Card } from '../card/Card';
 import { RuleSettings, DEFAULT_RULE_SETTINGS } from './RuleSettings';
 

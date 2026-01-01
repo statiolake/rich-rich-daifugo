@@ -75,9 +75,9 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
         handCardIds.add(card.id);
         cardToHandInfo.set(card.id, {
           playerIndex,
-          playerId: player.id.value,
+          playerId: player.id,
           cardIndex,
-          isLocalPlayer: player.id.value === localPlayerId,
+          isLocalPlayer: player.id === localPlayerId,
         });
       });
     });
@@ -103,7 +103,7 @@ export const useCardPositionStore = create<CardPositionStore>((set, get) => ({
 
         // ローカルプレイヤーの手札は画面下に、他のプレイヤーは上部に配置
         // マルチプレイの場合、ローカルプレイヤー以外のプレイヤーインデックスを計算
-        const localPlayerIndex = gameState.players.findIndex(p => p.id.value === localPlayerId);
+        const localPlayerIndex = gameState.players.findIndex(p => p.id === localPlayerId);
         const adjustedPlayerIndex = info.isLocalPlayer
           ? 0  // ローカルプレイヤーは常に画面下（インデックス0相当）
           : info.playerIndex < localPlayerIndex

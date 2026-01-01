@@ -7,10 +7,88 @@ export interface PlayHistory {
   timestamp: number;
 }
 
-export class Field {
-  private currentPlay: Play | null = null;
-  private currentPlayerId: PlayerId | null = null;
-  private history: PlayHistory[] = [];
+/**
+ * 場の状態（プレーンオブジェクト）
+ * JSON.stringify で直接シリアライズ可能
+ */
+export interface Field {
+  currentPlay: Play | null;
+  currentPlayerId: PlayerId | null;
+  history: PlayHistory[];
+}
+
+/**
+ * 空の Field を作成
+ */
+export function createField(): Field {
+  return {
+    currentPlay: null,
+    currentPlayerId: null,
+    history: [],
+  };
+}
+
+/**
+ * 場にプレイを追加
+ */
+export function fieldAddPlay(field: Field, play: Play, playerId: PlayerId): void {
+  field.currentPlay = play;
+  field.currentPlayerId = playerId;
+  field.history.push({
+    play,
+    playerId,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * 場をクリア
+ */
+export function fieldClear(field: Field): void {
+  field.currentPlay = null;
+  field.currentPlayerId = null;
+  field.history = [];
+}
+
+/**
+ * 場が空かどうか
+ */
+export function fieldIsEmpty(field: Field): boolean {
+  return field.currentPlay === null;
+}
+
+/**
+ * 最後のプレイを取得
+ */
+export function fieldGetLastPlay(field: Field): PlayHistory | null {
+  return field.history.length > 0 ? field.history[field.history.length - 1] : null;
+}
+
+/**
+ * 直前のプレイを履歴から削除
+ * 拾い食いルールなどで使用
+ */
+export function fieldRemoveLastPlay(field: Field): void {
+  if (field.history.length > 0) {
+    field.history.pop();
+    // 履歴が残っている場合、直前のプレイを現在のプレイに設定
+    if (field.history.length > 0) {
+      const lastPlay = field.history[field.history.length - 1];
+      field.currentPlay = lastPlay.play;
+      field.currentPlayerId = lastPlay.playerId;
+    } else {
+      field.currentPlay = null;
+      field.currentPlayerId = null;
+    }
+  }
+}
+
+// 後方互換性のためのクラスラッパー（移行期間用）
+// 新規コードでは使用しないこと
+export class FieldClass implements Field {
+  currentPlay: Play | null = null;
+  currentPlayerId: PlayerId | null = null;
+  history: PlayHistory[] = [];
 
   getCurrentPlay(): Play | null {
     return this.currentPlay;
@@ -21,23 +99,15 @@ export class Field {
   }
 
   addPlay(play: Play, playerId: PlayerId): void {
-    this.currentPlay = play;
-    this.currentPlayerId = playerId;
-    this.history.push({
-      play,
-      playerId,
-      timestamp: Date.now(),
-    });
+    fieldAddPlay(this, play, playerId);
   }
 
   clear(): void {
-    this.currentPlay = null;
-    this.currentPlayerId = null;
-    this.history = [];
+    fieldClear(this);
   }
 
   isEmpty(): boolean {
-    return this.currentPlay === null;
+    return fieldIsEmpty(this);
   }
 
   getHistory(): readonly PlayHistory[] {
@@ -45,25 +115,10 @@ export class Field {
   }
 
   getLastPlay(): PlayHistory | null {
-    return this.history.length > 0 ? this.history[this.history.length - 1] : null;
+    return fieldGetLastPlay(this);
   }
 
-  /**
-   * 直前のプレイを履歴から削除
-   * 拾い食いルールなどで使用
-   */
   removeLastPlay(): void {
-    if (this.history.length > 0) {
-      this.history.pop();
-      // 履歴が残っている場合、直前のプレイを現在のプレイに設定
-      if (this.history.length > 0) {
-        const lastPlay = this.history[this.history.length - 1];
-        this.currentPlay = lastPlay.play;
-        this.currentPlayerId = lastPlay.playerId;
-      } else {
-        this.currentPlay = null;
-        this.currentPlayerId = null;
-      }
-    }
+    fieldRemoveLastPlay(this);
   }
 }

@@ -167,12 +167,12 @@ export class HumanPlayerController implements PlayerController {
 
   async choosePlayer(players: Player[], prompt: string): Promise<Player | null> {
     // BlackMarket用のプレイヤー選択UIを流用
-    const playerIds = players.map(p => p.id.value);
-    const playerNames = new Map(players.map(p => [p.id.value, p.name]));
+    const playerIds = players.map(p => p.id);
+    const playerNames = new Map(players.map(p => [p.id, p.name]));
 
     // choosePlayerForBlackMarketと同じロジックを使用
     const resultId = await this.choosePlayerForBlackMarket(playerIds, playerNames, prompt);
-    return players.find(p => p.id.value === resultId) || null;
+    return players.find(p => p.id === resultId) || null;
   }
 
   async chooseCardRank(prompt: string): Promise<string> {
@@ -210,8 +210,8 @@ export class HumanPlayerController implements PlayerController {
     const remainingPlayers = [...players];
 
     for (let i = 0; i < players.length; i++) {
-      const playerIds = remainingPlayers.map(p => p.id.value);
-      const playerNames = new Map(remainingPlayers.map(p => [p.id.value, p.name]));
+      const playerIds = remainingPlayers.map(p => p.id);
+      const playerNames = new Map(remainingPlayers.map(p => [p.id, p.name]));
 
       const selectedId = await this.choosePlayerForBlackMarket(
         playerIds,
@@ -219,7 +219,7 @@ export class HumanPlayerController implements PlayerController {
         `${prompt}（${i + 1}/${players.length}番目を選択）`
       );
 
-      const selectedPlayer = remainingPlayers.find(p => p.id.value === selectedId);
+      const selectedPlayer = remainingPlayers.find(p => p.id === selectedId);
       if (selectedPlayer) {
         orderedPlayers.push(selectedPlayer);
         const index = remainingPlayers.indexOf(selectedPlayer);

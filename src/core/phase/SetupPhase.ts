@@ -192,7 +192,7 @@ export class SetupPhase implements GamePhase {
     if (!gameState.murahachibuTargetId) return;
 
     const targetPlayer = gameState.players.find(
-      p => p.id.value === gameState.murahachibuTargetId
+      p => p.id === gameState.murahachibuTargetId
     );
     if (!targetPlayer) return;
 

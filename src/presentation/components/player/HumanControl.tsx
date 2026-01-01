@@ -48,7 +48,7 @@ export const HumanControl: React.FC = () => {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
 
   // ローカルプレイヤーを取得（localPlayerIdで判定）
-  const localPlayer = gameState.players.find(p => p.id.value === localPlayerId);
+  const localPlayer = gameState.players.find(p => p.id === localPlayerId);
 
   if (!localPlayer || localPlayer.isFinished) {
     return null;

@@ -1,6 +1,6 @@
 import { GameConfig } from './GameConfig';
 import { GameState, GamePhaseType, createGameState } from '../domain/game/GameState';
-import { Field } from '../domain/game/Field';
+import { FieldClass as Field } from '../domain/game/Field';
 import { GamePhase } from '../phase/GamePhase';
 import { SetupPhase } from '../phase/SetupPhase';
 import { ExchangePhase } from '../phase/ExchangePhase';

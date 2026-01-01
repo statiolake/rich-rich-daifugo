@@ -155,22 +155,16 @@ export interface SerializedFieldPlay {
 }
 
 export interface SerializedGameState {
-  round: number;
-  phase: string;
-  currentPlayerIndex: number;
+  // プレイヤー情報
   players: SerializedPlayer[];
+  // 場の履歴
   fieldHistory: SerializedFieldPlay[];
-  isRevolution: boolean;
-  isReversed: boolean;
-  isElevenBack: boolean;
-  isTwoBack: boolean;
-  suitLock: string | null;
-  numberLock: boolean;
-  colorLock: 'red' | 'black' | null;
   // すべてのカード情報（共有）
   allCards: SerializedCard[];
   // 自分の手札の詳細（ゲスト向け）
   myHandCards?: SerializedCard[];
+  // その他のGameStateフィールド（JSON.stringify可能なもの）
+  stateFields: Record<string, unknown>;
 }
 
 // ============================================
