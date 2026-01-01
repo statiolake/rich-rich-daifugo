@@ -9,16 +9,12 @@ import { GameEngine } from '../../core/game/GameEngine';
 import { GameConfigFactory, MultiplayerPlayerInfo } from '../../core/game/GameConfigFactory';
 import { GameState } from '../../core/domain/game/GameState';
 import { Card, CardFactory } from '../../core/domain/card/Card';
-import { Player, PlayerType } from '../../core/domain/player/Player';
+import { PlayerType } from '../../core/domain/player/Player';
 import { PlayerController } from '../../core/domain/player/PlayerController';
 import { RuleSettings } from '../../core/domain/game/RuleSettings';
 import { PresentationRequester } from '../../core/domain/presentation/PresentationRequester';
 import { EventBus } from './EventBus';
-import { HumanPlayerController } from '../../presentation/players/HumanPlayerController';
-import { CPUPlayerController } from '../../presentation/players/CPUPlayerController';
-import { GuestPlayerController } from '../../presentation/players/GuestPlayerController';
 import { NetworkInputController } from '../../core/player-controller/NetworkInputController';
-import { SyncPlayerController } from '../../core/player-controller/SyncPlayerController';
 import { CPUStrategy } from '../../core/strategy/PlayerStrategy';
 import { HumanStrategy } from '../../core/strategy/HumanStrategy';
 import { RandomCPUStrategy } from '../../core/strategy/RandomCPUStrategy';
@@ -28,6 +24,7 @@ import { deserializeGameState } from '../../infrastructure/network/GameStateSeri
 import { CoreAction } from '../../core/domain/player/CoreAction';
 import { networkActionToCoreAction } from '../../infrastructure/network/ActionAdapter';
 import { NetworkEventBridge } from '../../infrastructure/network/NetworkEventBridge';
+import { PlayerControllerFactory, NetworkType } from '../factories/PlayerControllerFactory';
 
 /**
  * ゲーム開始設定
@@ -103,12 +100,17 @@ export class GameOrchestrator {
     const playerControllers = new Map<string, PlayerController>();
     const humanPlayerId = config.players.find(p => p.type === PlayerType.HUMAN)?.id ?? null;
 
+    // 人間プレイヤーのコントローラーを作成
     config.players.forEach((pConfig) => {
       if (pConfig.type === PlayerType.HUMAN) {
-        playerControllers.set(pConfig.id, new HumanPlayerController(pConfig.id));
+        const result = PlayerControllerFactory.createForSinglePlayer(
+          { playerId: pConfig.id, playerType: PlayerType.HUMAN, networkType: 'LOCAL' },
+          {}
+        );
+        playerControllers.set(pConfig.id, result.controller);
       } else {
         // CPU用のコントローラーは後で設定（gameStateが必要）
-        playerControllers.set(pConfig.id, null as any);
+        playerControllers.set(pConfig.id, null as unknown as PlayerController);
       }
     });
 
@@ -120,14 +122,16 @@ export class GameOrchestrator {
       if (pConfig.type !== PlayerType.HUMAN) {
         const player = engine.getState().players.find(p => p.id === pConfig.id);
         if (player) {
-          playerControllers.set(
-            pConfig.id,
-            new CPUPlayerController(
-              pConfig.strategy as CPUStrategy,
-              player,
-              engine.getState()
-            )
+          const result = PlayerControllerFactory.createForSinglePlayer(
+            {
+              playerId: pConfig.id,
+              playerType: PlayerType.CPU,
+              networkType: 'LOCAL',
+              strategy: pConfig.strategy as CPUStrategy,
+            },
+            { player, gameState: engine.getState() }
           );
+          playerControllers.set(pConfig.id, result.controller);
         }
       }
     });
@@ -160,20 +164,28 @@ export class GameOrchestrator {
     // カードリゾルバーを作成
     const cardResolver = this.createCardResolver();
 
+    // 人間プレイヤーとゲストプレイヤーのコントローラーを作成
     for (const pConfig of config.players) {
       const playerId = pConfig.id;
-      const networkType = pConfig.networkType;
+      const networkType = (pConfig.networkType ?? 'LOCAL') as NetworkType;
 
       if (playerId === localPlayerId) {
-        // ローカルプレイヤー（ホスト自身）- SyncPlayerControllerでラップ
-        const humanController = new HumanPlayerController(playerId);
-        playerControllers.set(playerId, new SyncPlayerController(playerId, humanController, eventBus));
+        // ローカルプレイヤー（ホスト自身）
+        const result = PlayerControllerFactory.createForHost(
+          { playerId, playerType: PlayerType.HUMAN, networkType: 'HOST_LOCAL' },
+          { eventBus }
+        );
+        playerControllers.set(playerId, result.controller);
       } else if (networkType === 'GUEST') {
-        // リモートゲストプレイヤー - NetworkInputControllerを使用し、SyncPlayerControllerでラップ
-        const networkController = new NetworkInputController(playerId);
-        networkController.setCardResolver(cardResolver);
-        networkControllers.set(playerId, networkController);
-        playerControllers.set(playerId, new SyncPlayerController(playerId, networkController, eventBus));
+        // リモートゲストプレイヤー
+        const result = PlayerControllerFactory.createForHost(
+          { playerId, playerType: PlayerType.HUMAN, networkType: 'GUEST' },
+          { eventBus, cardResolver }
+        );
+        playerControllers.set(playerId, result.controller);
+        if (result.networkController) {
+          networkControllers.set(playerId, result.networkController);
+        }
       }
       // CPUはGameEngine側でnullを許容してCPUPlayerControllerを後から設定
     }
@@ -181,20 +193,21 @@ export class GameOrchestrator {
     // GameEngineを作成
     const engine = new GameEngine(config, eventBus, this.presentationRequester, playerControllers);
 
-    // CPU用のコントローラーを設定（SyncPlayerControllerでラップ）
+    // CPU用のコントローラーを設定
     for (const pConfig of config.players) {
       if (pConfig.networkType === 'CPU') {
         const player = engine.getState().players.find(p => p.id === pConfig.id);
         if (player) {
-          const cpuController = new CPUPlayerController(
-            pConfig.strategy as CPUStrategy,
-            player,
-            engine.getState()
+          const result = PlayerControllerFactory.createForHost(
+            {
+              playerId: pConfig.id,
+              playerType: PlayerType.CPU,
+              networkType: 'CPU',
+              strategy: pConfig.strategy as CPUStrategy,
+            },
+            { eventBus, player, gameState: engine.getState() }
           );
-          playerControllers.set(
-            pConfig.id,
-            new SyncPlayerController(pConfig.id, cpuController, eventBus)
-          );
+          playerControllers.set(pConfig.id, result.controller);
         }
       }
     }
@@ -251,20 +264,20 @@ export class GameOrchestrator {
     // カードリゾルバーを作成
     const cardResolver = this.createGuestCardResolver(initialState);
 
-    // NetworkInputControllerを作成（自分以外のプレイヤー用）
+    // PlayerController を作成
     const networkControllers = new Map<string, NetworkInputController>();
     const playerControllers = new Map<string, PlayerController>();
 
     for (const pConfig of playerConfigs) {
-      if (pConfig.id === localPlayerId) {
-        // 自分はGuestPlayerController（選択完了時にホストに送信）
-        playerControllers.set(pConfig.id, new GuestPlayerController(pConfig.id, sendToHost));
-      } else {
-        // 他プレイヤーはNetworkInputController（ACTION_PERFORMED待機）
-        const networkController = new NetworkInputController(pConfig.id);
-        networkController.setCardResolver(cardResolver);
-        networkControllers.set(pConfig.id, networkController);
-        playerControllers.set(pConfig.id, networkController);
+      const isLocal = pConfig.id === localPlayerId;
+      const result = PlayerControllerFactory.createForGuest(
+        { playerId: pConfig.id, playerType: pConfig.type, networkType: 'LOCAL' },
+        { cardResolver, sendToHost },
+        isLocal
+      );
+      playerControllers.set(pConfig.id, result.controller);
+      if (result.networkController) {
+        networkControllers.set(pConfig.id, result.networkController);
       }
     }
 
