@@ -6,16 +6,59 @@ import { fieldIsEmpty } from '../../domain/game/Field';
 import { handSize, handGetCards } from '../../domain/card/Hand';
 
 /**
- * バリデーション結果
+ * カード出し成功結果
  */
-export interface ValidationResult {
-  valid: boolean;
-  reason?: string;
-  /** 発動するエフェクト（validの場合のみ有効） */
+export interface ValidationSuccessWithPlay {
+  valid: true;
+  reason: string;
+  /** 解析済みのPlayオブジェクト（カードを出す場合のみ） */
+  play: Play;
+  /** 発動するエフェクト */
   triggeredEffects?: string[];
-  /** 解析済みのPlayオブジェクト（validの場合のみ有効） */
-  play?: Play;
 }
+
+/**
+ * パス成功結果
+ */
+export interface ValidationSuccessPass {
+  valid: true;
+  reason: string;
+  play?: undefined;
+  triggeredEffects?: undefined;
+}
+
+/**
+ * バリデーション成功結果（カード出しまたはパス）
+ */
+export type ValidationSuccess = ValidationSuccessWithPlay | ValidationSuccessPass;
+
+/**
+ * バリデーション失敗結果
+ */
+export interface ValidationFailure {
+  valid: false;
+  reason: string;
+}
+
+/**
+ * バリデーション結果（discriminated union）
+ */
+export type ValidationResult = ValidationSuccess | ValidationFailure;
+
+/**
+ * 内部用の中間結果（playを含まない）
+ * 制約チェック系のプライベートメソッドで使用
+ */
+type InternalResult =
+  | { valid: true; reason: string }
+  | { valid: false; reason: string };
+
+/**
+ * 組み合わせチェック用の結果（playを含む成功結果）
+ */
+type CombinationResult =
+  | { valid: true; reason: string; play: Play }
+  | { valid: false; reason: string };
 
 /**
  * プレイ検証クラス（統合版）
@@ -48,77 +91,103 @@ export class PlayValidator {
   ): ValidationResult {
     // 1. 所有権チェック
     const ownershipResult = this.validateOwnership(player, cards);
-    if (!ownershipResult.valid) return ownershipResult;
+    if (!ownershipResult.valid) {
+      return { valid: false, reason: ownershipResult.reason };
+    }
 
     // 2. 組み合わせチェック
     const combinationResult = this.validateCombination(cards, context);
-    if (!combinationResult.valid) return combinationResult;
+    if (!combinationResult.valid) {
+      return { valid: false, reason: combinationResult.reason };
+    }
+
+    // combinationResult.valid === true なので play は存在する
+    const play = combinationResult.play;
 
     // 3. ダウンナンバーチェック（早期リターン）
     // ダウンナンバーなら、以降の制約・強さチェックをスキップし、禁止上がりのみチェック
     if (this.isDownNumber(cards, context)) {
       const forbiddenResult = this.validateForbiddenFinish(player, cards, context);
-      if (!forbiddenResult.valid) return forbiddenResult;
-      return { ...forbiddenResult, play: combinationResult.play };
+      if (!forbiddenResult.valid) {
+        return { valid: false, reason: forbiddenResult.reason };
+      }
+      return { valid: true, reason: forbiddenResult.reason, play };
     }
 
     // 4. マークしばりチェック
     if (context.ruleSettings.suitLock && context.suitLock) {
       const suitLockResult = this.validateSuitLock(cards, context.suitLock);
-      if (!suitLockResult.valid) return suitLockResult;
+      if (!suitLockResult.valid) {
+        return { valid: false, reason: suitLockResult.reason };
+      }
     }
 
     // 5. 数字しばりチェック
     if (context.ruleSettings.numberLock && context.numberLock) {
       const numberLockResult = this.validateNumberLock(cards, context);
-      if (!numberLockResult.valid) return numberLockResult;
+      if (!numberLockResult.valid) {
+        return { valid: false, reason: numberLockResult.reason };
+      }
     }
 
     // 6. 偶数/奇数制限チェック
     if (context.parityRestriction) {
       const parityResult = this.validateParityRestriction(cards, context.parityRestriction);
-      if (!parityResult.valid) return parityResult;
+      if (!parityResult.valid) {
+        return { valid: false, reason: parityResult.reason };
+      }
     }
 
     // 7. 2桁封じチェック（J〜Kが出せない）
     if (context.ruleSettings.doubleDigitSeal && context.isDoubleDigitSealActive) {
       const doubleDigitSealResult = this.validateDoubleDigitSeal(cards);
-      if (!doubleDigitSealResult.valid) return doubleDigitSealResult;
+      if (!doubleDigitSealResult.valid) {
+        return { valid: false, reason: doubleDigitSealResult.reason };
+      }
     }
 
     // 8. ホットミルクチェック（ダイヤ/ハートのみ）
     if (context.ruleSettings.hotMilk && context.hotMilkRestriction === 'warm') {
       const hotMilkResult = this.validateHotMilk(cards);
-      if (!hotMilkResult.valid) return hotMilkResult;
+      if (!hotMilkResult.valid) {
+        return { valid: false, reason: hotMilkResult.reason };
+      }
     }
 
     // 9. 片縛りチェック（一部スートが一致した時のロック）
     if (context.ruleSettings.partialLock && context.partialLockSuits) {
       const partialLockResult = this.validatePartialLock(cards, context.partialLockSuits);
-      if (!partialLockResult.valid) return partialLockResult;
+      if (!partialLockResult.valid) {
+        return { valid: false, reason: partialLockResult.reason };
+      }
     }
 
     // 10. 強さチェック
     const strengthResult = this.validateStrength(cards, context);
-    if (!strengthResult.valid) return strengthResult;
+    if (!strengthResult.valid) {
+      return { valid: false, reason: strengthResult.reason };
+    }
 
     // 11. 禁止上がりチェック
     const forbiddenResult = this.validateForbiddenFinish(player, cards, context);
-    if (!forbiddenResult.valid) return forbiddenResult;
+    if (!forbiddenResult.valid) {
+      return { valid: false, reason: forbiddenResult.reason };
+    }
 
     // 12. 仇討ち禁止令チェック
     const adauchiBanResult = this.validateAdauchiBan(player, cards, context);
-    if (!adauchiBanResult.valid) return adauchiBanResult;
+    if (!adauchiBanResult.valid) {
+      return { valid: false, reason: adauchiBanResult.reason };
+    }
 
     // 13. 治安維持法チェック（革命を起こせるかどうか）
     const securityLawResult = this.validateSecurityLaw(cards, context);
-    if (!securityLawResult.valid) return securityLawResult;
+    if (!securityLawResult.valid) {
+      return { valid: false, reason: securityLawResult.reason };
+    }
 
     // 強さチェックの理由を保持しつつ、play を含めて返す
-    return {
-      ...strengthResult,
-      play: combinationResult.play,
-    };
+    return { valid: true, reason: strengthResult.reason, play };
   }
 
   // ========================================
@@ -128,7 +197,7 @@ export class PlayValidator {
   /**
    * 所有権チェック: プレイヤーが選択したカードを所有しているか
    */
-  private validateOwnership(player: Player, cards: Card[]): ValidationResult {
+  private validateOwnership(player: Player, cards: Card[]): InternalResult {
     const playerCardIds = new Set(handGetCards(player.hand).map(c => c.id));
 
     for (const card of cards) {
@@ -147,7 +216,7 @@ export class PlayValidator {
    * 組み合わせチェック: カードの組み合わせが有効な役か
    * 有効な場合は play フィールドに Play オブジェクトを含める
    */
-  private validateCombination(cards: Card[], context: RuleContext): ValidationResult {
+  private validateCombination(cards: Card[], context: RuleContext): CombinationResult {
     // 女装ルールチェック（QとKの混合出し）
     if (context.ruleSettings.crossDressing && this.isCrossDressing(cards)) {
       const play: Play = {
@@ -246,7 +315,7 @@ export class PlayValidator {
   /**
    * マークしばりチェック
    */
-  private validateSuitLock(cards: Card[], lockedSuit: string): ValidationResult {
+  private validateSuitLock(cards: Card[], lockedSuit: string): InternalResult {
     const allSameSuit = cards.every(card => card.suit === lockedSuit);
     if (!allSameSuit) {
       return {
@@ -261,7 +330,7 @@ export class PlayValidator {
    * 数字しばりチェック
    * 階段系のプレイタイプ（STAIR, SKIP_STAIR, DOUBLE_STAIR, TUNNEL, SPADE_STAIR）を許可
    */
-  private validateNumberLock(cards: Card[], context: RuleContext): ValidationResult {
+  private validateNumberLock(cards: Card[], context: RuleContext): InternalResult {
     const play = PlayAnalyzer.analyze(
       cards,
       context.ruleSettings.skipStair,
@@ -287,7 +356,7 @@ export class PlayValidator {
    * 奇数制限: 奇数のみ（3, 5, 7, 9, J, K, A）
    * 2とJokerは特殊扱いで常に出せる
    */
-  private validateParityRestriction(cards: Card[], restriction: 'even' | 'odd'): ValidationResult {
+  private validateParityRestriction(cards: Card[], restriction: 'even' | 'odd'): InternalResult {
     // 偶数ランク: 4, 6, 8, 10, Q
     const evenRanks = ['4', '6', '8', '10', 'Q'];
     // 奇数ランク: 3, 5, 7, 9, J, K, A
@@ -317,7 +386,7 @@ export class PlayValidator {
    * J(11), Q(12), K(13) が出せなくなる
    * Aと2は出せる（Aは14、2は15として扱われるが2桁ではない）
    */
-  private validateDoubleDigitSeal(cards: Card[]): ValidationResult {
+  private validateDoubleDigitSeal(cards: Card[]): InternalResult {
     // 2桁封じ対象ランク: J, Q, K（11〜13）
     const sealedRanks = ['J', 'Q', 'K'];
 
@@ -337,7 +406,7 @@ export class PlayValidator {
    * ダイヤ（DIAMOND）とハート（HEART）のみ出せる
    * Jokerは許可
    */
-  private validateHotMilk(cards: Card[]): ValidationResult {
+  private validateHotMilk(cards: Card[]): InternalResult {
     // 許可されるスート: DIAMOND, HEART（赤色）
     const warmSuits = [Suit.DIAMOND, Suit.HEART];
 
@@ -359,7 +428,7 @@ export class PlayValidator {
    * 片縛りチェック
    * 出されたカードが片縛りスートのいずれかを含むか確認
    */
-  private validatePartialLock(cards: Card[], lockedSuits: string[]): ValidationResult {
+  private validatePartialLock(cards: Card[], lockedSuits: string[]): InternalResult {
     // ジョーカー以外のカードのスートを取得
     const cardSuits = cards
       .filter(card => card.rank !== 'JOKER')
@@ -380,7 +449,7 @@ export class PlayValidator {
   /**
    * 強さチェック
    */
-  private validateStrength(cards: Card[], context: RuleContext): ValidationResult {
+  private validateStrength(cards: Card[], context: RuleContext): InternalResult {
     // 場が空ならどんなカードでも出せる
     if (fieldIsEmpty(context.field)) {
       return { valid: true, reason: '' };
@@ -588,7 +657,7 @@ export class PlayValidator {
     player: Player,
     cards: Card[],
     context: RuleContext
-  ): ValidationResult {
+  ): InternalResult {
     if (!context.ruleSettings.forbiddenFinish) {
       return { valid: true, reason: '' };
     }
@@ -650,13 +719,13 @@ export class PlayValidator {
   /**
    * アーサー効果を考慮した強さチェック
    * ジョーカーの強さが10〜Jの間（強さ8.5）になる
-   * @returns ValidationResult | null（nullの場合は通常の強さチェックを続行）
+   * @returns InternalResult | null（nullの場合は通常の強さチェックを続行）
    */
   private validateStrengthWithArthur(
     fieldPlay: Play,
     currentPlay: Play,
     shouldReverse: boolean
-  ): ValidationResult | null {
+  ): InternalResult | null {
     // ジョーカーを含むプレイかどうかをチェック
     const fieldHasJoker = fieldPlay.cards.some(c => c.rank === 'JOKER');
     const currentHasJoker = currentPlay.cards.some(c => c.rank === 'JOKER');
@@ -704,9 +773,9 @@ export class PlayValidator {
    * ダブルキング効果の検証
    * Kx2がK以下の任意のペアとして出せる
    * K=11なので、強さ11以下のペアに対して出せる
-   * @returns ValidationResult | null（nullの場合は通常の処理を続行）
+   * @returns InternalResult | null（nullの場合は通常の処理を続行）
    */
-  private validateDoubleKing(fieldPlay: Play, shouldReverse: boolean): ValidationResult | null {
+  private validateDoubleKing(fieldPlay: Play, shouldReverse: boolean): InternalResult | null {
     // 場がペアでない場合は通常の処理
     if (fieldPlay.type !== PlayType.PAIR) {
       return null;
@@ -741,7 +810,7 @@ export class PlayValidator {
    * 女装（QとKの混合出し）の強さチェック
    * QとKのペアとして扱い、Qの強さで判定
    */
-  private validateCrossDressingStrength(cards: Card[], context: RuleContext): ValidationResult {
+  private validateCrossDressingStrength(cards: Card[], context: RuleContext): InternalResult {
     // 場が空なら出せる
     if (fieldIsEmpty(context.field)) {
       return { valid: true, reason: '女装' };
@@ -790,14 +859,14 @@ export class PlayValidator {
    * レッドセブン/ブラックセブン効果を考慮した強さチェック
    * - レッドセブン（通常時）: ♥7/♦7が2より強くジョーカーより弱くなる（強さ13.5）
    * - ブラックセブン（革命中）: ♠7/♣7が3より強くジョーカーより弱くなる（強さ13.5）
-   * @returns ValidationResult | null（nullの場合は通常の強さチェックを続行）
+   * @returns InternalResult | null（nullの場合は通常の強さチェックを続行）
    */
   private validateStrengthWithSevenPower(
     fieldPlay: Play,
     currentPlay: Play,
     shouldReverse: boolean,
     context: RuleContext
-  ): ValidationResult | null {
+  ): InternalResult | null {
     // レッドセブン/ブラックセブンのどちらかが有効かチェック
     const redSevenEnabled = context.ruleSettings.redSevenPower;
     const blackSevenEnabled = context.ruleSettings.blackSevenPower;
@@ -951,7 +1020,7 @@ export class PlayValidator {
     player: Player,
     cards: Card[],
     context: RuleContext
-  ): ValidationResult {
+  ): InternalResult {
     if (!context.ruleSettings.adauchiBan) {
       return { valid: true, reason: '' };
     }
@@ -991,7 +1060,7 @@ export class PlayValidator {
   private validateSecurityLaw(
     cards: Card[],
     context: RuleContext
-  ): ValidationResult {
+  ): InternalResult {
     if (!context.ruleSettings.securityLaw) {
       return { valid: true, reason: '' };
     }
@@ -1098,9 +1167,9 @@ export class PlayValidator {
 
   /**
    * 語呂合わせ革命の組み合わせチェック
-   * @returns ValidationResult | null（nullの場合は通常の組み合わせチェックを続行）
+   * @returns CombinationResult | null（nullの場合は通常の組み合わせチェックを続行）
    */
-  private validateGoroawaseCombination(cards: Card[], context: RuleContext): ValidationResult | null {
+  private validateGoroawaseCombination(cards: Card[], context: RuleContext): CombinationResult | null {
     // サザンクロス（3,3,9,6）
     if (context.ruleSettings.southernCross && this.isSouthernCross(cards)) {
       const play: Play = { cards, type: PlayType.SOUTHERN_CROSS, strength: 0 };
@@ -1342,9 +1411,9 @@ export class PlayValidator {
   /**
    * 切り札/ドラの強さチェック
    * 切り札のランクは最強（ジョーカーと同等）で、場にある他のカードに必ず勝つ
-   * @returns ValidationResult | null（nullの場合は通常の強さチェックを続行）
+   * @returns InternalResult | null（nullの場合は通常の強さチェックを続行）
    */
-  private validateTrumpStrength(cards: Card[], context: RuleContext): ValidationResult | null {
+  private validateTrumpStrength(cards: Card[], context: RuleContext): InternalResult | null {
     if (!context.trumpRank) return null;
 
     const fieldPlay = context.field.currentPlay;

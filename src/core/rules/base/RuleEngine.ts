@@ -4,9 +4,7 @@ import { Field, fieldIsEmpty } from '../../domain/game/Field';
 import { GameState } from '../../domain/game/GameState';
 import { RuleContext } from '../context/RuleContext';
 import { PlayValidator, ValidationResult } from '../validators/PlayValidator';
-import { DEFAULT_RULE_SETTINGS } from '../../domain/game/RuleSettings';
 import { TriggerEffectAnalyzer } from '../effects/TriggerEffectAnalyzer';
-import { PlayAnalyzer } from '../../domain/card/Play';
 
 // Re-export ValidationResult for external use
 export type { ValidationResult };
@@ -39,7 +37,7 @@ export class RuleEngine {
       if (fieldIsEmpty(field)) {
         return { valid: false, reason: '場が空の時はパスできません' };
       }
-      return { valid: true };
+      return { valid: true, reason: 'パス' };
     }
 
     // プレイヤーが都落ちしたかを判定（治安維持法用）
@@ -75,14 +73,11 @@ export class RuleEngine {
     // バリデーション実行
     const result = this.validator.validate(player, cards, context);
 
-    // valid な場合、発動するエフェクトを分析
-    if (result.valid) {
-      const play = PlayAnalyzer.analyze(cards);
-      if (play) {
-        const effects = this.effectAnalyzer.analyze(play, gameState);
-        if (effects.length > 0) {
-          result.triggeredEffects = effects;
-        }
+    // valid で play がある場合、発動するエフェクトを分析
+    if (result.valid && result.play) {
+      const effects = this.effectAnalyzer.analyze(result.play, gameState);
+      if (effects.length > 0) {
+        return { ...result, triggeredEffects: effects };
       }
     }
 
