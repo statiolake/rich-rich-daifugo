@@ -1,7 +1,7 @@
 import { GamePhase } from './GamePhase';
 import { GameState, GamePhaseType } from '../domain/game/GameState';
 import { Card, Suit } from '../domain/card/Card';
-import { PlayAnalyzer, Play } from '../domain/card/Play';
+import { Play } from '../domain/card/Play';
 import { Player } from '../domain/player/Player';
 import { RuleEngine } from '../rules/base/RuleEngine';
 import { GameEventEmitter } from '../domain/events/GameEventEmitter';
@@ -177,11 +177,12 @@ export class PlayPhase implements GamePhase {
   ): Promise<void> {
     // 検証
     const validation = this.ruleEngine.validate(player, cards, gameState.field, gameState);
-    if (!validation.valid) {
-      throw new Error(`Invalid play: ${validation.reason}`);
+    if (!validation.valid || !validation.play) {
+      throw new Error(`Invalid play: ${validation.reason ?? 'unknown error'}`);
     }
 
-    const play = PlayAnalyzer.analyze(cards)!;
+    // validation.play を使用（PlayValidator が解析済み）
+    const play = validation.play;
 
     // エフェクトを分析（field.addPlay() の前に行う - プレビューと同じタイミング）
     const effects = this.effectAnalyzer.analyze(play, gameState);

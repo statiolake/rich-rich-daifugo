@@ -13,6 +13,8 @@ export interface ValidationResult {
   reason?: string;
   /** 発動するエフェクト（validの場合のみ有効） */
   triggeredEffects?: string[];
+  /** 解析済みのPlayオブジェクト（validの場合のみ有効） */
+  play?: Play;
 }
 
 /**
@@ -55,7 +57,9 @@ export class PlayValidator {
     // 3. ダウンナンバーチェック（早期リターン）
     // ダウンナンバーなら、以降の制約・強さチェックをスキップし、禁止上がりのみチェック
     if (this.isDownNumber(cards, context)) {
-      return this.validateForbiddenFinish(player, cards, context);
+      const forbiddenResult = this.validateForbiddenFinish(player, cards, context);
+      if (!forbiddenResult.valid) return forbiddenResult;
+      return { ...forbiddenResult, play: combinationResult.play };
     }
 
     // 4. マークしばりチェック
@@ -110,8 +114,11 @@ export class PlayValidator {
     const securityLawResult = this.validateSecurityLaw(cards, context);
     if (!securityLawResult.valid) return securityLawResult;
 
-    // 強さチェックの理由を保持して返す
-    return strengthResult;
+    // 強さチェックの理由を保持しつつ、play を含めて返す
+    return {
+      ...strengthResult,
+      play: combinationResult.play,
+    };
   }
 
   // ========================================
@@ -138,11 +145,17 @@ export class PlayValidator {
 
   /**
    * 組み合わせチェック: カードの組み合わせが有効な役か
+   * 有効な場合は play フィールドに Play オブジェクトを含める
    */
   private validateCombination(cards: Card[], context: RuleContext): ValidationResult {
     // 女装ルールチェック（QとKの混合出し）
     if (context.ruleSettings.crossDressing && this.isCrossDressing(cards)) {
-      return { valid: true, reason: '女装' };
+      const play: Play = {
+        cards,
+        type: PlayType.CROSS_DRESSING,
+        strength: 10, // Qの強さ
+      };
+      return { valid: true, reason: '女装', play };
     }
 
     // 語呂合わせ革命チェック
@@ -192,7 +205,7 @@ export class PlayValidator {
       };
     }
 
-    return { valid: true, reason: '' };
+    return { valid: true, reason: '', play };
   }
 
   /**
@@ -1090,32 +1103,38 @@ export class PlayValidator {
   private validateGoroawaseCombination(cards: Card[], context: RuleContext): ValidationResult | null {
     // サザンクロス（3,3,9,6）
     if (context.ruleSettings.southernCross && this.isSouthernCross(cards)) {
-      return { valid: true, reason: 'サザンクロス' };
+      const play: Play = { cards, type: PlayType.SOUTHERN_CROSS, strength: 0 };
+      return { valid: true, reason: 'サザンクロス', play };
     }
 
     // 平安京流し（同スート7,9,4）
     if (context.ruleSettings.heiankyoFlow && this.isHeiankyoFlow(cards)) {
-      return { valid: true, reason: '平安京流し' };
+      const play: Play = { cards, type: PlayType.HEIANKYO_FLOW, strength: 0 };
+      return { valid: true, reason: '平安京流し', play };
     }
 
     // サイクロン（同スート3,A,9,6）
     if (context.ruleSettings.cyclone && this.isCyclone(cards)) {
-      return { valid: true, reason: 'サイクロン' };
+      const play: Play = { cards, type: PlayType.CYCLONE, strength: 0 };
+      return { valid: true, reason: 'サイクロン', play };
     }
 
     // 粉々革命（同色5×2枚、7×2枚）
     if (context.ruleSettings.konagonaRevolution && this.isKonagonaRevolution(cards)) {
-      return { valid: true, reason: '粉々革命' };
+      const play: Play = { cards, type: PlayType.KONAGONA, strength: 0 };
+      return { valid: true, reason: '粉々革命', play };
     }
 
     // 世露死苦革命（4,6,4,9）
     if (context.ruleSettings.yoroshikuRevolution && this.isYoroshikuRevolution(cards)) {
-      return { valid: true, reason: '世露死苦革命' };
+      const play: Play = { cards, type: PlayType.YOROSHIKU, strength: 0 };
+      return { valid: true, reason: '世露死苦革命', play };
     }
 
     // 死になさい革命（♠4,2,7,3,A）
     if (context.ruleSettings.shininasaiRevolution && this.isShininasaiRevolution(cards)) {
-      return { valid: true, reason: '死になさい革命' };
+      const play: Play = { cards, type: PlayType.SHININASAI, strength: 0 };
+      return { valid: true, reason: '死になさい革命', play };
     }
 
     return null;

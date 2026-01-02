@@ -12,6 +12,14 @@ export enum PlayType {
   TUNNEL = 'TUNNEL',            // トンネル（A→2→3の階段、最弱の階段）
   SPADE_STAIR = 'SPADE_STAIR',  // スペ階（♠2→Joker→♠3の階段、最強で場が流れる）
   TAEPODONG = 'TAEPODONG',      // テポドン（同数4枚＋ジョーカー2枚、革命＋即上がり）
+  // 特殊ルール用
+  CROSS_DRESSING = 'CROSS_DRESSING',    // 女装（QとKの混合出し）
+  SOUTHERN_CROSS = 'SOUTHERN_CROSS',    // サザンクロス（3,3,9,6）
+  HEIANKYO_FLOW = 'HEIANKYO_FLOW',      // 平安京流し（同スート7,9,4）
+  CYCLONE = 'CYCLONE',                  // サイクロン（同スート3,A,9,6）
+  KONAGONA = 'KONAGONA',                // 粉々革命（同色5×2,7×2）
+  YOROSHIKU = 'YOROSHIKU',              // 世露死苦革命（4,6,4,9）
+  SHININASAI = 'SHININASAI',            // 死になさい革命（♠4,2,7,3,A）
 }
 
 export interface Play {

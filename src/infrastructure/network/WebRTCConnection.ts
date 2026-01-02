@@ -95,7 +95,10 @@ export class WebRTCConnection {
     // ICE候補が見つかったらリストに追加
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(`[WebRTC] ICE candidate: ${event.candidate.candidate}`);
         this.iceCandidates.push(event.candidate.toJSON());
+      } else {
+        console.log(`[WebRTC] ICE gathering complete, total candidates: ${this.iceCandidates.length}`);
       }
     };
 
